@@ -1,86 +1,89 @@
-# Pigma E-commerce Platform - Product Requirements Document
+# Pigma E-commerce & Influencer Marketplace - PRD
 
 ## Original Problem Statement
-Build a full-stack AI-powered e-commerce and influencer marketplace platform for Pigma - a premium fashion brand selling bold limited-edition women's boots (5-inch platform and stiletto heels). Focus on exclusivity, high margins, limited drops, and social-media-driven sales.
+Build a full-stack AI-powered e-commerce and influencer marketplace platform for a premium fashion brand called "Pigma". Features include e-commerce store, admin dashboard with RBAC, influencer automation & commission wallet system, and multi-channel marketing tools.
 
-## User Choices
-- **Payment**: Razorpay (MOCKED for demo)
-- **Authentication**: JWT + Google OAuth + WhatsApp OTP
-- **Social Platforms**: All with Instagram priority (basic integration)
-- **AI Features**: Chatbot (MOCKED), Product recommendations
-- **Theme**: Light, modern, luxury
-- **Marketing**: WhatsApp, push notifications (stubs)
+## Tech Stack
+- **Frontend:** React, Tailwind CSS, Shadcn/UI, Framer Motion
+- **Backend:** FastAPI (Python), modular architecture
+- **Database:** MongoDB
+- **Auth:** JWT, Google OAuth (Emergent-managed), RBAC for admins
 
-## Architecture
-- **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
-- **Backend**: FastAPI + MongoDB
-- **Authentication**: JWT tokens, Google OAuth via Emergent Auth, OTP verification
+## Architecture (Post-Refactoring)
+```
+/app/backend/
+  server.py          - App setup, router includes, seed data
+  config.py          - DB, env vars, settings
+  auth.py            - JWT, password, auth dependencies
+  models/
+    enums.py         - AdminRole, permissions matrix, enums
+    schemas.py       - All Pydantic request/response models
+  routes/
+    auth_routes.py   - /auth/* (register, login, google, OTP)
+    admin_routes.py  - /admin/* (auth, users CRUD, dashboard, orders, withdrawals)
+    product_routes.py - /products/* (CRUD, featured, new arrivals)
+    cart_routes.py   - /cart/* (add, update, remove, clear)
+    order_routes.py  - /orders/* (create, list, payment verify, commissions)
+    wishlist_routes.py - /wishlist/* (add, remove, list)
+    influencer_routes.py - /influencers/* (apply, Instagram, wallet, withdrawals)
+    affiliate_routes.py - /affiliates/* (apply, management)
+    coupon_routes.py - /coupons/* (CRUD, validate)
+    chat_routes.py   - /chat/* (AI chatbot)
+    misc_routes.py   - /health, /categories, /track/click
+  tests/
+    test_admin_rbac.py
 
-## User Personas
-1. **Fashion Shoppers** - Women 18-35 seeking luxury limited-edition boots
-2. **Influencers** - Content creators promoting products for commission
-3. **Affiliates** - Marketers/businesses earning referral commissions
-4. **Admin** - Platform managers handling products, orders, approvals
+/app/frontend/src/
+  App.js             - Router, AuthProvider, LayoutWrapper
+  pages/
+    AdminLoginPage.jsx    - Secure admin login portal
+    AdminDashboard.jsx    - Full admin dashboard with RBAC sidebar
+    InfluencerDashboard.jsx - Influencer wallet, Instagram, referrals
+    HomePage.jsx, ProductsPage.jsx, CartPage.jsx, etc.
+```
 
-## Core Requirements (Static)
-- E-commerce store with product catalog
-- User authentication (multi-method)
-- Shopping cart and checkout
-- Order management
-- Influencer marketplace
-- Affiliate program
-- Admin dashboard
-- AI chatbot support
+## RBAC Roles & Permissions
+- **Super Admin:** Full control over everything
+- **Marketing Manager:** Campaigns, influencers, affiliates (no admin users/payouts)
+- **Finance Manager:** Sales data, commissions, payouts (no admin users)
+- **Support Manager:** Orders, customer support only
 
-## What's Been Implemented (March 14, 2026)
+## Seeded Credentials
+- Super Admin: superadmin@pigma.com / superadmin123
+- Marketing: marketing@pigma.com / marketing123
+- Finance: finance@pigma.com / finance123
+- Support: support@pigma.com / support123
+- Legacy Admin: admin@pigma.com / admin123
 
-### Completed Features
-- [x] Homepage with hero banner, featured products, new arrivals
-- [x] Product catalog with filtering, search, categories
-- [x] Product detail pages with size/color selection
-- [x] User authentication (email/password, Google OAuth, OTP)
-- [x] Shopping cart (add, update, remove items)
-- [x] Checkout flow with order creation
-- [x] Wishlist functionality
-- [x] Order history and tracking
-- [x] Influencer program (signup, dashboard, referral tracking)
-- [x] Affiliate program (signup, dashboard, commission tracking)
-- [x] Admin dashboard (stats, orders, influencer/affiliate management)
-- [x] AI Chatbot widget (MOCKED responses)
-- [x] Coupon/discount system
-- [x] Mobile-responsive design
+## Completed (Date: 2026-03-15)
+1. E-commerce MVP (homepage, products, cart, checkout, auth)
+2. Backend refactoring (2565-line monolith → modular architecture)
+3. Admin login portal (/admin-login)
+4. Full RBAC system with 4 admin roles and permission matrix
+5. Admin dashboard with sub-pages (Overview, Orders, Products, Customers, Influencers, Affiliates, Coupons, Withdrawals, Admin Users)
+6. Super Admin can create/delete admin users
+7. Admin Users management with role-based create form
+8. Influencer wallet system (backend endpoints)
+9. Instagram automation (MOCKED backend)
+10. Header/Footer hidden on admin pages for clean admin UX
 
-### MOCKED Integrations
-- Razorpay payment (creates mock order IDs)
-- AI Chatbot (static responses)
-- OTP verification (returns demo OTP)
+## MOCKED Integrations
+- Razorpay payments/payouts
+- Instagram OAuth & DM automation
+- AI chatbot (keyword-based responses)
+- OTP verification
 
-## Prioritized Backlog
+## P1 - Next Up
+- Influencer dashboard frontend wiring (wallet UI, withdrawal requests)
+- Instagram OAuth connect UI in influencer dashboard
+- Product creation form in admin dashboard
+- Coupon creation form in admin dashboard
+- Real AI chatbot with GPT integration
 
-### P0 - Critical (Next Phase)
-- [ ] Real Razorpay payment integration
-- [ ] Real AI chatbot with GPT-5.2 integration
-- [ ] Real Twilio SMS/WhatsApp OTP
-- [ ] Product image upload for admin
-- [ ] Commission payout system
-
-### P1 - High Priority
-- [ ] Push notification integration
-- [ ] Email notifications (order confirmation, shipping updates)
-- [ ] Instagram API integration (auto-posting)
-- [ ] Product reviews and ratings
-- [ ] Advanced analytics dashboard
-
-### P2 - Nice to Have
-- [ ] Multi-currency support
-- [ ] Inventory alerts
-- [ ] Abandoned cart recovery
-- [ ] A/B testing for landing pages
-- [ ] Loyalty points system
-
-## Next Tasks
-1. Integrate real Razorpay payment gateway
-2. Connect AI chatbot with GPT-5.2 via Emergent integrations
-3. Set up Twilio for real OTP verification
-4. Add product image upload in admin dashboard
-5. Implement email notifications with SendGrid
+## P2 - Backlog
+- Email notifications (order confirmation, shipping)
+- Push notifications
+- Product reviews & ratings
+- Multi-platform social integrations (YouTube, Snapchat, Facebook)
+- Influencer leaderboard
+- WhatsApp chat support
