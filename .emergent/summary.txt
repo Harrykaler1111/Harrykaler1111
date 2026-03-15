@@ -1,0 +1,171 @@
+<analysis>**original_problem_statement:**
+The user wants to build a full-stack AI-powered e-commerce and influencer marketplace platform for a premium fashion brand called Pigma.
+
+**Initial MVP Requirements (Completed):**
+*   **E-commerce Store:** Modern, mobile-first UI with a homepage, product pages, cart, checkout, customer auth (login/signup), and a wishlist.
+*   **Admin Dashboard:** Basic product, inventory, order, and customer management.
+*   **Influencer/Affiliate System:** Basic registration and dashboards.
+*   **Tech Stack:** React (frontend), FastAPI (backend), MongoDB (database).
+*   **Integrations:** Razorpay for payments, Google Auth, JWT, and an AI chatbot using Emergent's LLM key.
+
+**New Upgrade Requirements (In Progress):**
+1.  **Influencer Automation & Commission Wallet System:**
+    *   Influencers connect their Instagram accounts via OAuth.
+    *   System automatically DMs a unique referral link to users who comment on specific influencer posts.
+    *   A real-time commission wallet tracks earnings from referrals.
+    *   Influencers can request withdrawals (minimum ₹1000), which admins approve.
+    *   Integrate Razorpay Payouts for processing withdrawals.
+2.  **Role-Based Admin Management System (RBAC):**
+    *   Secure admin login at .
+    *   Define specific roles with tiered permissions:
+        *   **Super Admin:** Full control.
+        *   **Marketing Manager:** Manages campaigns and influencers, no payment access.
+        *   **Finance Manager:** Manages sales data, commissions, and payouts.
+        *   **Support Manager:** Manages orders and customer support.
+    *   Super Admins can create and manage other admin accounts.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A functional MVP of the Pigma e-commerce platform has been built. This includes user authentication (JWT & Google), a homepage, product browsing, cart functionality, and a checkout flow. Basic, non-functional dashboards for users, influencers, and admins also exist. The entire backend logic is currently housed in a single, large  file. The project recently recovered from a memory-related pod termination.
+
+**Last working item**:
+*   **Last item agent was working:** The agent began implementing the major application upgrade, which includes the **Influencer Automation/Wallet System** and the **Role-Based Admin Management (RBAC)**. It has already modified the backend  file to include new models and API endpoints for these features and updated the  and  components on the frontend, along with creating a new .
+*   **Status:** IN PROGRESS
+*   **Agent Testing Done:** N
+*   **Which testing method agent to use?** both
+*   **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+*   **Issue 1:** The monolithic  file (over 1000 lines) contains all backend logic, models, and routes. This contributed to a previous memory-related crash and makes the application difficult to maintain and debug.
+    *   **Attempted fixes:** None. The agent continued adding more code to this file.
+    *   **Next debug checklist:**
+        *   Plan a refactor of .
+        *   Create separate directories for , , and  within the  directory.
+        *   Break down the endpoints and database models into their respective files (e.g., , ).
+    *   **Why fix this issue and what will be achieved with the fix?** Refactoring will improve stability, prevent future memory issues, and make the codebase modular and easier to scale with new features.
+    *   **Status:** NOT STARTED
+    *   **Is recurring issue?** Y (The pod already crashed once due to high memory usage)
+    *   **Should Test frontend/backend/both after fix?** backend
+    *   **Blocked on other issue:** None
+
+**In progress Task List**:
+*   **Task 1:** Complete the implementation of the Influencer Automation and RBAC upgrade. (Priority: P0)
+    *   **Where to resume:** The agent has created the initial backend logic and frontend components. The next steps are to:
+        1.  Integrate the new  into the main application router ().
+        2.  Implement the Instagram OAuth flow for influencers to connect their accounts.
+        3.  Build the webhook and backend logic to listen for comments on Instagram posts and trigger the automated DM.
+        4.  Implement the frontend and backend logic for wallet withdrawal requests and admin approvals.
+        5.  Enforce the RBAC permission checks on both backend API endpoints and frontend UI components to restrict access based on user role.
+        6.  Connect to the Razorpay Payouts API for processing withdrawals.
+    *   **What will be achieved with this?** The application will have a complete influencer marketing automation loop and a secure, role-based system for admin management.
+    *   **Status:** IN PROGRESS
+    *   **Should Test frontend/backend/both after fix?** both
+    *   **Blocked on something:** None.
+
+**Upcoming and Future Tasks**
+*   **Upcoming Tasks:**
+    *   **P0:** Implement full end-to-end testing for the new Influencer and RBAC features using the testing agent.
+    *   **P1:** Create separate test users for each admin role (Super Admin, Marketing, Finance, Support) to validate the RBAC permissions.
+    *   **P1:** Implement frontend UI for the Super Admin to create/manage other admin users.
+*   **Future Tasks:**
+    *   **P2:** Integrate other social media platforms (YouTube, Snapchat, Facebook) as requested in the original problem statement.
+    *   **P2:** Implement remaining marketing tools: WhatsApp chat support and push notifications.
+    *   **P2:** Build out the influencer leaderboard.
+
+**Completed work in this session**
+- **E-commerce MVP:**
+  -   User authentication system with JWT and Google Social Login.
+  -   Homepage with hero banner.
+  -   Product listing and detail pages.
+  -   Shopping cart and checkout flow.
+  -   Basic user, influencer, and admin dashboards.
+- **Bug Fixes:**
+  -   Resolved a z-index issue with the chat widget in .
+  -   Fixed an issue where the admin role was not being preserved across sessions in .
+
+**Earlier issues found/mentioned but not fixed**
+- None. The agent has addressed all identified issues from the initial MVP build.
+
+**Known issue recurrence from previous fork**
+*   **Issue recurrence in previous fork:** The agent's pod was terminated due to exceeding its memory limit during the initial build.
+*   **Recurrence count:** 1
+*   **Status:** BLOCKED
+    *   **Note:** Although the pod was upgraded to a larger machine, the root cause is likely the monolithic  file. The issue is marked BLOCKED as the fix requires a significant refactoring effort, which should be done before adding more complex features to prevent another crash.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+*   **Frontend:** React, Tailwind CSS, Shadcn/UI
+*   **Backend:** FastAPI (Python)
+*   **Database:** MongoDB
+*   **Authentication:** JWT, Google OAuth, Role-Based Access Control (RBAC)
+*   **Integrations:** Razorpay (Payments & Payouts), Instagram Graph API, Emergent LLM Key (for AI features)
+
+**key DB schema**
+*   **users:** { email, password, role: ['customer', 'influencer', 'admin', 'super_admin', 'marketing_manager', etc.], google_id }
+*   **products:** { name, description, price, images, stock }
+*   **orders:** { user_id, products, total_amount, status, payment_id }
+*   **influencer_profiles:** { user_id, instagram_id, instagram_token, followers }
+*   **wallets:** { influencer_id, balance, history: [{...}] }
+*   **withdrawal_requests:** { influencer_id, amount, status: ['pending', 'approved', 'rejected'] }
+
+**changes in tech stack**
+- None
+
+**All files of reference**
+*   : The single backend file containing all application logic. Recently updated with RBAC and influencer wallet features.
+*   : Updated to support role-based views.
+*   : Updated to include the commission wallet and Instagram integration UI.
+*   : A new file created for the secure admin login portal.
+*   : Will need to be updated to include the new  route.
+
+**Areas that need refactoring**
+*   **:** This file is critically oversized and needs to be broken down into a modular structure (e.g., , , ). Continuing to build on this monolithic file risks instability and makes development inefficient.
+
+**key api endpoints**
+*   
+*    (New)
+*   
+*   
+*    (New)
+*    (New)
+*    (New)
+*    (Needs to be created)
+
+**Critical Info for New Agent**
+1.  **High Risk of Instability:** The application previously crashed due to high memory usage. The cause is likely the monolithic . You should prioritize refactoring this file before adding significant new logic to prevent another crash.
+2.  **Major Feature Implementation:** You are in the middle of a large and complex feature upgrade (Influencer Automation & RBAC). The initial code has been added, but it is not functional or tested.
+3.  **Authentication Layers:** The application has multiple layers of auth. You must handle JWT for standard users, Google OAuth, and the new RBAC for different admin roles. Ensure that new endpoints are protected with the correct auth middleware.
+
+**documents and test reports created in this job**
+*   
+*   
+
+**Last 10 User Messages and any pending HUMAN messages**
+*   The user provided a detailed set of new requirements to upgrade the application with an Influencer Automation and Commission Wallet System and a Role-Based Admin Management System. This is the current, active task.
+
+**Project Health Check:**
+*   **Broken:** The new Influencer Automation and RBAC features are currently broken as they are in the middle of implementation.
+*   **Mocked:** None.
+
+**3rd Party Integrations**
+*   **Razorpay (Payments & Payouts):** Requires User API Key.
+*   **Google Auth:** Uses Emergent-managed Google Auth.
+*   **Instagram Graph API:** Requires User App credentials and OAuth setup.
+*   **Twilio:** Requires User API Key for OTP.
+*   **OpenAI GPT (via emergentintegrations):** Uses Emergent LLM Key.
+
+**Testing status**
+*   **Testing agent used after significant changes:** YES (for initial MVP)
+*   **Troubleshoot agent used after agent stuck in loop:** NO
+*   **Test files created:** None.
+*   **Known regressions:** None.
+
+**Credentials to test flow:**
+*   Standard user credentials can be created via the signup form.
+*   To test RBAC, new users with roles (, , etc.) will need to be created directly in the database or via a Super Admin interface (which is yet to be built).
+
+**What agent forgot to execute**
+The agent has not forgotten anything from the latest user request, as it has just started the implementation. However, it has not yet addressed the critical need to refactor the backend, despite the prior system crash which indicated a stability problem.</analysis>

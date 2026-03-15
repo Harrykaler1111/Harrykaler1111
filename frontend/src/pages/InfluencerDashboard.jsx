@@ -3,12 +3,21 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Users, Link2, TrendingUp, DollarSign, Copy, Instagram, 
-  Youtube, Facebook, Award, ArrowRight, Check, Clock
+  Youtube, Facebook, Award, ArrowRight, Check, Clock, Wallet,
+  CreditCard, ExternalLink, Plus, Settings, Power, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
@@ -20,6 +29,10 @@ export const InfluencerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [referralLinks, setReferralLinks] = useState([]);
+  const [igPosts, setIgPosts] = useState([]);
 
   const [formData, setFormData] = useState({
     bio: "",
@@ -30,6 +43,24 @@ export const InfluencerDashboard = () => {
     followers_count: "",
     niche: ""
   });
+
+  const [withdrawForm, setWithdrawForm] = useState({
+    amount: "",
+    bank_account_name: "",
+    bank_account_number: "",
+    bank_ifsc: "",
+    bank_name: ""
+  });
+
+  const [newPostForm, setNewPostForm] = useState({
+    post_url: "",
+    post_id: "",
+    product_id: "",
+    auto_dm_enabled: true,
+    dm_message: ""
+  });
+
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,6 +74,29 @@ export const InfluencerDashboard = () => {
         
         if (profileRes?.data) {
           setInfluencer(profileRes.data);
+          
+          // Fetch additional data if influencer exists
+          const [txnRes, wdRes, linksRes, postsRes, productsRes] = await Promise.all([
+            axios.get(`${API}/influencers/wallet/transactions`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => ({ data: [] })),
+            axios.get(`${API}/influencers/withdrawals`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => ({ data: [] })),
+            axios.get(`${API}/influencers/referral-links`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => ({ data: [] })),
+            axios.get(`${API}/influencers/instagram/posts`, {
+              headers: { Authorization: `Bearer ${token}` }
+            }).catch(() => ({ data: [] })),
+            axios.get(`${API}/products?limit=50`)
+          ]);
+          
+          setTransactions(txnRes.data);
+          setWithdrawals(wdRes.data);
+          setReferralLinks(linksRes.data);
+          setIgPosts(postsRes.data);
+          setProducts(productsRes.data);
         }
         setLeaderboard(leaderboardRes.data);
       } catch (error) {
@@ -85,10 +139,109 @@ export const InfluencerDashboard = () => {
     }
   };
 
-  const copyReferralLink = () => {
-    const link = `${window.location.origin}?ref=${influencer?.referral_code}`;
-    navigator.clipboard.writeText(link);
-    toast.success("Referral link copied!");
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
+  };
+
+  const handleWithdraw = async (e) => {
+    e.preventDefault();
+    if (parseFloat(withdrawForm.amount) < 1000) {
+      toast.error("Minimum withdrawal amount is ₹1000");
+      return;
+    }
+    if (parseFloat(withdrawForm.amount) > (influencer?.wallet_balance || 0)) {
+      toast.error("Insufficient wallet balance");
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        `${API}/influencers/wallet/withdraw`,
+        withdrawForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Withdrawal request submitted!");
+      setWithdrawals([response.data, ...withdrawals]);
+      setInfluencer({ ...influencer, wallet_balance: influencer.wallet_balance - parseFloat(withdrawForm.amount) });
+      setWithdrawForm({
+        amount: "",
+        bank_account_name: "",
+        bank_account_number: "",
+        bank_ifsc: "",
+        bank_name: ""
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to submit withdrawal");
+    }
+  };
+
+  const connectInstagram = async () => {
+    try {
+      const response = await axios.get(`${API}/influencers/instagram/connect`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // For demo, simulate successful connection
+      toast.info("Instagram OAuth (MOCKED) - Simulating connection...");
+      
+      // Simulate callback
+      setTimeout(async () => {
+        try {
+          await axios.post(
+            `${API}/influencers/instagram/callback?code=mock_code&state=${response.data.state}`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success("Instagram connected!");
+          // Refresh influencer data
+          const updated = await axios.get(`${API}/influencers/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setInfluencer(updated.data);
+        } catch (err) {
+          toast.error("Connection failed");
+        }
+      }, 1500);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to connect Instagram");
+    }
+  };
+
+  const toggleAutomation = async () => {
+    try {
+      const newStatus = !influencer.automation_enabled;
+      await axios.post(
+        `${API}/influencers/instagram/toggle-automation?enabled=${newStatus}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setInfluencer({ ...influencer, automation_enabled: newStatus });
+      toast.success(`Automation ${newStatus ? "enabled" : "disabled"}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to toggle automation");
+    }
+  };
+
+  const registerPost = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(
+        `${API}/influencers/instagram/posts`,
+        newPostForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success("Post registered for automation!");
+      setIgPosts([response.data, ...igPosts]);
+      setNewPostForm({
+        post_url: "",
+        post_id: "",
+        product_id: "",
+        auto_dm_enabled: true,
+        dm_message: ""
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to register post");
+    }
   };
 
   if (loading) {
@@ -125,9 +278,15 @@ export const InfluencerDashboard = () => {
 
         {influencer ? (
           <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="bg-neutral-800 border-neutral-700">
+            <TabsList className="bg-neutral-800 border-neutral-700 flex-wrap">
               <TabsTrigger value="overview" className="data-[state=active]:bg-gold data-[state=active]:text-black">
                 Overview
+              </TabsTrigger>
+              <TabsTrigger value="wallet" className="data-[state=active]:bg-gold data-[state=active]:text-black">
+                Wallet
+              </TabsTrigger>
+              <TabsTrigger value="instagram" className="data-[state=active]:bg-gold data-[state=active]:text-black">
+                Instagram
               </TabsTrigger>
               <TabsTrigger value="links" className="data-[state=active]:bg-gold data-[state=active]:text-black">
                 Referral Links
@@ -137,71 +296,36 @@ export const InfluencerDashboard = () => {
               </TabsTrigger>
             </TabsList>
 
+            {/* Overview Tab */}
             <TabsContent value="overview">
-              {/* Stats Grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                      <Link2 className="h-5 w-5 text-emerald-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{influencer.total_clicks}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Total Clicks</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-blue-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{influencer.total_conversions}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Conversions</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gold/20 rounded-lg flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-gold" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">Rs.{influencer.total_earnings.toLocaleString()}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Total Earnings</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                      <Users className="h-5 w-5 text-purple-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{influencer.followers_count.toLocaleString()}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Followers</p>
-                </motion.div>
+                <StatCard
+                  icon={<Link2 className="h-5 w-5 text-emerald-400" />}
+                  label="Total Clicks"
+                  value={influencer.total_clicks}
+                  bg="bg-emerald-500/20"
+                />
+                <StatCard
+                  icon={<TrendingUp className="h-5 w-5 text-blue-400" />}
+                  label="Conversions"
+                  value={influencer.total_conversions}
+                  bg="bg-blue-500/20"
+                />
+                <StatCard
+                  icon={<DollarSign className="h-5 w-5 text-gold" />}
+                  label="Total Earnings"
+                  value={`₹${influencer.total_earnings.toLocaleString()}`}
+                  bg="bg-gold/20"
+                />
+                <StatCard
+                  icon={<Wallet className="h-5 w-5 text-purple-400" />}
+                  label="Wallet Balance"
+                  value={`₹${(influencer.wallet_balance || 0).toLocaleString()}`}
+                  bg="bg-purple-500/20"
+                />
               </div>
 
-              {/* Profile Card */}
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
+              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6 rounded-xl">
                 <h2 className="font-serif text-xl font-bold mb-6">Your Profile</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -210,46 +334,322 @@ export const InfluencerDashboard = () => {
                   </div>
                   <div>
                     <p className="text-sm text-neutral-400 mb-1">Referral Code</p>
-                    <p className="font-mono text-gold">{influencer.referral_code}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gold">{influencer.referral_code}</span>
+                      <Button size="sm" variant="ghost" onClick={() => copyToClipboard(influencer.referral_code)}>
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  {influencer.instagram_handle && (
-                    <div className="flex items-center gap-2">
-                      <Instagram className="h-5 w-5 text-pink-400" />
-                      <span>@{influencer.instagram_handle}</span>
+                  <div>
+                    <p className="text-sm text-neutral-400 mb-1">Commission Rate</p>
+                    <p className="text-2xl font-bold text-gold">{influencer.commission_rate || 10}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-neutral-400 mb-1">Instagram Status</p>
+                    {influencer.instagram_connected ? (
+                      <p className="flex items-center gap-2 text-green-400">
+                        <Instagram className="h-5 w-5" /> Connected (@{influencer.instagram_username})
+                      </p>
+                    ) : (
+                      <p className="text-neutral-500">Not connected</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Wallet Tab */}
+            <TabsContent value="wallet">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/30 p-6 rounded-xl">
+                  <Wallet className="h-8 w-8 text-gold mb-4" />
+                  <p className="text-sm text-neutral-400">Available Balance</p>
+                  <p className="text-3xl font-bold text-gold">₹{(influencer.wallet_balance || 0).toLocaleString()}</p>
+                </div>
+                <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
+                  <DollarSign className="h-8 w-8 text-emerald-400 mb-4" />
+                  <p className="text-sm text-neutral-400">Total Earnings</p>
+                  <p className="text-3xl font-bold text-emerald-400">₹{influencer.total_earnings.toLocaleString()}</p>
+                </div>
+                <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
+                  <CreditCard className="h-8 w-8 text-blue-400 mb-4" />
+                  <p className="text-sm text-neutral-400">Min Withdrawal</p>
+                  <p className="text-3xl font-bold text-blue-400">₹1,000</p>
+                </div>
+              </div>
+
+              {/* Withdrawal Form */}
+              {influencer.status === "approved" && (
+                <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl mb-8">
+                  <h3 className="font-serif text-xl font-bold mb-4">Request Withdrawal</h3>
+                  {influencer.wallet_balance >= 1000 ? (
+                    <form onSubmit={handleWithdraw} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Amount (₹)</label>
+                        <Input
+                          type="number"
+                          value={withdrawForm.amount}
+                          onChange={(e) => setWithdrawForm({ ...withdrawForm, amount: e.target.value })}
+                          placeholder="Minimum ₹1000"
+                          className="bg-neutral-900 border-neutral-700"
+                          min="1000"
+                          max={influencer.wallet_balance}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Account Holder Name</label>
+                        <Input
+                          value={withdrawForm.bank_account_name}
+                          onChange={(e) => setWithdrawForm({ ...withdrawForm, bank_account_name: e.target.value })}
+                          placeholder="As per bank records"
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Bank Account Number</label>
+                        <Input
+                          value={withdrawForm.bank_account_number}
+                          onChange={(e) => setWithdrawForm({ ...withdrawForm, bank_account_number: e.target.value })}
+                          placeholder="Account number"
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">IFSC Code</label>
+                        <Input
+                          value={withdrawForm.bank_ifsc}
+                          onChange={(e) => setWithdrawForm({ ...withdrawForm, bank_ifsc: e.target.value.toUpperCase() })}
+                          placeholder="e.g. HDFC0001234"
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Bank Name</label>
+                        <Input
+                          value={withdrawForm.bank_name}
+                          onChange={(e) => setWithdrawForm({ ...withdrawForm, bank_name: e.target.value })}
+                          placeholder="e.g. HDFC Bank"
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button type="submit" className="w-full bg-gold text-black hover:bg-gold-dark">
+                          Request Withdrawal
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-3 text-yellow-400 bg-yellow-500/10 p-4 rounded-lg">
+                      <AlertCircle className="h-5 w-5" />
+                      <p>You need at least ₹1,000 in your wallet to request a withdrawal.</p>
                     </div>
                   )}
-                  {influencer.youtube_channel && (
-                    <div className="flex items-center gap-2">
-                      <Youtube className="h-5 w-5 text-red-400" />
-                      <span>{influencer.youtube_channel}</span>
+                </div>
+              )}
+
+              {/* Transactions */}
+              <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl mb-8">
+                <h3 className="font-serif text-xl font-bold mb-4">Transaction History</h3>
+                <div className="space-y-3">
+                  {transactions.length > 0 ? transactions.map((txn) => (
+                    <div key={txn.transaction_id} className="flex items-center justify-between py-3 border-b border-neutral-700 last:border-0">
+                      <div>
+                        <p className="font-medium">{txn.description}</p>
+                        <p className="text-xs text-neutral-400">{new Date(txn.created_at).toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${txn.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {txn.amount >= 0 ? "+" : ""}₹{Math.abs(txn.amount).toLocaleString()}
+                        </p>
+                        <p className="text-xs text-neutral-500">Balance: ₹{txn.balance_after.toLocaleString()}</p>
+                      </div>
                     </div>
+                  )) : (
+                    <p className="text-center text-neutral-500 py-8">No transactions yet</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Withdrawal History */}
+              <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
+                <h3 className="font-serif text-xl font-bold mb-4">Withdrawal History</h3>
+                <div className="space-y-3">
+                  {withdrawals.length > 0 ? withdrawals.map((wd) => (
+                    <div key={wd.withdrawal_id} className="flex items-center justify-between py-3 border-b border-neutral-700 last:border-0">
+                      <div>
+                        <p className="font-medium">₹{wd.amount.toLocaleString()}</p>
+                        <p className="text-xs text-neutral-400">{new Date(wd.requested_at).toLocaleDateString()}</p>
+                      </div>
+                      <span className={`text-xs px-3 py-1 rounded-full ${
+                        wd.status === "completed" ? "bg-green-500/20 text-green-400" :
+                        wd.status === "approved" ? "bg-blue-500/20 text-blue-400" :
+                        wd.status === "rejected" ? "bg-red-500/20 text-red-400" :
+                        "bg-yellow-500/20 text-yellow-400"
+                      }`}>
+                        {wd.status}
+                      </span>
+                    </div>
+                  )) : (
+                    <p className="text-center text-neutral-500 py-8">No withdrawal requests yet</p>
                   )}
                 </div>
               </div>
             </TabsContent>
 
+            {/* Instagram Tab */}
+            <TabsContent value="instagram">
+              {/* Connection Status */}
+              <div className="bg-gradient-to-r from-pink-500/20 to-purple-500/20 border border-pink-500/30 p-6 rounded-xl mb-8">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-purple-500 rounded-xl flex items-center justify-center">
+                      <Instagram className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Instagram Connection</h3>
+                      {influencer.instagram_connected ? (
+                        <p className="text-sm text-green-400">Connected as @{influencer.instagram_username}</p>
+                      ) : (
+                        <p className="text-sm text-neutral-400">Connect your Instagram to enable automation</p>
+                      )}
+                    </div>
+                  </div>
+                  {!influencer.instagram_connected ? (
+                    <Button onClick={connectInstagram} className="bg-gradient-to-r from-pink-500 to-purple-500 text-white">
+                      <Instagram className="h-4 w-4 mr-2" />
+                      Connect Instagram
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">Auto DM</span>
+                        <Switch
+                          checked={influencer.automation_enabled}
+                          onCheckedChange={toggleAutomation}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {influencer.instagram_connected && (
+                <>
+                  {/* Register New Post */}
+                  <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl mb-8">
+                    <h3 className="font-serif text-xl font-bold mb-4">Register Post for Automation</h3>
+                    <p className="text-neutral-400 mb-4">
+                      Register your Instagram posts promoting Pigma products. When someone comments, they'll automatically receive a DM with your referral link.
+                    </p>
+                    <form onSubmit={registerPost} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Post URL</label>
+                        <Input
+                          value={newPostForm.post_url}
+                          onChange={(e) => setNewPostForm({ ...newPostForm, post_url: e.target.value })}
+                          placeholder="https://instagram.com/p/..."
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Post ID</label>
+                        <Input
+                          value={newPostForm.post_id}
+                          onChange={(e) => setNewPostForm({ ...newPostForm, post_id: e.target.value })}
+                          placeholder="Media ID from Instagram"
+                          className="bg-neutral-900 border-neutral-700"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Product</label>
+                        <select
+                          value={newPostForm.product_id}
+                          onChange={(e) => setNewPostForm({ ...newPostForm, product_id: e.target.value })}
+                          className="w-full h-10 bg-neutral-900 border border-neutral-700 rounded-md px-3 text-white"
+                          required
+                        >
+                          <option value="">Select product</option>
+                          {products.map(p => (
+                            <option key={p.product_id} value={p.product_id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm text-neutral-400 mb-1 block">Custom DM Message (optional)</label>
+                        <Input
+                          value={newPostForm.dm_message}
+                          onChange={(e) => setNewPostForm({ ...newPostForm, dm_message: e.target.value })}
+                          placeholder="Thanks for your interest! Here's the link..."
+                          className="bg-neutral-900 border-neutral-700"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Button type="submit" className="bg-gold text-black hover:bg-gold-dark">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Register Post
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Registered Posts */}
+                  <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
+                    <h3 className="font-serif text-xl font-bold mb-4">Registered Posts</h3>
+                    <div className="space-y-4">
+                      {igPosts.length > 0 ? igPosts.map((post) => (
+                        <div key={post.post_record_id} className="bg-neutral-900/50 p-4 rounded-lg flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{post.product_name}</p>
+                            <a href={post.post_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 flex items-center gap-1">
+                              View Post <ExternalLink className="h-3 w-3" />
+                            </a>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm">{post.total_comments} comments</p>
+                            <p className="text-xs text-green-400">{post.total_dms_sent} DMs sent</p>
+                          </div>
+                        </div>
+                      )) : (
+                        <p className="text-center text-neutral-500 py-8">No posts registered yet</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            {/* Referral Links Tab */}
             <TabsContent value="links">
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
-                <h2 className="font-serif text-xl font-bold mb-6">Your Referral Link</h2>
-                <div className="flex gap-3">
-                  <Input
-                    value={`${window.location.origin}?ref=${influencer.referral_code}`}
-                    readOnly
-                    className="bg-neutral-900 border-neutral-700 text-white"
-                  />
-                  <Button onClick={copyReferralLink} className="bg-gold text-black hover:bg-gold-dark">
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
+              <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
+                <h2 className="font-serif text-xl font-bold mb-6">Your Referral Links</h2>
+                <div className="space-y-3">
+                  {referralLinks.map((link, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-3 border-b border-neutral-700 last:border-0">
+                      <div>
+                        <p className="font-medium">{link.product_name}</p>
+                        <p className="text-xs text-neutral-400 truncate max-w-md">{link.link}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => copyToClipboard(link.link)}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-sm text-neutral-400 mt-4">
-                  Share this link with your followers. You'll earn commission on every sale made through your link!
-                </p>
               </div>
             </TabsContent>
 
+            {/* Leaderboard Tab */}
             <TabsContent value="leaderboard">
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
+              <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl">
                 <h2 className="font-serif text-xl font-bold mb-6">Top Performers</h2>
                 <div className="space-y-4">
                   {leaderboard.map((inf, index) => (
@@ -276,7 +676,7 @@ export const InfluencerDashboard = () => {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-gold">Rs.{inf.total_earnings.toLocaleString()}</p>
+                        <p className="font-bold text-gold">₹{inf.total_earnings.toLocaleString()}</p>
                         <p className="text-xs text-neutral-400">earned</p>
                       </div>
                     </div>
@@ -292,7 +692,7 @@ export const InfluencerDashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-2xl mx-auto"
           >
-            <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-8">
+            <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-8 rounded-xl">
               <div className="text-center mb-8">
                 <Award className="h-16 w-16 mx-auto text-gold mb-4" />
                 <h2 className="font-serif text-2xl font-bold mb-2">Become a Pigma Influencer</h2>
@@ -337,7 +737,6 @@ export const InfluencerDashboard = () => {
                       onChange={(e) => setFormData({ ...formData, youtube_channel: e.target.value })}
                       placeholder="Channel name"
                       className="bg-neutral-900 border-neutral-700 text-white"
-                      data-testid="influencer-youtube"
                     />
                   </div>
                 </div>
@@ -351,7 +750,6 @@ export const InfluencerDashboard = () => {
                       onChange={(e) => setFormData({ ...formData, followers_count: e.target.value })}
                       placeholder="e.g. 10000"
                       className="bg-neutral-900 border-neutral-700 text-white"
-                      data-testid="influencer-followers"
                     />
                   </div>
                   <div>
@@ -361,7 +759,6 @@ export const InfluencerDashboard = () => {
                       onChange={(e) => setFormData({ ...formData, niche: e.target.value })}
                       placeholder="Fashion, Lifestyle, Beauty"
                       className="bg-neutral-900 border-neutral-700 text-white"
-                      data-testid="influencer-niche"
                     />
                   </div>
                 </div>
@@ -383,3 +780,17 @@ export const InfluencerDashboard = () => {
     </div>
   );
 };
+
+const StatCard = ({ icon, label, value, bg }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6 rounded-xl"
+  >
+    <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center mb-4`}>
+      {icon}
+    </div>
+    <p className="text-3xl font-bold">{value}</p>
+    <p className="text-sm text-neutral-400 mt-1">{label}</p>
+  </motion.div>
+);
