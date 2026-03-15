@@ -18,6 +18,7 @@ import { OrdersPage } from "@/pages/OrdersPage";
 import { InfluencerDashboard } from "@/pages/InfluencerDashboard";
 import { AffiliateDashboard } from "@/pages/AffiliateDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
+import { AdminLoginPage } from "@/pages/AdminLoginPage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -87,7 +88,7 @@ export const AuthProvider = ({ children }) => {
 };
 
 // Protected Route Component
-const ProtectedRoute = ({ children, requiredRole = null }) => {
+const ProtectedRoute = ({ children, requiredRole = null, requiredRoles = null }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -107,7 +108,39 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/" replace />;
   }
 
+  if (requiredRoles && !requiredRoles.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
+};
+
+// Admin Protected Route - checks admin token separately
+const AdminProtectedRoute = ({ children }) => {
+  const adminToken = localStorage.getItem("pigma_admin_token");
+  const adminData = localStorage.getItem("pigma_admin");
+
+  if (!adminToken || !adminData) {
+    return <Navigate to="/admin-login" replace />;
+  }
+
+  return children;
+};
+
+// Layout wrapper - hides header/footer for admin pages
+const LayoutWrapper = ({ children }) => {
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith("/admin");
+
+  return (
+    <div className="App min-h-screen flex flex-col">
+      {!isAdminPage && <Header />}
+      <main className="flex-1">{children}</main>
+      {!isAdminPage && <Footer />}
+      {!isAdminPage && <ChatWidget />}
+      <Toaster position="top-right" richColors />
+    </div>
+  );
 };
 
 // App Router with session_id detection
@@ -184,11 +217,15 @@ const AppRouter = () => {
         }
       />
       <Route
+        path="/admin-login"
+        element={<AdminLoginPage />}
+      />
+      <Route
         path="/admin/*"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <AdminProtectedRoute>
             <AdminDashboard />
-          </ProtectedRoute>
+          </AdminProtectedRoute>
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -200,15 +237,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="App min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-1">
-            <AppRouter />
-          </main>
-          <Footer />
-          <ChatWidget />
-          <Toaster position="top-right" richColors />
-        </div>
+        <LayoutWrapper>
+          <AppRouter />
+        </LayoutWrapper>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -613,22 +613,49 @@ const WithdrawalManagement = () => {
 const AdminUsersManagement = () => {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newAdmin, setNewAdmin] = useState({ email: "", name: "", password: "", role: "support_manager", phone: "" });
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    const fetchAdmins = async () => {
-      try {
-        const response = await axios.get(`${API}/admin/users`, {
-          headers: getAdminHeaders()
-        });
-        setAdmins(response.data);
-      } catch (error) {
-        toast.error("Failed to load admin users");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAdmins();
-  }, []);
+  const fetchAdmins = async () => {
+    try {
+      const response = await axios.get(`${API}/admin/users`, { headers: getAdminHeaders() });
+      setAdmins(response.data);
+    } catch (error) {
+      toast.error("Failed to load admin users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAdmins(); }, []);
+
+  const createAdmin = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      await axios.post(`${API}/admin/users`, newAdmin, { headers: getAdminHeaders() });
+      toast.success("Admin user created");
+      setShowCreateForm(false);
+      setNewAdmin({ email: "", name: "", password: "", role: "support_manager", phone: "" });
+      fetchAdmins();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to create admin");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteAdmin = async (adminId) => {
+    if (!window.confirm("Are you sure you want to delete this admin?")) return;
+    try {
+      await axios.delete(`${API}/admin/users/${adminId}`, { headers: getAdminHeaders() });
+      toast.success("Admin deleted");
+      fetchAdmins();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to delete");
+    }
+  };
 
   const getRoleBadge = (role) => {
     const colors = {
@@ -640,15 +667,67 @@ const AdminUsersManagement = () => {
     return colors[role] || "bg-neutral-500/20 text-neutral-400";
   };
 
+  const canCreate = hasPermission("admin_users", "create");
+  const canDelete = hasPermission("admin_users", "delete");
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-serif text-2xl font-bold text-white">Admin Users</h2>
-        <Button className="bg-gold text-black hover:bg-gold-dark">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Admin
-        </Button>
+        {canCreate && (
+          <Button className="bg-gold text-black hover:bg-gold-dark" onClick={() => setShowCreateForm(!showCreateForm)} data-testid="add-admin-btn">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Admin
+          </Button>
+        )}
       </div>
+
+      {showCreateForm && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Create Admin User</h3>
+          <form onSubmit={createAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Name</label>
+              <Input value={newAdmin.name} onChange={(e) => setNewAdmin({...newAdmin, name: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-name" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Email</label>
+              <Input type="email" value={newAdmin.email} onChange={(e) => setNewAdmin({...newAdmin, email: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-email" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Password</label>
+              <Input type="password" value={newAdmin.password} onChange={(e) => setNewAdmin({...newAdmin, password: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-password" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Role</label>
+              <Select value={newAdmin.role} onValueChange={(val) => setNewAdmin({...newAdmin, role: val})}>
+                <SelectTrigger className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-admin-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
+                  <SelectItem value="finance_manager">Finance Manager</SelectItem>
+                  <SelectItem value="support_manager">Support Manager</SelectItem>
+                  <SelectItem value="super_admin">Super Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-2 flex gap-2">
+              <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold-dark" data-testid="create-admin-submit">
+                {creating ? "Creating..." : "Create Admin"}
+              </Button>
+              <Button type="button" variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </motion.div>
+      )}
+
       <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
@@ -659,6 +738,7 @@ const AdminUsersManagement = () => {
               <TableHead className="text-neutral-400">2FA</TableHead>
               <TableHead className="text-neutral-400">Last Login</TableHead>
               <TableHead className="text-neutral-400">Status</TableHead>
+              {canDelete && <TableHead className="text-neutral-400">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -668,7 +748,7 @@ const AdminUsersManagement = () => {
                 <TableCell className="text-neutral-300">{admin.email}</TableCell>
                 <TableCell>
                   <span className={`text-xs px-2 py-1 rounded capitalize ${getRoleBadge(admin.role)}`}>
-                    {admin.role.replace("_", " ")}
+                    {admin.role.replace(/_/g, " ")}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -688,11 +768,288 @@ const AdminUsersManagement = () => {
                     {admin.is_active ? "Active" : "Disabled"}
                   </span>
                 </TableCell>
+                {canDelete && (
+                  <TableCell>
+                    <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => deleteAdmin(admin.admin_id)} data-testid={`delete-admin-${admin.admin_id}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
         {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+      </div>
+    </div>
+  );
+};
+
+// Products Management (Admin)
+const ProductsManagement = () => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get(`${API}/products?limit=100`);
+        setProducts(response.data);
+      } catch (error) {
+        toast.error("Failed to load products");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const deleteProduct = async (productId) => {
+    if (!window.confirm("Delete this product?")) return;
+    try {
+      await axios.delete(`${API}/products/${productId}`, { headers: getAdminHeaders() });
+      toast.success("Product deleted");
+      setProducts(products.filter(p => p.product_id !== productId));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to delete");
+    }
+  };
+
+  const canDelete = hasPermission("products", "delete");
+
+  return (
+    <div>
+      <h2 className="font-serif text-2xl font-bold text-white mb-6">Products Management</h2>
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-neutral-700">
+              <TableHead className="text-neutral-400">Product</TableHead>
+              <TableHead className="text-neutral-400">Category</TableHead>
+              <TableHead className="text-neutral-400">Price</TableHead>
+              <TableHead className="text-neutral-400">Stock</TableHead>
+              <TableHead className="text-neutral-400">Limited</TableHead>
+              {canDelete && <TableHead className="text-neutral-400">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products.map((p) => (
+              <TableRow key={p.product_id} className="border-neutral-700">
+                <TableCell className="text-white">{p.name}</TableCell>
+                <TableCell className="text-neutral-300">{p.category}</TableCell>
+                <TableCell className="text-gold">{p.price?.toLocaleString()}</TableCell>
+                <TableCell className={p.stock < 10 ? "text-red-400" : "text-neutral-300"}>{p.stock}</TableCell>
+                <TableCell>{p.is_limited_edition ? <Badge variant="outline" className="border-gold text-gold">Limited</Badge> : "-"}</TableCell>
+                {canDelete && (
+                  <TableCell>
+                    <Button size="sm" variant="ghost" className="text-red-400" onClick={() => deleteProduct(p.product_id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+        {!loading && products.length === 0 && <div className="text-center py-12 text-neutral-500">No products</div>}
+      </div>
+    </div>
+  );
+};
+
+// Customers Management
+const CustomersManagement = () => {
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const response = await axios.get(`${API}/admin/customers`, { headers: getAdminHeaders() });
+        setCustomers(response.data);
+      } catch (error) {
+        toast.error("Failed to load customers");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCustomers();
+  }, []);
+
+  return (
+    <div>
+      <h2 className="font-serif text-2xl font-bold text-white mb-6">Customers</h2>
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-neutral-700">
+              <TableHead className="text-neutral-400">Name</TableHead>
+              <TableHead className="text-neutral-400">Email</TableHead>
+              <TableHead className="text-neutral-400">Phone</TableHead>
+              <TableHead className="text-neutral-400">Joined</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {customers.map((c) => (
+              <TableRow key={c.user_id} className="border-neutral-700">
+                <TableCell className="text-white">{c.name}</TableCell>
+                <TableCell className="text-neutral-300">{c.email}</TableCell>
+                <TableCell className="text-neutral-300">{c.phone || "-"}</TableCell>
+                <TableCell className="text-neutral-400">{new Date(c.created_at).toLocaleDateString()}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+        {!loading && customers.length === 0 && <div className="text-center py-12 text-neutral-500">No customers yet</div>}
+      </div>
+    </div>
+  );
+};
+
+// Coupons Management
+const CouponsManagement = () => {
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      try {
+        const response = await axios.get(`${API}/coupons`, { headers: getAdminHeaders() });
+        setCoupons(response.data);
+      } catch (error) {
+        toast.error("Failed to load coupons");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCoupons();
+  }, []);
+
+  return (
+    <div>
+      <h2 className="font-serif text-2xl font-bold text-white mb-6">Coupons</h2>
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-neutral-700">
+              <TableHead className="text-neutral-400">Code</TableHead>
+              <TableHead className="text-neutral-400">Discount</TableHead>
+              <TableHead className="text-neutral-400">Min Order</TableHead>
+              <TableHead className="text-neutral-400">Used/Max</TableHead>
+              <TableHead className="text-neutral-400">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {coupons.map((c) => (
+              <TableRow key={c.coupon_id} className="border-neutral-700">
+                <TableCell className="font-mono text-gold">{c.code}</TableCell>
+                <TableCell className="text-white">
+                  {c.discount_type === "percentage" ? `${c.discount_value}%` : `${c.discount_value}`}
+                </TableCell>
+                <TableCell className="text-neutral-300">{c.min_order_value?.toLocaleString()}</TableCell>
+                <TableCell className="text-neutral-300">{c.used_count}/{c.max_uses}</TableCell>
+                <TableCell>
+                  <span className={`text-xs px-2 py-1 rounded ${c.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                    {c.is_active ? "Active" : "Inactive"}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+        {!loading && coupons.length === 0 && <div className="text-center py-12 text-neutral-500">No coupons</div>}
+      </div>
+    </div>
+  );
+};
+
+// Affiliates Management
+const AffiliatesManagement = () => {
+  const [affiliates, setAffiliates] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAffiliates = async () => {
+      try {
+        const response = await axios.get(`${API}/affiliates`, { headers: getAdminHeaders() });
+        setAffiliates(response.data);
+      } catch (error) {
+        toast.error("Failed to load affiliates");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAffiliates();
+  }, []);
+
+  const updateStatus = async (affiliateId, status) => {
+    try {
+      await axios.put(`${API}/affiliates/${affiliateId}/status?status=${status}`, {}, { headers: getAdminHeaders() });
+      toast.success(`Affiliate ${status}`);
+      setAffiliates(affiliates.map(a => a.affiliate_id === affiliateId ? { ...a, status } : a));
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to update");
+    }
+  };
+
+  const canApprove = hasPermission("affiliates", "approve");
+
+  return (
+    <div>
+      <h2 className="font-serif text-2xl font-bold text-white mb-6">Affiliate Management</h2>
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-neutral-700">
+              <TableHead className="text-neutral-400">Name</TableHead>
+              <TableHead className="text-neutral-400">Company</TableHead>
+              <TableHead className="text-neutral-400">Clicks</TableHead>
+              <TableHead className="text-neutral-400">Conversions</TableHead>
+              <TableHead className="text-neutral-400">Earnings</TableHead>
+              <TableHead className="text-neutral-400">Status</TableHead>
+              {canApprove && <TableHead className="text-neutral-400">Actions</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {affiliates.map((a) => (
+              <TableRow key={a.affiliate_id} className="border-neutral-700">
+                <TableCell className="text-white">{a.name}</TableCell>
+                <TableCell className="text-neutral-300">{a.company_name || "-"}</TableCell>
+                <TableCell className="text-neutral-300">{a.total_clicks}</TableCell>
+                <TableCell className="text-neutral-300">{a.total_conversions}</TableCell>
+                <TableCell className="text-gold">{a.total_earnings?.toLocaleString()}</TableCell>
+                <TableCell>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    a.status === "approved" ? "bg-green-500/20 text-green-400" :
+                    a.status === "rejected" ? "bg-red-500/20 text-red-400" : "bg-yellow-500/20 text-yellow-400"
+                  }`}>{a.status}</span>
+                </TableCell>
+                {canApprove && (
+                  <TableCell>
+                    {a.status === "pending" && (
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10"
+                          onClick={() => updateStatus(a.affiliate_id, "approved")}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10"
+                          onClick={() => updateStatus(a.affiliate_id, "rejected")}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+        {!loading && affiliates.length === 0 && <div className="text-center py-12 text-neutral-500">No affiliates</div>}
       </div>
     </div>
   );
@@ -747,10 +1104,15 @@ export const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen pt-20 bg-neutral-900 text-white" data-testid="admin-dashboard">
+    <div className="min-h-screen bg-neutral-900 text-white" data-testid="admin-dashboard">
       <div className="flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 p-4 fixed left-0 top-20">
+        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 p-4 fixed left-0 top-0">
+          {/* Brand */}
+          <div className="mb-4 pb-3 border-b border-neutral-800">
+            <h1 className="font-serif text-xl font-bold text-gold tracking-wider">PIGMA</h1>
+            <p className="text-xs text-neutral-500">Admin Panel</p>
+          </div>
           {/* Admin Info */}
           <div className="mb-6 pb-4 border-b border-neutral-800">
             <div className="flex items-center gap-3">
@@ -797,7 +1159,11 @@ export const AdminDashboard = () => {
             <Route index element={<DashboardOverview />} />
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="influencers" element={<InfluencerManagement />} />
+            <Route path="affiliates" element={<AffiliatesManagement />} />
             <Route path="withdrawals" element={<WithdrawalManagement />} />
+            <Route path="products" element={<ProductsManagement />} />
+            <Route path="customers" element={<CustomersManagement />} />
+            <Route path="coupons" element={<CouponsManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>
