@@ -1,89 +1,102 @@
-# Pigma E-commerce & Influencer Marketplace - PRD
+# Pigma Multi-Vendor E-commerce & Influencer Marketplace - PRD
 
 ## Original Problem Statement
-Build a full-stack AI-powered e-commerce and influencer marketplace platform for a premium fashion brand called "Pigma". Features include e-commerce store, admin dashboard with RBAC, influencer automation & commission wallet system, and multi-channel marketing tools.
+Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace platform for "Pigma". Transform from single-vendor to a marketplace where vendors register, upload products, sell through the platform, and collaborate with influencers. Platform owner earns commission on every sale.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Shadcn/UI, Framer Motion
 - **Backend:** FastAPI (Python), modular architecture
 - **Database:** MongoDB
-- **Auth:** JWT, Google OAuth (Emergent-managed), RBAC for admins
+- **Auth:** JWT (separate tokens for customer, vendor, admin), Google OAuth, RBAC
 
-## Architecture (Post-Refactoring)
+## Architecture
 ```
 /app/backend/
-  server.py          - App setup, router includes, seed data
-  config.py          - DB, env vars, settings
-  auth.py            - JWT, password, auth dependencies
+  server.py          - App setup, router includes, seed data, file serving
+  config.py          - DB, env vars, platform commission rates
+  auth.py            - JWT, password, auth deps (get_current_user, get_admin_user, get_current_vendor)
   models/
-    enums.py         - AdminRole, permissions matrix, enums
-    schemas.py       - All Pydantic request/response models
+    enums.py         - AdminRole, VendorStatus, VendorProductStatus, permissions
+    schemas.py       - All Pydantic models including Vendor schemas
   routes/
-    auth_routes.py   - /auth/* (register, login, google, OTP)
-    admin_routes.py  - /admin/* (auth, users CRUD, dashboard, orders, withdrawals)
-    product_routes.py - /products/* (CRUD, featured, new arrivals)
-    cart_routes.py   - /cart/* (add, update, remove, clear)
-    order_routes.py  - /orders/* (create, list, payment verify, commissions)
-    wishlist_routes.py - /wishlist/* (add, remove, list)
-    influencer_routes.py - /influencers/* (apply, Instagram, wallet, withdrawals)
-    affiliate_routes.py - /affiliates/* (apply, management)
-    coupon_routes.py - /coupons/* (CRUD, validate)
-    chat_routes.py   - /chat/* (AI chatbot)
-    misc_routes.py   - /health, /categories, /track/click
-  tests/
-    test_admin_rbac.py
+    auth_routes.py, admin_routes.py, product_routes.py, cart_routes.py,
+    order_routes.py, wishlist_routes.py, influencer_routes.py,
+    affiliate_routes.py, coupon_routes.py, chat_routes.py, misc_routes.py,
+    vendor_routes.py  - NEW: Vendor registration, KYC, products, wallet, offers, admin management
 
 /app/frontend/src/
-  App.js             - Router, AuthProvider, LayoutWrapper
+  App.js             - Router with vendor routes (/vendor-login, /vendor/*)
   pages/
-    AdminLoginPage.jsx    - Secure admin login portal
-    AdminDashboard.jsx    - Full admin dashboard with RBAC sidebar
-    InfluencerDashboard.jsx - Influencer wallet, Instagram, referrals
-    HomePage.jsx, ProductsPage.jsx, CartPage.jsx, etc.
+    VendorAuthPage.jsx    - NEW: Vendor login/register portal
+    VendorDashboard.jsx   - NEW: Full vendor dashboard (overview, KYC, products, orders, wallet, offers, influencers)
+    AdminDashboard.jsx    - Updated: Added Vendors + Product Approvals tabs
+    AdminLoginPage.jsx, InfluencerDashboard.jsx, HomePage.jsx, etc.
 ```
 
-## RBAC Roles & Permissions
-- **Super Admin:** Full control over everything
-- **Marketing Manager:** Campaigns, influencers, affiliates (no admin users/payouts)
-- **Finance Manager:** Sales data, commissions, payouts (no admin users)
-- **Support Manager:** Orders, customer support only
+## Roles & Auth
+- **Customer:** Standard JWT auth via /auth/*
+- **Vendor:** Separate JWT auth via /vendors/login, token in pigma_vendor_token
+- **Admin (4 RBAC roles):** Separate JWT auth via /admin/auth/login, token in pigma_admin_token
+  - Super Admin, Marketing Manager, Finance Manager, Support Manager
 
 ## Seeded Credentials
 - Super Admin: superadmin@pigma.com / superadmin123
 - Marketing: marketing@pigma.com / marketing123
 - Finance: finance@pigma.com / finance123
 - Support: support@pigma.com / support123
-- Legacy Admin: admin@pigma.com / admin123
+- Test Vendor: testvendor@example.com / vendor123
 
-## Completed (Date: 2026-03-15)
-1. E-commerce MVP (homepage, products, cart, checkout, auth)
-2. Backend refactoring (2565-line monolith → modular architecture)
-3. Admin login portal (/admin-login)
-4. Full RBAC system with 4 admin roles and permission matrix
-5. Admin dashboard with sub-pages (Overview, Orders, Products, Customers, Influencers, Affiliates, Coupons, Withdrawals, Admin Users)
-6. Super Admin can create/delete admin users
-7. Admin Users management with role-based create form
-8. Influencer wallet system (backend endpoints)
-9. Instagram automation (MOCKED backend)
-10. Header/Footer hidden on admin pages for clean admin UX
+## Completed (2026-03-15)
+### Phase 0 - MVP
+1. E-commerce store (homepage, products, cart, checkout, customer auth)
+2. Backend refactoring (monolith -> modular)
+3. Admin RBAC system (4 roles, permission matrix)
+4. Admin dashboard (overview, orders, products, customers, influencers, affiliates, coupons, withdrawals, admin users)
+5. Influencer wallet system (backend)
+
+### Phase 1 - Multi-Vendor Marketplace (NEW)
+1. Vendor Registration (store name, contact, GST)
+2. Vendor KYC (PAN, Aadhaar, bank details, document upload)
+3. Vendor Dashboard (overview stats, sidebar navigation)
+4. Vendor Product Management (create, list, edit, delete with admin approval flow)
+5. Vendor Wallet System (balance, transactions, withdrawal requests)
+6. Vendor Offer/Discount System (percentage, flat, coupon, flash sale)
+7. Vendor-Influencer Browsing (view approved influencers for promotion)
+8. Admin Vendor Management (list, approve/reject, suspend, KYC approval)
+9. Admin Product Approval (pending products list, approve/reject to marketplace)
+10. "Sell on Pigma" link in main header navigation
 
 ## MOCKED Integrations
 - Razorpay payments/payouts
 - Instagram OAuth & DM automation
-- AI chatbot (keyword-based responses)
+- AI chatbot (keyword-based)
 - OTP verification
+- KYC document storage (local server)
 
-## P1 - Next Up
-- Influencer dashboard frontend wiring (wallet UI, withdrawal requests)
-- Instagram OAuth connect UI in influencer dashboard
-- Product creation form in admin dashboard
-- Coupon creation form in admin dashboard
-- Real AI chatbot with GPT integration
+## P0 - Next Up (Phase 2 - Vendor Commerce)
+- Vendor wallet auto-credit on sale (platform commission -> influencer commission -> vendor earnings)
+- Order flow integration with vendor_id attribution
+- Vendor withdrawal processing by admin
+- Commission settlement automation
+- Vendor product appears in main product listing after approval
 
-## P2 - Backlog
-- Email notifications (order confirmation, shipping)
+## P1 - Phase 3 (Influencer-Vendor & Reseller)
+- Vendor invites influencers for promotion campaigns
+- Reseller system (any user can become reseller)
+- Reseller wallet & referral link generation
+- Auto creator recruitment landing page
+- Creator growth tools (shareable links, promo content, analytics)
+
+## P2 - Phase 4 (Trust & Support)
+- Vendor rating system (1-5 stars, written reviews)
+- Return & dispute management
+- Enhanced sales tracking (vendor, influencer, reseller attribution)
+- Full marketplace analytics dashboard
+
+## P3 - Backlog
+- Real AI chatbot (GPT via Emergent LLM key)
+- Email notifications
 - Push notifications
-- Product reviews & ratings
 - Multi-platform social integrations (YouTube, Snapchat, Facebook)
 - Influencer leaderboard
-- WhatsApp chat support
+- WhatsApp support
