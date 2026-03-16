@@ -19,6 +19,8 @@ import { InfluencerDashboard } from "@/pages/InfluencerDashboard";
 import { AffiliateDashboard } from "@/pages/AffiliateDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
 import { AdminLoginPage } from "@/pages/AdminLoginPage";
+import { VendorAuthPage } from "@/pages/VendorAuthPage";
+import { VendorDashboard } from "@/pages/VendorDashboard";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -131,13 +133,15 @@ const AdminProtectedRoute = ({ children }) => {
 const LayoutWrapper = ({ children }) => {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
+  const isVendorPage = location.pathname.startsWith("/vendor");
+  const hideChrome = isAdminPage || isVendorPage;
 
   return (
     <div className="App min-h-screen flex flex-col">
-      {!isAdminPage && <Header />}
+      {!hideChrome && <Header />}
       <main className="flex-1">{children}</main>
-      {!isAdminPage && <Footer />}
-      {!isAdminPage && <ChatWidget />}
+      {!hideChrome && <Footer />}
+      {!hideChrome && <ChatWidget />}
       <Toaster position="top-right" richColors />
     </div>
   );
@@ -227,6 +231,14 @@ const AppRouter = () => {
             <AdminDashboard />
           </AdminProtectedRoute>
         }
+      />
+      <Route
+        path="/vendor-login"
+        element={<VendorAuthPage />}
+      />
+      <Route
+        path="/vendor/*"
+        element={<VendorDashboard />}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

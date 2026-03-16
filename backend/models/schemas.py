@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import List, Optional, Dict
-from .enums import AdminRole
+from .enums import AdminRole, VendorProductStatus
 
 
 class UserCreate(BaseModel):
@@ -310,3 +310,166 @@ class ChatMessage(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     session_id: str
+
+
+# ==================== VENDOR SCHEMAS ====================
+
+class VendorRegister(BaseModel):
+    email: EmailStr
+    password: str
+    store_name: str
+    owner_name: str
+    phone: str
+    store_description: str
+    gst_number: Optional[str] = None
+
+
+class VendorLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class VendorKYCSubmit(BaseModel):
+    pan_number: str
+    aadhaar_number: str
+    bank_account_name: str
+    bank_account_number: str
+    bank_ifsc: str
+    bank_name: str
+
+
+class VendorProfileUpdate(BaseModel):
+    store_name: Optional[str] = None
+    store_description: Optional[str] = None
+    phone: Optional[str] = None
+    gst_number: Optional[str] = None
+
+
+class VendorResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    vendor_id: str
+    email: str
+    store_name: str
+    owner_name: str
+    phone: str
+    store_description: str
+    gst_number: Optional[str] = None
+    status: str
+    kyc_status: str = "not_submitted"
+    wallet_balance: float = 0.0
+    total_sales: float = 0.0
+    total_products: int = 0
+    total_orders: int = 0
+    rating: float = 0.0
+    review_count: int = 0
+    created_at: str
+
+
+class VendorProductCreate(BaseModel):
+    name: str
+    description: str
+    price: float
+    compare_price: Optional[float] = None
+    category: str
+    sizes: List[str] = []
+    colors: List[str] = []
+    images: List[str] = []
+    stock: int = 0
+    tags: List[str] = []
+    is_limited_edition: bool = False
+
+
+class VendorProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    compare_price: Optional[float] = None
+    category: Optional[str] = None
+    sizes: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    images: Optional[List[str]] = None
+    stock: Optional[int] = None
+    tags: Optional[List[str]] = None
+    is_limited_edition: Optional[bool] = None
+
+
+class VendorProductResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    product_id: str
+    vendor_id: str
+    name: str
+    description: str
+    price: float
+    compare_price: Optional[float] = None
+    category: str
+    sizes: List[str]
+    colors: List[str]
+    images: List[str]
+    stock: int
+    tags: List[str]
+    is_limited_edition: bool
+    approval_status: str
+    rejection_reason: Optional[str] = None
+    is_active: bool
+    total_sold: int = 0
+    total_revenue: float = 0.0
+    created_at: str
+
+
+class VendorWalletTransaction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    transaction_id: str
+    vendor_id: str
+    type: str
+    amount: float
+    balance_after: float
+    description: str
+    order_id: Optional[str] = None
+    created_at: str
+
+
+class VendorWithdrawalRequest(BaseModel):
+    amount: float
+
+
+class VendorWithdrawalResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    withdrawal_id: str
+    vendor_id: str
+    amount: float
+    status: str
+    bank_details: Dict
+    requested_at: str
+    processed_at: Optional[str] = None
+    admin_note: Optional[str] = None
+
+
+class VendorOfferCreate(BaseModel):
+    title: str
+    offer_type: str  # percentage, flat, coupon, flash_sale
+    discount_value: float
+    coupon_code: Optional[str] = None
+    product_ids: List[str] = []
+    start_date: str
+    end_date: str
+    max_quantity: Optional[int] = None
+    min_order_value: float = 0
+
+
+class VendorOfferResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    offer_id: str
+    vendor_id: str
+    title: str
+    offer_type: str
+    discount_value: float
+    coupon_code: Optional[str] = None
+    product_ids: List[str]
+    start_date: str
+    end_date: str
+    max_quantity: Optional[int] = None
+    min_order_value: float
+    is_active: bool
+    used_count: int = 0
+    created_at: str
+

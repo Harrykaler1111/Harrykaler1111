@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Package, ShoppingCart, Users, UserCheck, 
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
-  Shield, Instagram, Settings, User, Lock
+  Shield, Instagram, Settings, User, Lock, Store, FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1077,6 +1077,231 @@ export const AdminDashboard = () => {
     navigate("/admin-login");
   };
 
+  // ====== VENDORS MANAGEMENT ======
+  const VendorsManagement = () => {
+    const [vendors, setVendors] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState("all");
+
+    useEffect(() => {
+      const fetchVendors = async () => {
+        try {
+          const url = filter === "all" ? `${API}/vendors/admin/list` : `${API}/vendors/admin/list?status=${filter}`;
+          const res = await axios.get(url, { headers: getAdminHeaders() });
+          setVendors(res.data);
+        } catch { toast.error("Failed to load vendors"); }
+        finally { setLoading(false); }
+      };
+      fetchVendors();
+    }, [filter]);
+
+    const updateVendor = async (vendorId, action) => {
+      try {
+        await axios.put(`${API}/vendors/admin/${vendorId}/${action}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Vendor ${action}d`);
+        setVendors(vendors.map(v => v.vendor_id === vendorId ? {
+          ...v,
+          status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "suspended"
+        } : v));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const approveKYC = async (vendorId, action) => {
+      try {
+        await axios.put(`${API}/vendors/admin/${vendorId}/kyc/${action}`, {}, { headers: getAdminHeaders() });
+        toast.success(`KYC ${action}d`);
+        setVendors(vendors.map(v => v.vendor_id === vendorId ? { ...v, kyc_status: action === "approve" ? "approved" : "rejected" } : v));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const canApprove = hasPermission("vendors", "approve");
+    const canApproveKYC = hasPermission("vendor_kyc", "approve");
+
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="font-serif text-2xl font-bold text-white">Vendor Management</h2>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-40 bg-neutral-800 border-neutral-700 text-white">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Vendors</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="kyc_submitted">KYC Submitted</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
+              <SelectItem value="suspended">Suspended</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">Store</TableHead>
+                <TableHead className="text-neutral-400">Owner</TableHead>
+                <TableHead className="text-neutral-400">Status</TableHead>
+                <TableHead className="text-neutral-400">KYC</TableHead>
+                <TableHead className="text-neutral-400">Products</TableHead>
+                <TableHead className="text-neutral-400">Sales</TableHead>
+                {canApprove && <TableHead className="text-neutral-400">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vendors.map((v) => (
+                <TableRow key={v.vendor_id} className="border-neutral-700">
+                  <TableCell>
+                    <div>
+                      <p className="text-white font-medium">{v.store_name}</p>
+                      <p className="text-xs text-neutral-400">{v.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-neutral-300">{v.owner_name}</TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded capitalize ${
+                      v.status === "approved" ? "bg-green-500/20 text-green-400" :
+                      v.status === "rejected" ? "bg-red-500/20 text-red-400" :
+                      v.status === "suspended" ? "bg-red-600/20 text-red-500" :
+                      v.status === "kyc_submitted" ? "bg-blue-500/20 text-blue-400" :
+                      "bg-yellow-500/20 text-yellow-400"
+                    }`}>{v.status?.replace("_", " ")}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded capitalize ${
+                      v.kyc_status === "approved" ? "bg-green-500/20 text-green-400" :
+                      v.kyc_status === "submitted" ? "bg-blue-500/20 text-blue-400" :
+                      v.kyc_status === "rejected" ? "bg-red-500/20 text-red-400" :
+                      "bg-neutral-500/20 text-neutral-400"
+                    }`}>{v.kyc_status?.replace("_", " ") || "Not submitted"}</span>
+                  </TableCell>
+                  <TableCell className="text-neutral-300">{v.total_products || 0}</TableCell>
+                  <TableCell className="text-gold">{(v.total_sales || 0).toLocaleString()}</TableCell>
+                  {canApprove && (
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {(v.status === "pending" || v.status === "kyc_submitted") && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs"
+                              onClick={() => updateVendor(v.vendor_id, "approve")} data-testid={`approve-vendor-${v.vendor_id}`}>
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs"
+                              onClick={() => updateVendor(v.vendor_id, "reject")}>
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {v.status === "approved" && (
+                          <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs"
+                            onClick={() => updateVendor(v.vendor_id, "suspend")}>
+                            Suspend
+                          </Button>
+                        )}
+                        {canApproveKYC && v.kyc_status === "submitted" && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 text-xs"
+                              onClick={() => approveKYC(v.vendor_id, "approve")}>
+                              KYC OK
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs"
+                              onClick={() => approveKYC(v.vendor_id, "reject")}>
+                              KYC Rej
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && vendors.length === 0 && <div className="text-center py-12 text-neutral-500">No vendors found</div>}
+        </div>
+      </div>
+    );
+  };
+
+  // ====== VENDOR PRODUCT APPROVALS ======
+  const VendorProductApprovals = () => {
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const fetchProducts = async () => {
+        try {
+          const res = await axios.get(`${API}/vendors/admin/products/pending`, { headers: getAdminHeaders() });
+          setProducts(res.data);
+        } catch { toast.error("Failed to load products"); }
+        finally { setLoading(false); }
+      };
+      fetchProducts();
+    }, []);
+
+    const handleAction = async (productId, action) => {
+      try {
+        if (action === "approve") {
+          await axios.put(`${API}/vendors/admin/products/${productId}/approve`, {}, { headers: getAdminHeaders() });
+        } else {
+          await axios.put(`${API}/vendors/admin/products/${productId}/reject?reason=Does not meet standards`, {}, { headers: getAdminHeaders() });
+        }
+        toast.success(`Product ${action}d`);
+        setProducts(products.filter(p => p.product_id !== productId));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const canApprove = hasPermission("vendor_products", "approve");
+
+    return (
+      <div>
+        <h2 className="font-serif text-2xl font-bold text-white mb-6">Pending Product Approvals</h2>
+        <div className="space-y-4">
+          {products.map((p) => (
+            <div key={p.product_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5 flex gap-4">
+              {p.images?.[0] && (
+                <img src={p.images[0]} alt={p.name} className="w-20 h-20 rounded-lg object-cover" />
+              )}
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-white font-medium">{p.name}</h3>
+                    <p className="text-sm text-neutral-400">{p.category} | Stock: {p.stock}</p>
+                    <p className="text-xs text-neutral-500 mt-1">{p.description?.substring(0, 100)}...</p>
+                  </div>
+                  <p className="text-lg font-bold text-gold">{p.price?.toLocaleString()}</p>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="text-xs text-neutral-400">Vendor: {p.vendor_id}</span>
+                  {canApprove && (
+                    <div className="flex gap-2 ml-auto">
+                      <Button size="sm" className="bg-green-600 text-white text-xs" onClick={() => handleAction(p.product_id, "approve")}
+                        data-testid={`approve-product-${p.product_id}`}>
+                        <Check className="h-3 w-3 mr-1" /> Approve
+                      </Button>
+                      <Button size="sm" variant="destructive" className="text-xs" onClick={() => handleAction(p.product_id, "reject")}>
+                        <X className="h-3 w-3 mr-1" /> Reject
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && products.length === 0 && (
+            <div className="text-center py-12 text-neutral-500">
+              <FileCheck className="h-12 w-12 mx-auto mb-3 text-neutral-600" />
+              No pending product approvals
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const navItems = [
     { path: "/admin", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview", permission: ["analytics", "view"] },
     { path: "/admin/orders", icon: <ShoppingCart className="h-5 w-5" />, label: "Orders", permission: ["orders", "view"] },
@@ -1086,6 +1311,8 @@ export const AdminDashboard = () => {
     { path: "/admin/products", icon: <Package className="h-5 w-5" />, label: "Products", permission: ["products", "view"] },
     { path: "/admin/customers", icon: <Users className="h-5 w-5" />, label: "Customers", permission: ["customers", "view"] },
     { path: "/admin/coupons", icon: <Tag className="h-5 w-5" />, label: "Coupons", permission: ["coupons", "view"] },
+    { path: "/admin/vendors", icon: <Store className="h-5 w-5" />, label: "Vendors", permission: ["vendors", "view"] },
+    { path: "/admin/vendor-products", icon: <FileCheck className="h-5 w-5" />, label: "Product Approvals", permission: ["vendor_products", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
 
@@ -1164,6 +1391,8 @@ export const AdminDashboard = () => {
             <Route path="products" element={<ProductsManagement />} />
             <Route path="customers" element={<CustomersManagement />} />
             <Route path="coupons" element={<CouponsManagement />} />
+            <Route path="vendors" element={<VendorsManagement />} />
+            <Route path="vendor-products" element={<VendorProductApprovals />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>

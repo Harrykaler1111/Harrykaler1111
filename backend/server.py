@@ -25,6 +25,7 @@ from routes.affiliate_routes import router as affiliate_router
 from routes.coupon_routes import router as coupon_router
 from routes.chat_routes import router as chat_router
 from routes.misc_routes import router as misc_router
+from routes.vendor_routes import router as vendor_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -45,6 +46,12 @@ app.include_router(affiliate_router, prefix="/api")
 app.include_router(coupon_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(misc_router, prefix="/api")
+app.include_router(vendor_router, prefix="/api")
+
+# Serve uploaded files
+from fastapi.staticfiles import StaticFiles
+from config import UPLOAD_DIR
+app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # CORS middleware
 app.add_middleware(
@@ -70,6 +77,12 @@ async def startup_event():
     await db.coupons.create_index("code", unique=True)
     await db.withdrawals.create_index("withdrawal_id", unique=True)
     await db.wallet_transactions.create_index("transaction_id", unique=True)
+    await db.vendors.create_index("email", unique=True)
+    await db.vendors.create_index("vendor_id", unique=True)
+    await db.vendor_products.create_index("product_id", unique=True)
+    await db.vendor_withdrawals.create_index("withdrawal_id", unique=True)
+    await db.vendor_wallet_transactions.create_index("transaction_id", unique=True)
+    await db.vendor_offers.create_index("offer_id", unique=True)
 
     # Seed super admin if not exists
     super_admin = await db.admin_users.find_one({"email": "superadmin@pigma.com"})

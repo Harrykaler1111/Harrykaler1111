@@ -28,7 +28,15 @@ ADMIN_JWT_EXPIRATION_HOURS = 8
 
 # Commission settings
 DEFAULT_COMMISSION_RATE = 10.0
+PLATFORM_COMMISSION_RATE = 15.0
 MIN_WITHDRAWAL_AMOUNT = 1000
+
+# Upload settings
+UPLOAD_DIR = ROOT_DIR / 'uploads'
+UPLOAD_DIR.mkdir(exist_ok=True)
+(UPLOAD_DIR / 'kyc').mkdir(exist_ok=True)
+(UPLOAD_DIR / 'products').mkdir(exist_ok=True)
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Rate limiting for DM automation
 DM_RATE_LIMIT_PER_HOUR = 50

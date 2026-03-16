@@ -41,6 +41,7 @@ export const Header = () => {
     { label: "Platform Boots", href: "/products/Platform Boots" },
     { label: "Stiletto Heels", href: "/products/Stiletto Heels" },
     { label: "Limited Drops", href: "/products?limited=true" },
+    { label: "Sell on Pigma", href: "/vendor-login" },
   ];
 
   const isHomePage = location.pathname === "/";

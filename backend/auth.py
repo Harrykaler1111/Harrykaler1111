@@ -103,3 +103,19 @@ def generate_referral_link(referral_code: str, product_id: Optional[str] = None)
     if product_id:
         return f"{base_url}/product/{product_id}?ref={referral_code}"
     return f"{base_url}?ref={referral_code}"
+
+
+async def get_current_vendor(authorization: Optional[str] = Header(None)) -> Dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+    token = authorization.split(" ")[1]
+    payload = decode_jwt_token(token)
+
+    if payload.get("role") != "vendor":
+        raise HTTPException(status_code=403, detail="Vendor access required")
+
+    vendor = await db.vendors.find_one({"vendor_id": payload["user_id"]}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(status_code=401, detail="Vendor not found")
+
+    return vendor
