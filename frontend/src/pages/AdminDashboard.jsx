@@ -1547,6 +1547,8 @@ export const AdminDashboard = () => {
     { path: "/admin/coupons", icon: <Tag className="h-5 w-5" />, label: "Coupons", permission: ["coupons", "view"] },
     { path: "/admin/vendors", icon: <Store className="h-5 w-5" />, label: "Vendors", permission: ["vendors", "view"] },
     { path: "/admin/vendor-products", icon: <FileCheck className="h-5 w-5" />, label: "Product Approvals", permission: ["vendor_products", "view"] },
+    { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },
+    { path: "/admin/suspension-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
 
@@ -1627,6 +1629,8 @@ export const AdminDashboard = () => {
             <Route path="coupons" element={<CouponsManagement />} />
             <Route path="vendors" element={<VendorsManagement />} />
             <Route path="vendor-products" element={<VendorProductApprovals />} />
+            <Route path="resellers" element={<ResellersManagement />} />
+            <Route path="suspension-history" element={<SuspensionHistoryPage />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>

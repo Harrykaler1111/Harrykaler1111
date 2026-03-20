@@ -21,6 +21,8 @@ import { AdminDashboard } from "@/pages/AdminDashboard";
 import { AdminLoginPage } from "@/pages/AdminLoginPage";
 import { VendorAuthPage } from "@/pages/VendorAuthPage";
 import { VendorDashboard } from "@/pages/VendorDashboard";
+import { ResellerRegisterPage } from "@/pages/ResellerRegisterPage";
+import { ResellerDashboard } from "@/pages/ResellerDashboard";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -134,7 +136,8 @@ const LayoutWrapper = ({ children }) => {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
   const isVendorPage = location.pathname.startsWith("/vendor");
-  const hideChrome = isAdminPage || isVendorPage;
+  const isResellerDash = location.pathname.startsWith("/reseller/");
+  const hideChrome = isAdminPage || isVendorPage || isResellerDash;
 
   return (
     <div className="App min-h-screen flex flex-col">
@@ -239,6 +242,18 @@ const AppRouter = () => {
       <Route
         path="/vendor/*"
         element={<VendorDashboard />}
+      />
+      <Route
+        path="/reseller-register"
+        element={<ResellerRegisterPage />}
+      />
+      <Route
+        path="/reseller/*"
+        element={
+          <ProtectedRoute>
+            <ResellerDashboard />
+          </ProtectedRoute>
+        }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
