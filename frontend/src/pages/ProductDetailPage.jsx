@@ -171,6 +171,11 @@ export const ProductDetailPage = () => {
               <h1 className="font-serif text-3xl md:text-4xl font-bold" data-testid="product-name">
                 {product.name}
               </h1>
+              {product.vendor_name && (
+                <p className="text-sm text-gold mt-1" data-testid="product-vendor">
+                  Sold by <span className="font-medium">{product.vendor_name}</span>
+                </p>
+              )}
             </div>
 
             {/* Price */}

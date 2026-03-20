@@ -117,6 +117,9 @@ class ProductResponse(BaseModel):
     drop_date: Optional[str] = None
     tags: List[str]
     is_active: bool
+    vendor_id: Optional[str] = None
+    vendor_name: Optional[str] = None
+    is_vendor_product: bool = False
     created_at: str
 
 
@@ -154,6 +157,11 @@ class OrderResponse(BaseModel):
     shipping_address: Dict
     payment_status: str
     razorpay_order_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    vendor_name: Optional[str] = None
+    platform_commission: float = 0.0
+    influencer_commission: float = 0.0
+    vendor_amount: float = 0.0
     created_at: str
 
 
@@ -473,3 +481,42 @@ class VendorOfferResponse(BaseModel):
     used_count: int = 0
     created_at: str
 
+
+# ==================== RESELLER SCHEMAS ====================
+
+class ResellerRegister(BaseModel):
+    bio: Optional[str] = None
+    social_platforms: List[str] = []
+
+
+class ResellerResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    reseller_id: str
+    user_id: str
+    name: str
+    email: str
+    bio: Optional[str] = None
+    social_platforms: List[str]
+    status: str
+    referral_code: str
+    commission_rate: float
+    total_clicks: int
+    total_conversions: int
+    total_earnings: float
+    wallet_balance: float = 0.0
+    created_at: str
+
+
+# ==================== SUSPENSION LOG ====================
+
+class SuspensionLogResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    log_id: str
+    entity_type: str
+    entity_id: str
+    entity_name: str
+    action: str
+    reason: str
+    admin_id: str
+    admin_name: str
+    created_at: str

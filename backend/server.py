@@ -26,6 +26,8 @@ from routes.coupon_routes import router as coupon_router
 from routes.chat_routes import router as chat_router
 from routes.misc_routes import router as misc_router
 from routes.vendor_routes import router as vendor_router
+from routes.reseller_routes import router as reseller_router
+from routes.user_control_routes import router as user_control_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -47,6 +49,8 @@ app.include_router(coupon_router, prefix="/api")
 app.include_router(chat_router, prefix="/api")
 app.include_router(misc_router, prefix="/api")
 app.include_router(vendor_router, prefix="/api")
+app.include_router(reseller_router, prefix="/api")
+app.include_router(user_control_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -83,6 +87,14 @@ async def startup_event():
     await db.vendor_withdrawals.create_index("withdrawal_id", unique=True)
     await db.vendor_wallet_transactions.create_index("transaction_id", unique=True)
     await db.vendor_offers.create_index("offer_id", unique=True)
+    await db.platform_transactions.create_index("transaction_id", unique=True)
+    await db.sales_tracking.create_index("tracking_id", unique=True)
+    await db.sales_tracking.create_index("vendor_id")
+    await db.resellers.create_index("user_id", unique=True)
+    await db.resellers.create_index("reseller_id", unique=True)
+    await db.resellers.create_index("referral_code", unique=True)
+    await db.suspension_logs.create_index("entity_id")
+    await db.reseller_wallet_transactions.create_index("reseller_id")
 
     # Seed super admin if not exists
     super_admin = await db.admin_users.find_one({"email": "superadmin@pigma.com"})

@@ -32,6 +32,15 @@ class VendorStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     SUSPENDED = "suspended"
+    DISCONNECTED = "disconnected"
+    DISCONTINUED = "discontinued"
+
+
+class UserAccountStatus(str, Enum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+    DISCONNECTED = "disconnected"
+    DISCONTINUED = "discontinued"
 
 
 class VendorProductStatus(str, Enum):
@@ -53,8 +62,9 @@ ROLE_PERMISSIONS = {
     AdminRole.SUPER_ADMIN: {
         "products": ["view", "create", "edit", "delete", "approve"],
         "orders": ["view", "update", "delete"],
-        "influencers": ["view", "approve", "reject", "edit", "delete"],
+        "influencers": ["view", "approve", "reject", "edit", "delete", "suspend", "disconnect", "reactivate"],
         "affiliates": ["view", "approve", "reject", "edit", "delete"],
+        "resellers": ["view", "approve", "reject", "suspend", "disconnect", "reactivate"],
         "commissions": ["view", "edit", "approve"],
         "wallets": ["view", "edit", "approve_withdrawal"],
         "payouts": ["view", "create", "approve", "process"],
@@ -63,7 +73,7 @@ ROLE_PERMISSIONS = {
         "system": ["view", "configure"],
         "customers": ["view", "edit", "delete"],
         "coupons": ["view", "create", "edit", "delete"],
-        "vendors": ["view", "approve", "reject", "edit", "delete", "suspend"],
+        "vendors": ["view", "approve", "reject", "edit", "delete", "suspend", "disconnect", "reactivate"],
         "vendor_products": ["view", "approve", "reject"],
         "vendor_kyc": ["view", "approve", "reject"],
         "vendor_withdrawals": ["view", "approve", "reject", "process"],
@@ -73,6 +83,7 @@ ROLE_PERMISSIONS = {
         "orders": ["view"],
         "influencers": ["view", "approve", "reject"],
         "affiliates": ["view", "approve", "reject"],
+        "resellers": ["view", "approve", "reject"],
         "commissions": ["view"],
         "wallets": ["view"],
         "payouts": [],
@@ -91,6 +102,7 @@ ROLE_PERMISSIONS = {
         "orders": ["view"],
         "influencers": ["view"],
         "affiliates": ["view"],
+        "resellers": ["view"],
         "commissions": ["view", "edit"],
         "wallets": ["view", "approve_withdrawal"],
         "payouts": ["view", "create", "approve", "process"],
@@ -109,6 +121,7 @@ ROLE_PERMISSIONS = {
         "orders": ["view", "update"],
         "influencers": ["view"],
         "affiliates": ["view"],
+        "resellers": ["view"],
         "commissions": [],
         "wallets": [],
         "payouts": [],

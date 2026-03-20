@@ -5,7 +5,7 @@ from datetime import datetime
 import json
 
 class PigmaAPITester:
-    def __init__(self, base_url="https://pigma-marketplace-v2.preview.emergentagent.com"):
+    def __init__(self, base_url="https://pigma-approval-hub.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.admin_token = None

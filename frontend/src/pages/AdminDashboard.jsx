@@ -312,122 +312,136 @@ const OrdersManagement = () => {
   );
 };
 
-// Influencer Management
+// Influencer Management with full control actions
 const InfluencerManagement = () => {
   const [influencers, setInfluencers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [historyTarget, setHistoryTarget] = useState(null);
+  const [history, setHistory] = useState([]);
 
   useEffect(() => {
     const fetchInfluencers = async () => {
       try {
-        const response = await axios.get(`${API}/influencers`, {
-          headers: getAdminHeaders()
-        });
+        const response = await axios.get(`${API}/influencers`, { headers: getAdminHeaders() });
         setInfluencers(response.data);
-      } catch (error) {
-        toast.error("Failed to load influencers");
-      } finally {
-        setLoading(false);
-      }
+      } catch { toast.error("Failed to load influencers"); }
+      finally { setLoading(false); }
     };
     fetchInfluencers();
   }, []);
 
   const updateStatus = async (influencerId, status) => {
     try {
-      await axios.put(
-        `${API}/influencers/${influencerId}/status?status=${status}`,
-        {},
-        { headers: getAdminHeaders() }
-      );
+      await axios.put(`${API}/influencers/${influencerId}/status?status=${status}`, {}, { headers: getAdminHeaders() });
       toast.success(`Influencer ${status}`);
-      setInfluencers(influencers.map(i => 
-        i.influencer_id === influencerId ? { ...i, status } : i
-      ));
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to update status");
-    }
+      setInfluencers(influencers.map(i => i.influencer_id === influencerId ? { ...i, status } : i));
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to update"); }
+  };
+
+  const controlAction = async (influencerId, action) => {
+    const reason = window.prompt(`Reason for ${action}:`, "Policy violation");
+    if (!reason) return;
+    try {
+      await axios.put(`${API}/admin/user-control/influencer/${influencerId}/${action}?reason=${encodeURIComponent(reason)}`, {}, { headers: getAdminHeaders() });
+      toast.success(`Influencer ${action}d`);
+      const newStatus = action === "reactivate" ? "approved" : action === "discontinue" ? "discontinued" : action + "ed";
+      setInfluencers(influencers.map(i => i.influencer_id === influencerId ? { ...i, status: newStatus } : i));
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const viewHistory = async (id) => {
+    try {
+      const res = await axios.get(`${API}/admin/user-control/history/influencer/${id}`, { headers: getAdminHeaders() });
+      setHistory(res.data);
+      setHistoryTarget(id);
+    } catch { toast.error("Failed to load history"); }
   };
 
   const canApprove = hasPermission("influencers", "approve");
+  const canSuspend = hasPermission("influencers", "suspend");
+
+  const statusBadge = (s) => {
+    const map = { approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", suspended: "bg-orange-500/20 text-orange-400", disconnected: "bg-red-600/20 text-red-500", discontinued: "bg-neutral-600/20 text-neutral-400", pending: "bg-yellow-500/20 text-yellow-400" };
+    return map[s] || map.pending;
+  };
 
   return (
     <div>
       <h2 className="font-serif text-2xl font-bold text-white mb-6">Influencer Management</h2>
+
+      {historyTarget && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-semibold text-white">Action History for {historyTarget}</h3>
+            <Button size="sm" variant="ghost" className="text-neutral-400" onClick={() => setHistoryTarget(null)}><X className="h-4 w-4" /></Button>
+          </div>
+          {history.length === 0 ? <p className="text-neutral-500 text-sm">No history</p> :
+            history.map((h) => (
+              <div key={h.log_id} className="flex justify-between items-center py-1.5 border-b border-neutral-700/50 last:border-0 text-xs">
+                <span className={`font-medium capitalize ${h.action === "reactivate" ? "text-green-400" : "text-red-400"}`}>{h.action}</span>
+                <span className="text-neutral-400">{h.reason}</span>
+                <span className="text-neutral-500">by {h.admin_name} - {new Date(h.created_at).toLocaleDateString()}</span>
+              </div>
+            ))
+          }
+        </motion.div>
+      )}
+
       <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="border-neutral-700">
               <TableHead className="text-neutral-400">Name</TableHead>
               <TableHead className="text-neutral-400">Instagram</TableHead>
-              <TableHead className="text-neutral-400">Connected</TableHead>
-              <TableHead className="text-neutral-400">Clicks</TableHead>
-              <TableHead className="text-neutral-400">Sales</TableHead>
               <TableHead className="text-neutral-400">Earnings</TableHead>
-              <TableHead className="text-neutral-400">Wallet</TableHead>
               <TableHead className="text-neutral-400">Status</TableHead>
-              {canApprove && <TableHead className="text-neutral-400">Actions</TableHead>}
+              <TableHead className="text-neutral-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {influencers.map((inf) => (
               <TableRow key={inf.influencer_id} className="border-neutral-700">
-                <TableCell className="text-white">{inf.name}</TableCell>
+                <TableCell>
+                  <p className="text-white">{inf.name}</p>
+                  <p className="text-xs text-neutral-400">{inf.email}</p>
+                </TableCell>
                 <TableCell className="text-neutral-300">@{inf.instagram_handle || "-"}</TableCell>
+                <TableCell className="text-gold">{inf.total_earnings?.toLocaleString()}</TableCell>
                 <TableCell>
-                  {inf.instagram_connected ? (
-                    <span className="flex items-center gap-1 text-green-400">
-                      <Instagram className="h-4 w-4" /> Yes
-                    </span>
-                  ) : (
-                    <span className="text-neutral-500">No</span>
-                  )}
+                  <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(inf.status)}`}>{inf.status}</span>
                 </TableCell>
-                <TableCell className="text-neutral-300">{inf.total_clicks}</TableCell>
-                <TableCell className="text-neutral-300">{inf.total_conversions}</TableCell>
-                <TableCell className="text-gold">₹{inf.total_earnings?.toLocaleString()}</TableCell>
-                <TableCell className="text-emerald-400">₹{inf.wallet_balance?.toLocaleString() || 0}</TableCell>
                 <TableCell>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    inf.status === "approved" ? "bg-green-500/20 text-green-400" :
-                    inf.status === "rejected" ? "bg-red-500/20 text-red-400" : 
-                    "bg-yellow-500/20 text-yellow-400"
-                  }`}>
-                    {inf.status}
-                  </span>
-                </TableCell>
-                {canApprove && (
-                  <TableCell>
-                    {inf.status === "pending" && (
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                          onClick={() => updateStatus(inf.influencer_id, "approved")}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                          onClick={() => updateStatus(inf.influencer_id, "rejected")}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {inf.status === "pending" && canApprove && (
+                      <>
+                        <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs" onClick={() => updateStatus(inf.influencer_id, "approved")}>Approve</Button>
+                        <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs" onClick={() => updateStatus(inf.influencer_id, "rejected")}>Reject</Button>
+                      </>
                     )}
-                  </TableCell>
-                )}
+                    {inf.status === "approved" && canSuspend && (
+                      <>
+                        <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs" onClick={() => controlAction(inf.influencer_id, "suspend")}>Suspend</Button>
+                        <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs" onClick={() => controlAction(inf.influencer_id, "disconnect")}>Disconnect</Button>
+                      </>
+                    )}
+                    {(inf.status === "suspended" || inf.status === "disconnected") && canSuspend && (
+                      <>
+                        <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs" onClick={() => controlAction(inf.influencer_id, "reactivate")}>Reactivate</Button>
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-600/10 text-xs" onClick={() => controlAction(inf.influencer_id, "discontinue")}>Discontinue</Button>
+                      </>
+                    )}
+                    <Button size="sm" variant="ghost" className="text-neutral-400 hover:bg-neutral-700/50 text-xs" onClick={() => viewHistory(inf.influencer_id)}>
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
         {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-        {!loading && influencers.length === 0 && (
-          <div className="text-center py-12 text-neutral-500">No influencers found</div>
-        )}
+        {!loading && influencers.length === 0 && <div className="text-center py-12 text-neutral-500">No influencers found</div>}
       </div>
     </div>
   );
@@ -1082,6 +1096,8 @@ export const AdminDashboard = () => {
     const [vendors, setVendors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("all");
+    const [historyTarget, setHistoryTarget] = useState(null);
+    const [history, setHistory] = useState([]);
 
     useEffect(() => {
       const fetchVendors = async () => {
@@ -1100,8 +1116,7 @@ export const AdminDashboard = () => {
         await axios.put(`${API}/vendors/admin/${vendorId}/${action}`, {}, { headers: getAdminHeaders() });
         toast.success(`Vendor ${action}d`);
         setVendors(vendors.map(v => v.vendor_id === vendorId ? {
-          ...v,
-          status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "suspended"
+          ...v, status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "suspended"
         } : v));
       } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
     };
@@ -1114,17 +1129,40 @@ export const AdminDashboard = () => {
       } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
     };
 
+    const controlAction = async (vendorId, action) => {
+      const reason = window.prompt(`Reason for ${action}:`, "Policy violation");
+      if (!reason) return;
+      try {
+        await axios.put(`${API}/admin/user-control/vendor/${vendorId}/${action}?reason=${encodeURIComponent(reason)}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Vendor ${action}d`);
+        const newStatus = action === "reactivate" ? "approved" : action === "discontinue" ? "discontinued" : action + "ed";
+        setVendors(vendors.map(v => v.vendor_id === vendorId ? { ...v, status: newStatus } : v));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const viewHistory = async (id) => {
+      try {
+        const res = await axios.get(`${API}/admin/user-control/history/vendor/${id}`, { headers: getAdminHeaders() });
+        setHistory(res.data);
+        setHistoryTarget(id);
+      } catch { toast.error("Failed to load history"); }
+    };
+
     const canApprove = hasPermission("vendors", "approve");
+    const canSuspend = hasPermission("vendors", "suspend");
     const canApproveKYC = hasPermission("vendor_kyc", "approve");
+
+    const statusBadge = (s) => {
+      const map = { approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", suspended: "bg-orange-500/20 text-orange-400", disconnected: "bg-red-600/20 text-red-500", discontinued: "bg-neutral-600/20 text-neutral-400", pending: "bg-yellow-500/20 text-yellow-400", kyc_submitted: "bg-blue-500/20 text-blue-400" };
+      return map[s] || map.pending;
+    };
 
     return (
       <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="font-serif text-2xl font-bold text-white">Vendor Management</h2>
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-40 bg-neutral-800 border-neutral-700 text-white">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="w-40 bg-neutral-800 border-neutral-700 text-white"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Vendors</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
@@ -1132,88 +1170,87 @@ export const AdminDashboard = () => {
               <SelectItem value="approved">Approved</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="disconnected">Disconnected</SelectItem>
+              <SelectItem value="discontinued">Discontinued</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {historyTarget && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold text-white">Action History for {historyTarget}</h3>
+              <Button size="sm" variant="ghost" className="text-neutral-400" onClick={() => setHistoryTarget(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {history.length === 0 ? <p className="text-neutral-500 text-sm">No history</p> :
+              history.map((h) => (
+                <div key={h.log_id} className="flex justify-between items-center py-1.5 border-b border-neutral-700/50 last:border-0 text-xs">
+                  <span className={`font-medium capitalize ${h.action === "reactivate" ? "text-green-400" : "text-red-400"}`}>{h.action}</span>
+                  <span className="text-neutral-400">{h.reason}</span>
+                  <span className="text-neutral-500">by {h.admin_name} - {new Date(h.created_at).toLocaleDateString()}</span>
+                </div>
+              ))
+            }
+          </motion.div>
+        )}
 
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow className="border-neutral-700">
                 <TableHead className="text-neutral-400">Store</TableHead>
-                <TableHead className="text-neutral-400">Owner</TableHead>
                 <TableHead className="text-neutral-400">Status</TableHead>
                 <TableHead className="text-neutral-400">KYC</TableHead>
-                <TableHead className="text-neutral-400">Products</TableHead>
                 <TableHead className="text-neutral-400">Sales</TableHead>
-                {canApprove && <TableHead className="text-neutral-400">Actions</TableHead>}
+                <TableHead className="text-neutral-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vendors.map((v) => (
                 <TableRow key={v.vendor_id} className="border-neutral-700">
                   <TableCell>
-                    <div>
-                      <p className="text-white font-medium">{v.store_name}</p>
-                      <p className="text-xs text-neutral-400">{v.email}</p>
+                    <p className="text-white font-medium">{v.store_name}</p>
+                    <p className="text-xs text-neutral-400">{v.owner_name} - {v.email}</p>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(v.status)}`}>{v.status?.replace("_", " ")}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(v.kyc_status === "submitted" ? "kyc_submitted" : v.kyc_status || "pending")}`}>{v.kyc_status?.replace("_", " ") || "Not submitted"}</span>
+                  </TableCell>
+                  <TableCell className="text-gold">{(v.total_sales || 0).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {(v.status === "pending" || v.status === "kyc_submitted") && canApprove && (
+                        <>
+                          <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs" onClick={() => updateVendor(v.vendor_id, "approve")} data-testid={`approve-vendor-${v.vendor_id}`}>Approve</Button>
+                          <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs" onClick={() => updateVendor(v.vendor_id, "reject")}>Reject</Button>
+                        </>
+                      )}
+                      {v.status === "approved" && canSuspend && (
+                        <>
+                          <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs" onClick={() => controlAction(v.vendor_id, "suspend")}>Suspend</Button>
+                          <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs" onClick={() => controlAction(v.vendor_id, "disconnect")}>Disconnect</Button>
+                        </>
+                      )}
+                      {(v.status === "suspended" || v.status === "disconnected") && canSuspend && (
+                        <>
+                          <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs" onClick={() => controlAction(v.vendor_id, "reactivate")}>Reactivate</Button>
+                          <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-600/10 text-xs" onClick={() => controlAction(v.vendor_id, "discontinue")}>Discontinue</Button>
+                        </>
+                      )}
+                      {canApproveKYC && v.kyc_status === "submitted" && (
+                        <>
+                          <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 text-xs" onClick={() => approveKYC(v.vendor_id, "approve")}>KYC OK</Button>
+                          <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs" onClick={() => approveKYC(v.vendor_id, "reject")}>KYC Rej</Button>
+                        </>
+                      )}
+                      <Button size="sm" variant="ghost" className="text-neutral-400 hover:bg-neutral-700/50 text-xs" onClick={() => viewHistory(v.vendor_id)}>
+                        <Eye className="h-3 w-3" />
+                      </Button>
                     </div>
                   </TableCell>
-                  <TableCell className="text-neutral-300">{v.owner_name}</TableCell>
-                  <TableCell>
-                    <span className={`text-xs px-2 py-1 rounded capitalize ${
-                      v.status === "approved" ? "bg-green-500/20 text-green-400" :
-                      v.status === "rejected" ? "bg-red-500/20 text-red-400" :
-                      v.status === "suspended" ? "bg-red-600/20 text-red-500" :
-                      v.status === "kyc_submitted" ? "bg-blue-500/20 text-blue-400" :
-                      "bg-yellow-500/20 text-yellow-400"
-                    }`}>{v.status?.replace("_", " ")}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-xs px-2 py-1 rounded capitalize ${
-                      v.kyc_status === "approved" ? "bg-green-500/20 text-green-400" :
-                      v.kyc_status === "submitted" ? "bg-blue-500/20 text-blue-400" :
-                      v.kyc_status === "rejected" ? "bg-red-500/20 text-red-400" :
-                      "bg-neutral-500/20 text-neutral-400"
-                    }`}>{v.kyc_status?.replace("_", " ") || "Not submitted"}</span>
-                  </TableCell>
-                  <TableCell className="text-neutral-300">{v.total_products || 0}</TableCell>
-                  <TableCell className="text-gold">{(v.total_sales || 0).toLocaleString()}</TableCell>
-                  {canApprove && (
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {(v.status === "pending" || v.status === "kyc_submitted") && (
-                          <>
-                            <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10 text-xs"
-                              onClick={() => updateVendor(v.vendor_id, "approve")} data-testid={`approve-vendor-${v.vendor_id}`}>
-                              Approve
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs"
-                              onClick={() => updateVendor(v.vendor_id, "reject")}>
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {v.status === "approved" && (
-                          <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10 text-xs"
-                            onClick={() => updateVendor(v.vendor_id, "suspend")}>
-                            Suspend
-                          </Button>
-                        )}
-                        {canApproveKYC && v.kyc_status === "submitted" && (
-                          <>
-                            <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 text-xs"
-                              onClick={() => approveKYC(v.vendor_id, "approve")}>
-                              KYC OK
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs"
-                              onClick={() => approveKYC(v.vendor_id, "reject")}>
-                              KYC Rej
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -1297,6 +1334,203 @@ export const AdminDashboard = () => {
               No pending product approvals
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  // ====== RESELLER MANAGEMENT ======
+  const ResellersManagement = () => {
+    const [resellers, setResellers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [historyTarget, setHistoryTarget] = useState(null);
+    const [history, setHistory] = useState([]);
+
+    useEffect(() => {
+      axios.get(`${API}/resellers/admin/list`, { headers: getAdminHeaders() })
+        .then(res => setResellers(res.data))
+        .catch(() => toast.error("Failed to load resellers"))
+        .finally(() => setLoading(false));
+    }, []);
+
+    const controlAction = async (resellerId, action) => {
+      const reason = window.prompt(`Reason for ${action}:`, "Policy violation");
+      if (!reason) return;
+      try {
+        await axios.put(`${API}/admin/user-control/reseller/${resellerId}/${action}?reason=${encodeURIComponent(reason)}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Reseller ${action}d`);
+        const newStatus = action === "reactivate" ? "approved" : action === "discontinue" ? "discontinued" : action + "ed";
+        setResellers(resellers.map(r => r.reseller_id === resellerId ? { ...r, status: newStatus } : r));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const approveReject = async (resellerId, status) => {
+      try {
+        await axios.put(`${API}/admin/user-control/reseller/${resellerId}/${status === "approved" ? "reactivate" : "suspend"}?reason=${status}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Reseller ${status}`);
+        setResellers(resellers.map(r => r.reseller_id === resellerId ? { ...r, status } : r));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const viewHistory = async (id) => {
+      try {
+        const res = await axios.get(`${API}/admin/user-control/history/reseller/${id}`, { headers: getAdminHeaders() });
+        setHistory(res.data);
+        setHistoryTarget(id);
+      } catch {}
+    };
+
+    const canManage = hasPermission("resellers", "approve");
+    const statusBadge = (s) => {
+      const map = { approved: "bg-green-500/20 text-green-400", rejected: "bg-red-500/20 text-red-400", suspended: "bg-orange-500/20 text-orange-400", disconnected: "bg-red-600/20 text-red-500", discontinued: "bg-neutral-600/20 text-neutral-400", pending: "bg-yellow-500/20 text-yellow-400" };
+      return map[s] || map.pending;
+    };
+
+    return (
+      <div>
+        <h2 className="font-serif text-2xl font-bold text-white mb-6">Reseller Management</h2>
+
+        {historyTarget && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold text-white">Action History</h3>
+              <Button size="sm" variant="ghost" className="text-neutral-400" onClick={() => setHistoryTarget(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {history.length === 0 ? <p className="text-neutral-500 text-sm">No history</p> :
+              history.map((h) => (
+                <div key={h.log_id} className="flex justify-between py-1.5 border-b border-neutral-700/50 last:border-0 text-xs">
+                  <span className={`font-medium capitalize ${h.action === "reactivate" ? "text-green-400" : "text-red-400"}`}>{h.action}</span>
+                  <span className="text-neutral-400">{h.reason}</span>
+                  <span className="text-neutral-500">by {h.admin_name}</span>
+                </div>
+              ))
+            }
+          </motion.div>
+        )}
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">Name</TableHead>
+                <TableHead className="text-neutral-400">Earnings</TableHead>
+                <TableHead className="text-neutral-400">Conversions</TableHead>
+                <TableHead className="text-neutral-400">Status</TableHead>
+                {canManage && <TableHead className="text-neutral-400">Actions</TableHead>}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {resellers.map((r) => (
+                <TableRow key={r.reseller_id} className="border-neutral-700">
+                  <TableCell>
+                    <p className="text-white">{r.name}</p>
+                    <p className="text-xs text-neutral-400">{r.email}</p>
+                  </TableCell>
+                  <TableCell className="text-gold">{r.total_earnings?.toLocaleString()}</TableCell>
+                  <TableCell className="text-neutral-300">{r.total_conversions}</TableCell>
+                  <TableCell>
+                    <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(r.status)}`}>{r.status}</span>
+                  </TableCell>
+                  {canManage && (
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {r.status === "pending" && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-green-400 text-xs" onClick={() => approveReject(r.reseller_id, "approved")}>Approve</Button>
+                            <Button size="sm" variant="ghost" className="text-red-400 text-xs" onClick={() => approveReject(r.reseller_id, "rejected")}>Reject</Button>
+                          </>
+                        )}
+                        {r.status === "approved" && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-orange-400 text-xs" onClick={() => controlAction(r.reseller_id, "suspend")}>Suspend</Button>
+                            <Button size="sm" variant="ghost" className="text-red-400 text-xs" onClick={() => controlAction(r.reseller_id, "disconnect")}>Disconnect</Button>
+                          </>
+                        )}
+                        {(r.status === "suspended" || r.status === "disconnected") && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-green-400 text-xs" onClick={() => controlAction(r.reseller_id, "reactivate")}>Reactivate</Button>
+                            <Button size="sm" variant="ghost" className="text-red-600 text-xs" onClick={() => controlAction(r.reseller_id, "discontinue")}>Discontinue</Button>
+                          </>
+                        )}
+                        <Button size="sm" variant="ghost" className="text-neutral-400 text-xs" onClick={() => viewHistory(r.reseller_id)}><Eye className="h-3 w-3" /></Button>
+                      </div>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && resellers.length === 0 && <div className="text-center py-12 text-neutral-500">No resellers yet</div>}
+        </div>
+      </div>
+    );
+  };
+
+  // ====== SUSPENSION HISTORY ======
+  const SuspensionHistoryPage = () => {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filterType, setFilterType] = useState("all");
+
+    useEffect(() => {
+      const url = filterType === "all"
+        ? `${API}/admin/user-control/history?limit=100`
+        : `${API}/admin/user-control/history?entity_type=${filterType}&limit=100`;
+      axios.get(url, { headers: getAdminHeaders() })
+        .then(res => setLogs(res.data))
+        .catch(() => toast.error("Failed to load history"))
+        .finally(() => setLoading(false));
+    }, [filterType]);
+
+    const actionColor = (a) => {
+      const map = { reactivate: "text-green-400", suspend: "text-orange-400", disconnect: "text-red-400", discontinue: "text-red-600" };
+      return map[a] || "text-neutral-400";
+    };
+
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="font-serif text-2xl font-bold text-white">Suspension & Action History</h2>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-40 bg-neutral-800 border-neutral-700 text-white"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="vendor">Vendors</SelectItem>
+              <SelectItem value="influencer">Influencers</SelectItem>
+              <SelectItem value="reseller">Resellers</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">Type</TableHead>
+                <TableHead className="text-neutral-400">Name</TableHead>
+                <TableHead className="text-neutral-400">Action</TableHead>
+                <TableHead className="text-neutral-400">Reason</TableHead>
+                <TableHead className="text-neutral-400">By</TableHead>
+                <TableHead className="text-neutral-400">Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {logs.map((l) => (
+                <TableRow key={l.log_id} className="border-neutral-700">
+                  <TableCell><span className="text-xs capitalize bg-neutral-700 px-2 py-0.5 rounded text-neutral-300">{l.entity_type}</span></TableCell>
+                  <TableCell className="text-white">{l.entity_name}</TableCell>
+                  <TableCell><span className={`text-sm font-medium capitalize ${actionColor(l.action)}`}>{l.action}</span></TableCell>
+                  <TableCell className="text-neutral-300 text-sm">{l.reason}</TableCell>
+                  <TableCell className="text-neutral-400 text-sm">{l.admin_name}</TableCell>
+                  <TableCell className="text-neutral-500 text-sm">{new Date(l.created_at).toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && logs.length === 0 && <div className="text-center py-12 text-neutral-500">No action history</div>}
         </div>
       </div>
     );

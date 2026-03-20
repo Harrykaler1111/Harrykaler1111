@@ -456,3 +456,65 @@ async def process_withdrawal(withdrawal_id: str, payout_id: Optional[str] = None
     )
 
     return {"message": "Withdrawal processed", "payout_id": mock_payout_id}
+
+
+# ============== MARKETPLACE ANALYTICS ==============
+
+@router.get("/analytics/marketplace")
+async def get_marketplace_analytics(admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "analytics", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    total_vendors = await db.vendors.count_documents({"status": "approved"})
+    pending_vendors = await db.vendors.count_documents({"status": {"$in": ["pending", "kyc_submitted"]}})
+    total_vendor_products = await db.vendor_products.count_documents({"approval_status": "approved"})
+    pending_products = await db.vendor_products.count_documents({"approval_status": "pending_approval"})
+    pending_vendor_withdrawals = await db.vendor_withdrawals.count_documents({"status": "pending"})
+
+    pipeline = [
+        {"$match": {"is_vendor_sale": True}},
+        {"$group": {
+            "_id": None,
+            "total_sales": {"$sum": "$total"},
+            "platform_revenue": {"$sum": "$platform_commission"},
+            "influencer_payouts": {"$sum": "$influencer_commission"},
+            "vendor_earnings": {"$sum": "$vendor_amount"},
+            "order_count": {"$sum": 1}
+        }}
+    ]
+    result = await db.sales_tracking.aggregate(pipeline).to_list(1)
+    sales = result[0] if result else {}
+
+    recent_sales = await db.sales_tracking.find(
+        {"is_vendor_sale": True}, {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+
+    top_vendors = await db.vendors.find(
+        {"status": "approved"},
+        {"_id": 0, "password": 0, "kyc_data": 0, "bank_details": 0}
+    ).sort("total_sales", -1).limit(5).to_list(5)
+
+    return {
+        "vendors": {
+            "total": total_vendors,
+            "pending": pending_vendors,
+            "pending_products": pending_products,
+            "total_products": total_vendor_products,
+            "pending_withdrawals": pending_vendor_withdrawals
+        },
+        "revenue": {
+            "total_marketplace_sales": sales.get("total_sales", 0),
+            "platform_revenue": sales.get("platform_revenue", 0),
+            "influencer_payouts": sales.get("influencer_payouts", 0),
+            "vendor_earnings": sales.get("vendor_earnings", 0),
+            "total_orders": sales.get("order_count", 0)
+        },
+        "recent_sales": recent_sales,
+        "top_vendors": [{
+            "vendor_id": v["vendor_id"],
+            "store_name": v["store_name"],
+            "total_sales": v.get("total_sales", 0),
+            "total_orders": v.get("total_orders", 0),
+            "rating": v.get("rating", 0)
+        } for v in top_vendors]
+    }

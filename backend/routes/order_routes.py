@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import uuid
 import logging
 
-from config import db, DEFAULT_COMMISSION_RATE
+from config import db, DEFAULT_COMMISSION_RATE, PLATFORM_COMMISSION_RATE
 from models.schemas import OrderCreate, OrderResponse
 from models.enums import TransactionType
 from auth import get_current_user, generate_id
@@ -18,12 +18,12 @@ async def credit_influencer_commission(influencer_id: str, order_id: str, order_
 
     influencer = await db.influencers.find_one({"influencer_id": influencer_id}, {"_id": 0})
     if not influencer:
-        return
+        return 0.0
 
     current_balance = influencer.get("wallet_balance", 0.0)
     new_balance = current_balance + commission_amount
 
-    transaction = {
+    await db.wallet_transactions.insert_one({
         "transaction_id": generate_id("txn_"),
         "influencer_id": influencer_id,
         "type": TransactionType.COMMISSION.value,
@@ -32,8 +32,7 @@ async def credit_influencer_commission(influencer_id: str, order_id: str, order_
         "description": f"Commission for order {order_id}",
         "order_id": order_id,
         "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.wallet_transactions.insert_one(transaction)
+    })
 
     await db.influencers.update_one(
         {"influencer_id": influencer_id},
@@ -44,6 +43,48 @@ async def credit_influencer_commission(influencer_id: str, order_id: str, order_
     )
 
     logger.info(f"Credited Rs.{commission_amount} to influencer {influencer_id} for order {order_id}")
+    return commission_amount
+
+
+async def credit_vendor_wallet(vendor_id: str, order_id: str, vendor_amount: float):
+    vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0})
+    if not vendor:
+        return
+
+    current_balance = vendor.get("wallet_balance", 0.0)
+    new_balance = current_balance + vendor_amount
+
+    await db.vendor_wallet_transactions.insert_one({
+        "transaction_id": generate_id("vtxn_"),
+        "vendor_id": vendor_id,
+        "type": TransactionType.SALE_CREDIT.value,
+        "amount": vendor_amount,
+        "balance_after": new_balance,
+        "description": f"Sale earnings for order {order_id}",
+        "order_id": order_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    await db.vendors.update_one(
+        {"vendor_id": vendor_id},
+        {
+            "$set": {"wallet_balance": new_balance, "updated_at": datetime.now(timezone.utc).isoformat()},
+            "$inc": {"total_sales": vendor_amount, "total_orders": 1}
+        }
+    )
+
+    logger.info(f"Credited Rs.{vendor_amount} to vendor {vendor_id} for order {order_id}")
+
+
+async def record_platform_commission(order_id: str, amount: float, vendor_id: str = None):
+    await db.platform_transactions.insert_one({
+        "transaction_id": generate_id("ptxn_"),
+        "order_id": order_id,
+        "type": "platform_commission",
+        "amount": amount,
+        "vendor_id": vendor_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
 
 
 @router.post("", response_model=OrderResponse)
@@ -54,6 +95,9 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
 
     items = []
     subtotal = 0
+    vendor_id = None
+    vendor_name = None
+
     for item in cart["items"]:
         product = await db.products.find_one({"product_id": item["product_id"]}, {"_id": 0})
         if not product:
@@ -63,12 +107,23 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
 
         item_total = product["price"] * item["quantity"]
         subtotal += item_total
+
+        item_vendor_id = product.get("vendor_id")
+        item_vendor_name = product.get("vendor_name", "")
+
+        if item_vendor_id and not vendor_id:
+            vendor_id = item_vendor_id
+            vendor_name = item_vendor_name
+
         items.append({
             **item,
             "product_name": product["name"],
             "product_image": product["images"][0] if product["images"] else None,
             "price": product["price"],
-            "item_total": item_total
+            "item_total": item_total,
+            "vendor_id": item_vendor_id,
+            "vendor_name": item_vendor_name,
+            "is_vendor_product": product.get("is_vendor_product", False)
         })
 
     discount = 0
@@ -98,6 +153,19 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
     order_id = generate_id("order_")
     razorpay_order_id = f"order_{uuid.uuid4().hex[:16]}"
 
+    # Pre-calculate commission splits
+    platform_commission = 0.0
+    influencer_commission_amount = 0.0
+    vendor_amount = 0.0
+
+    if vendor_id:
+        platform_commission = total * (PLATFORM_COMMISSION_RATE / 100)
+        if influencer_id:
+            inf = await db.influencers.find_one({"influencer_id": influencer_id}, {"_id": 0})
+            inf_rate = inf.get("commission_rate", DEFAULT_COMMISSION_RATE) if inf else DEFAULT_COMMISSION_RATE
+            influencer_commission_amount = total * (inf_rate / 100)
+        vendor_amount = total - platform_commission - influencer_commission_amount
+
     order_doc = {
         "order_id": order_id,
         "user_id": user["user_id"],
@@ -114,6 +182,11 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         "affiliate_id": affiliate_id,
         "influencer_id": influencer_id,
         "referral_code": ref,
+        "vendor_id": vendor_id,
+        "vendor_name": vendor_name,
+        "platform_commission": round(platform_commission, 2),
+        "influencer_commission": round(influencer_commission_amount, 2),
+        "vendor_amount": round(vendor_amount, 2),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -125,6 +198,11 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
             {"product_id": item["product_id"]},
             {"$inc": {"stock": -item["quantity"]}}
         )
+        if item.get("vendor_id"):
+            await db.vendor_products.update_one(
+                {"product_id": item["product_id"]},
+                {"$inc": {"stock": -item["quantity"]}}
+            )
 
     await db.carts.update_one(
         {"user_id": user["user_id"]},
@@ -160,6 +238,9 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    if order.get("payment_status") == "paid":
+        return {"message": "Already paid", "status": "paid"}
+
     await db.orders.update_one(
         {"order_id": order_id},
         {"$set": {
@@ -170,19 +251,128 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
         }}
     )
 
+    total = order["total"]
+    actual_influencer_commission = 0.0
+    actual_platform_commission = 0.0
+    actual_vendor_amount = 0.0
+
+    # Step 1: Credit influencer commission
     if order.get("influencer_id"):
         influencer = await db.influencers.find_one({"influencer_id": order["influencer_id"]}, {"_id": 0})
         if influencer:
             commission_rate = influencer.get("commission_rate", DEFAULT_COMMISSION_RATE)
-            await credit_influencer_commission(order["influencer_id"], order_id, order["total"], commission_rate)
+            actual_influencer_commission = await credit_influencer_commission(
+                order["influencer_id"], order_id, total, commission_rate
+            )
 
+    # Step 2: Credit affiliate commission (separate from influencer)
     if order.get("affiliate_id"):
         affiliate = await db.affiliates.find_one({"affiliate_id": order["affiliate_id"]}, {"_id": 0})
         if affiliate:
-            commission = order["total"] * (affiliate["commission_rate"] / 100)
+            commission = total * (affiliate["commission_rate"] / 100)
             await db.affiliates.update_one(
                 {"affiliate_id": order["affiliate_id"]},
                 {"$inc": {"total_earnings": commission, "total_conversions": 1}}
             )
 
-    return {"message": "Payment verified", "status": "paid"}
+    # Step 3: If vendor product, do the full commission split
+    if order.get("vendor_id"):
+        actual_platform_commission = total * (PLATFORM_COMMISSION_RATE / 100)
+        actual_vendor_amount = total - actual_platform_commission - actual_influencer_commission
+
+        # Credit vendor wallet
+        await credit_vendor_wallet(order["vendor_id"], order_id, actual_vendor_amount)
+
+        # Record platform commission
+        await record_platform_commission(order_id, actual_platform_commission, order["vendor_id"])
+
+        # Update vendor product stats
+        for item in order.get("items", []):
+            if item.get("vendor_id"):
+                await db.vendor_products.update_one(
+                    {"product_id": item["product_id"]},
+                    {"$inc": {"total_sold": item["quantity"], "total_revenue": item["item_total"]}}
+                )
+
+        # Update order with actual settlement amounts
+        await db.orders.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "platform_commission": round(actual_platform_commission, 2),
+                "influencer_commission": round(actual_influencer_commission, 2),
+                "vendor_amount": round(actual_vendor_amount, 2),
+                "settlement_status": "settled"
+            }}
+        )
+
+        logger.info(
+            f"Order {order_id} settled: Total={total}, "
+            f"Platform={actual_platform_commission}, "
+            f"Influencer={actual_influencer_commission}, "
+            f"Vendor={actual_vendor_amount}"
+        )
+
+    # Record in sales_tracking collection for analytics
+    await db.sales_tracking.insert_one({
+        "tracking_id": generate_id("track_"),
+        "order_id": order_id,
+        "total": total,
+        "vendor_id": order.get("vendor_id"),
+        "vendor_name": order.get("vendor_name"),
+        "influencer_id": order.get("influencer_id"),
+        "affiliate_id": order.get("affiliate_id"),
+        "platform_commission": round(actual_platform_commission, 2),
+        "influencer_commission": round(actual_influencer_commission, 2),
+        "vendor_amount": round(actual_vendor_amount, 2),
+        "is_vendor_sale": bool(order.get("vendor_id")),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {
+        "message": "Payment verified and commissions settled",
+        "status": "paid",
+        "settlement": {
+            "total": total,
+            "platform_commission": round(actual_platform_commission, 2),
+            "influencer_commission": round(actual_influencer_commission, 2),
+            "vendor_amount": round(actual_vendor_amount, 2)
+        }
+    }
+
+
+# ============== MARKETPLACE ANALYTICS ==============
+
+@router.get("/analytics/marketplace")
+async def get_marketplace_analytics():
+    """Public-facing marketplace stats"""
+    total_vendors = await db.vendors.count_documents({"status": "approved"})
+    total_products = await db.products.count_documents({"is_active": True})
+    total_vendor_products = await db.products.count_documents({"is_active": True, "is_vendor_product": True})
+
+    pipeline = [
+        {"$match": {"is_vendor_sale": True}},
+        {"$group": {
+            "_id": None,
+            "total_sales": {"$sum": "$total"},
+            "total_platform_commission": {"$sum": "$platform_commission"},
+            "total_influencer_commission": {"$sum": "$influencer_commission"},
+            "total_vendor_earnings": {"$sum": "$vendor_amount"},
+            "count": {"$sum": 1}
+        }}
+    ]
+    result = await db.sales_tracking.aggregate(pipeline).to_list(1)
+    stats = result[0] if result else {
+        "total_sales": 0, "total_platform_commission": 0,
+        "total_influencer_commission": 0, "total_vendor_earnings": 0, "count": 0
+    }
+
+    return {
+        "total_vendors": total_vendors,
+        "total_products": total_products,
+        "total_vendor_products": total_vendor_products,
+        "total_marketplace_sales": stats.get("total_sales", 0),
+        "total_platform_revenue": stats.get("total_platform_commission", 0),
+        "total_influencer_payouts": stats.get("total_influencer_commission", 0),
+        "total_vendor_earnings": stats.get("total_vendor_earnings", 0),
+        "total_vendor_orders": stats.get("count", 0)
+    }

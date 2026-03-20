@@ -118,4 +118,27 @@ async def get_current_vendor(authorization: Optional[str] = Header(None)) -> Dic
     if not vendor:
         raise HTTPException(status_code=401, detail="Vendor not found")
 
+    if vendor.get("status") in ("suspended", "disconnected", "discontinued"):
+        raise HTTPException(status_code=403, detail=f"Your vendor account has been {vendor['status']}. Contact support.")
+
     return vendor
+
+
+async def get_current_reseller(authorization: Optional[str] = Header(None)) -> Dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header missing")
+    token = authorization.split(" ")[1]
+    payload = decode_jwt_token(token)
+
+    user = await db.users.find_one({"user_id": payload["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    reseller = await db.resellers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not reseller:
+        raise HTTPException(status_code=404, detail="Not registered as reseller")
+
+    if reseller.get("status") in ("suspended", "disconnected", "discontinued"):
+        raise HTTPException(status_code=403, detail=f"Your reseller account has been {reseller['status']}. Contact support.")
+
+    return reseller

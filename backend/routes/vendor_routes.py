@@ -226,6 +226,30 @@ async def get_vendor_dashboard(vendor: Dict = Depends(get_current_vendor)):
     }
 
 
+@router.get("/sales/analytics")
+async def get_vendor_sales_analytics(vendor: Dict = Depends(get_current_vendor)):
+    sales = await db.sales_tracking.find(
+        {"vendor_id": vendor["vendor_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+
+    total_sales = sum(s.get("total", 0) for s in sales)
+    total_platform_fees = sum(s.get("platform_commission", 0) for s in sales)
+    total_influencer_commissions = sum(s.get("influencer_commission", 0) for s in sales)
+    total_vendor_earnings = sum(s.get("vendor_amount", 0) for s in sales)
+
+    return {
+        "total_orders": len(sales),
+        "total_sales": round(total_sales, 2),
+        "platform_fees": round(total_platform_fees, 2),
+        "influencer_commissions": round(total_influencer_commissions, 2),
+        "vendor_earnings": round(total_vendor_earnings, 2),
+        "platform_commission_rate": PLATFORM_COMMISSION_RATE,
+        "recent_sales": sales[:10]
+    }
+
+
+
 # ============== VENDOR PRODUCT MANAGEMENT ==============
 
 @router.post("/products", response_model=VendorProductResponse)
