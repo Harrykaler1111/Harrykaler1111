@@ -1172,60 +1172,364 @@ const CustomersManagement = () => {
   );
 };
 
-// Coupons Management
+// Coupons, Offers & Rewards Management
 const CouponsManagement = () => {
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [tab, setTab] = useState("coupons");
+  const [form, setForm] = useState({
+    code: "", discount_type: "percentage", discount_value: "", min_order_value: "",
+    max_uses: "100", expires_at: "", affiliate_id: ""
+  });
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    const fetchCoupons = async () => {
-      try {
-        const response = await axios.get(`${API}/coupons`, { headers: getAdminHeaders() });
-        setCoupons(response.data);
-      } catch (error) {
-        toast.error("Failed to load coupons");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCoupons();
-  }, []);
+  // Targets & rewards from settings
+  const [settings, setSettings] = useState(null);
+  const [targetForm, setTargetForm] = useState({ name: "", target_type: "influencer", target_amount: "", reward_type: "bonus", reward_value: "", is_active: true });
+
+  const fetchData = async () => {
+    try {
+      const [couponRes, settingsRes] = await Promise.all([
+        axios.get(`${API}/coupons`, { headers: getAdminHeaders() }),
+        axios.get(`${API}/admin/settings/commission`, { headers: getAdminHeaders() }).catch(() => ({ data: null }))
+      ]);
+      setCoupons(couponRes.data);
+      setSettings(settingsRes.data);
+    } catch { toast.error("Failed to load coupons"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!form.code || !form.discount_value) { toast.error("Code and discount required"); return; }
+    setCreating(true);
+    try {
+      await axios.post(`${API}/coupons`, {
+        code: form.code,
+        discount_type: form.discount_type,
+        discount_value: parseFloat(form.discount_value),
+        min_order_value: parseFloat(form.min_order_value) || 0,
+        max_uses: parseInt(form.max_uses) || 100,
+        expires_at: form.expires_at || null,
+        affiliate_id: form.affiliate_id || null,
+      }, { headers: getAdminHeaders() });
+      toast.success("Coupon created!");
+      setShowCreate(false);
+      setForm({ code: "", discount_type: "percentage", discount_value: "", min_order_value: "", max_uses: "100", expires_at: "", affiliate_id: "" });
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setCreating(false); }
+  };
+
+  const toggleCoupon = async (couponId) => {
+    try {
+      await axios.put(`${API}/coupons/${couponId}/toggle`, {}, { headers: getAdminHeaders() });
+      toast.success("Coupon updated");
+      fetchData();
+    } catch { toast.error("Failed"); }
+  };
+
+  const deleteCoupon = async (couponId) => {
+    if (!window.confirm("Delete this coupon?")) return;
+    try {
+      await axios.delete(`${API}/coupons/${couponId}`, { headers: getAdminHeaders() });
+      toast.success("Coupon deleted");
+      setCoupons(coupons.filter(c => c.coupon_id !== couponId));
+    } catch { toast.error("Failed"); }
+  };
+
+  const addTarget = async () => {
+    if (!targetForm.name || !targetForm.target_amount) { toast.error("Name and amount required"); return; }
+    try {
+      await axios.post(`${API}/admin/settings/commission/targets`, {
+        ...targetForm,
+        target_amount: parseFloat(targetForm.target_amount),
+        reward_value: parseFloat(targetForm.reward_value) || 0,
+      }, { headers: getAdminHeaders() });
+      toast.success("Target added!");
+      setTargetForm({ name: "", target_type: "influencer", target_amount: "", reward_type: "bonus", reward_value: "", is_active: true });
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const removeTarget = async (targetId) => {
+    try {
+      await axios.delete(`${API}/admin/settings/commission/targets/${targetId}`, { headers: getAdminHeaders() });
+      toast.success("Target removed");
+      fetchData();
+    } catch { toast.error("Failed"); }
+  };
+
+  const addReward = async () => {
+    if (!targetForm.name || !targetForm.target_amount) { toast.error("Name and amount required"); return; }
+    try {
+      await axios.post(`${API}/admin/settings/commission/rewards`, {
+        ...targetForm,
+        target_amount: parseFloat(targetForm.target_amount),
+        reward_value: parseFloat(targetForm.reward_value) || 0,
+      }, { headers: getAdminHeaders() });
+      toast.success("Reward added!");
+      setTargetForm({ name: "", target_type: "influencer", target_amount: "", reward_type: "bonus", reward_value: "", is_active: true });
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const removeReward = async (rewardId) => {
+    try {
+      await axios.delete(`${API}/admin/settings/commission/rewards/${rewardId}`, { headers: getAdminHeaders() });
+      toast.success("Reward removed");
+      fetchData();
+    } catch { toast.error("Failed"); }
+  };
+
+  const canCreate = hasPermission("coupons", "create");
 
   return (
-    <div>
-      <h2 className="font-serif text-2xl font-bold text-white mb-6">Coupons</h2>
-      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-neutral-700">
-              <TableHead className="text-neutral-400">Code</TableHead>
-              <TableHead className="text-neutral-400">Discount</TableHead>
-              <TableHead className="text-neutral-400">Min Order</TableHead>
-              <TableHead className="text-neutral-400">Used/Max</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {coupons.map((c) => (
-              <TableRow key={c.coupon_id} className="border-neutral-700">
-                <TableCell className="font-mono text-gold">{c.code}</TableCell>
-                <TableCell className="text-white">
-                  {c.discount_type === "percentage" ? `${c.discount_value}%` : `${c.discount_value}`}
-                </TableCell>
-                <TableCell className="text-neutral-300">{c.min_order_value?.toLocaleString()}</TableCell>
-                <TableCell className="text-neutral-300">{c.used_count}/{c.max_uses}</TableCell>
-                <TableCell>
-                  <span className={`text-xs px-2 py-1 rounded ${c.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
-                    {c.is_active ? "Active" : "Inactive"}
-                  </span>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-        {!loading && coupons.length === 0 && <div className="text-center py-12 text-neutral-500">No coupons</div>}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="font-serif text-2xl font-bold text-white">Coupons, Offers & Rewards</h2>
+        {canCreate && (
+          <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowCreate(true)} data-testid="create-coupon-btn">
+            <Plus className="h-4 w-4 mr-1" /> Create Coupon
+          </Button>
+        )}
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-neutral-800 pb-3">
+        {["coupons", "targets", "rewards"].map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`px-4 py-2 rounded-lg text-sm capitalize transition-colors ${tab === t ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}>
+            {t === "coupons" ? "Coupons & Offers" : t === "targets" ? "Sales Targets" : "Rewards"}
+          </button>
+        ))}
+      </div>
+
+      {/* Create Coupon Form */}
+      {showCreate && (
+        <form onSubmit={handleCreate} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-white">Create Coupon / Offer</h3>
+            <Button type="button" variant="ghost" size="sm" className="text-neutral-400" onClick={() => setShowCreate(false)}>Cancel</Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Coupon Code *</label>
+              <Input value={form.code} onChange={(e) => setForm({...form, code: e.target.value.toUpperCase()})}
+                placeholder="SUMMER20" className="bg-neutral-900 border-neutral-700 text-white font-mono" data-testid="coupon-code" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Discount Type *</label>
+              <select value={form.discount_type} onChange={(e) => setForm({...form, discount_type: e.target.value})}
+                className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm" data-testid="discount-type">
+                <option value="percentage">Percentage (%)</option>
+                <option value="flat">Flat Amount (₹)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Discount Value *</label>
+              <Input type="number" value={form.discount_value} onChange={(e) => setForm({...form, discount_value: e.target.value})}
+                placeholder={form.discount_type === "percentage" ? "20" : "500"} className="bg-neutral-900 border-neutral-700 text-white" data-testid="discount-value" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Min Order Value (₹)</label>
+              <Input type="number" value={form.min_order_value} onChange={(e) => setForm({...form, min_order_value: e.target.value})}
+                placeholder="1000" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Max Uses</label>
+              <Input type="number" value={form.max_uses} onChange={(e) => setForm({...form, max_uses: e.target.value})}
+                placeholder="100" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Expires At</label>
+              <Input type="datetime-local" value={form.expires_at} onChange={(e) => setForm({...form, expires_at: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+          </div>
+          <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold/90 font-semibold" data-testid="save-coupon-btn">
+            {creating ? "Creating..." : "Create Coupon"}
+          </Button>
+        </form>
+      )}
+
+      {/* Coupons Tab */}
+      {tab === "coupons" && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">Code</TableHead>
+                <TableHead className="text-neutral-400">Discount</TableHead>
+                <TableHead className="text-neutral-400">Min Order</TableHead>
+                <TableHead className="text-neutral-400">Used / Max</TableHead>
+                <TableHead className="text-neutral-400">Expires</TableHead>
+                <TableHead className="text-neutral-400">Status</TableHead>
+                <TableHead className="text-neutral-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {coupons.map((c) => (
+                <TableRow key={c.coupon_id} className="border-neutral-700">
+                  <TableCell className="font-mono text-gold font-medium">{c.code}</TableCell>
+                  <TableCell className="text-white">{c.discount_type === "percentage" ? `${c.discount_value}%` : `₹${c.discount_value}`}</TableCell>
+                  <TableCell className="text-neutral-300">₹{c.min_order_value?.toLocaleString()}</TableCell>
+                  <TableCell className="text-neutral-300">{c.used_count} / {c.max_uses}</TableCell>
+                  <TableCell className="text-neutral-400 text-sm">{c.expires_at ? new Date(c.expires_at).toLocaleDateString() : "Never"}</TableCell>
+                  <TableCell>
+                    <button onClick={() => toggleCoupon(c.coupon_id)}
+                      className={`text-xs px-2 py-1 rounded cursor-pointer ${c.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                      {c.is_active ? "Active" : "Inactive"}
+                    </button>
+                  </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" className="text-red-400 h-7 px-2" onClick={() => deleteCoupon(c.coupon_id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && coupons.length === 0 && <div className="text-center py-12 text-neutral-500">No coupons yet. Click "Create Coupon" to add one.</div>}
+        </div>
+      )}
+
+      {/* Sales Targets Tab */}
+      {tab === "targets" && (
+        <div className="space-y-4">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Add Sales Target</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Target Name *</label>
+                <Input value={targetForm.name} onChange={(e) => setTargetForm({...targetForm, name: e.target.value})}
+                  placeholder="e.g. Gold Seller Badge" className="bg-neutral-900 border-neutral-700 text-white" data-testid="target-name" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Target For</label>
+                <select value={targetForm.target_type} onChange={(e) => setTargetForm({...targetForm, target_type: e.target.value})}
+                  className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm">
+                  <option value="influencer">Influencer</option>
+                  <option value="reseller">Reseller</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Target Sales Amount (₹) *</label>
+                <Input type="number" value={targetForm.target_amount} onChange={(e) => setTargetForm({...targetForm, target_amount: e.target.value})}
+                  placeholder="50000" className="bg-neutral-900 border-neutral-700 text-white" data-testid="target-amount" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Reward Type</label>
+                <select value={targetForm.reward_type} onChange={(e) => setTargetForm({...targetForm, reward_type: e.target.value})}
+                  className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm">
+                  <option value="bonus">Cash Bonus (₹)</option>
+                  <option value="rate_increase">Commission Rate Increase (%)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Reward Value *</label>
+                <Input type="number" value={targetForm.reward_value} onChange={(e) => setTargetForm({...targetForm, reward_value: e.target.value})}
+                  placeholder={targetForm.reward_type === "bonus" ? "5000" : "2"} className="bg-neutral-900 border-neutral-700 text-white" data-testid="target-reward" />
+              </div>
+            </div>
+            <Button className="bg-gold text-black hover:bg-gold/90" onClick={addTarget} data-testid="add-target-btn">Add Target</Button>
+          </div>
+
+          {/* Existing Targets */}
+          {settings?.commission_targets?.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-white font-medium">Active Targets</h4>
+              {settings.commission_targets.map((t, i) => (
+                <div key={t.target_id || i} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">{t.name}</p>
+                    <p className="text-sm text-neutral-400">
+                      {t.target_type} must reach ₹{t.target_amount?.toLocaleString()} in sales →
+                      {t.reward_type === "bonus" ? ` ₹${t.reward_value} bonus` : ` +${t.reward_value}% commission`}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-red-400" onClick={() => removeTarget(t.target_id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rewards Tab */}
+      {tab === "rewards" && (
+        <div className="space-y-4">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-white">Add Reward Program</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Reward Name *</label>
+                <Input value={targetForm.name} onChange={(e) => setTargetForm({...targetForm, name: e.target.value})}
+                  placeholder="e.g. Top Seller Bonus" className="bg-neutral-900 border-neutral-700 text-white" data-testid="reward-name" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">For User Type</label>
+                <select value={targetForm.target_type} onChange={(e) => setTargetForm({...targetForm, target_type: e.target.value})}
+                  className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm">
+                  <option value="influencer">Influencer</option>
+                  <option value="reseller">Reseller</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Sales Milestone (₹) *</label>
+                <Input type="number" value={targetForm.target_amount} onChange={(e) => setTargetForm({...targetForm, target_amount: e.target.value})}
+                  placeholder="100000" className="bg-neutral-900 border-neutral-700 text-white" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Reward Type</label>
+                <select value={targetForm.reward_type} onChange={(e) => setTargetForm({...targetForm, reward_type: e.target.value})}
+                  className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm">
+                  <option value="bonus">Cash Bonus (₹)</option>
+                  <option value="rate_increase">Commission Rate Increase (%)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Reward Value *</label>
+                <Input type="number" value={targetForm.reward_value} onChange={(e) => setTargetForm({...targetForm, reward_value: e.target.value})}
+                  placeholder={targetForm.reward_type === "bonus" ? "10000" : "3"} className="bg-neutral-900 border-neutral-700 text-white" />
+              </div>
+            </div>
+            <Button className="bg-gold text-black hover:bg-gold/90" onClick={addReward} data-testid="add-reward-btn">Add Reward</Button>
+          </div>
+
+          {settings?.commission_rewards?.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-white font-medium">Active Rewards</h4>
+              {settings.commission_rewards.map((r, i) => (
+                <div key={r.reward_id || i} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">{r.name}</p>
+                    <p className="text-sm text-neutral-400">
+                      {r.target_type} reaches ₹{r.target_amount?.toLocaleString()} →
+                      {r.reward_type === "bonus" ? ` ₹${r.reward_value} cash reward` : ` +${r.reward_value}% commission boost`}
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-red-400" onClick={() => removeReward(r.reward_id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {(!settings?.commission_rewards || settings.commission_rewards.length === 0) && (
+            <div className="text-center py-8 text-neutral-500">No rewards configured yet.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -1356,7 +1660,7 @@ export const AdminDashboard = () => {
     localStorage.removeItem("pigma_admin_token");
     localStorage.removeItem("pigma_admin");
     toast.success("Logged out");
-    navigate("/admin-login");
+    navigate("/");
   };
 
   // ====== VENDORS MANAGEMENT ======
