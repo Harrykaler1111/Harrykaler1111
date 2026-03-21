@@ -23,6 +23,95 @@ import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
 
+const CollabsSection = ({ token }) => {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await axios.get(`${API}/collaborations/influencer/received`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRequests(res.data);
+    } catch { /* no requests */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchRequests(); }, []);
+
+  const respond = async (requestId, action) => {
+    try {
+      await axios.put(`${API}/collaborations/${requestId}/${action}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success(`Collaboration ${action}ed!`);
+      fetchRequests();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const statusStyle = {
+    pending: "bg-yellow-500/10 border-yellow-500/30",
+    accepted: "bg-green-500/10 border-green-500/30",
+    rejected: "bg-red-500/10 border-red-500/30"
+  };
+  const statusText = { pending: "text-yellow-400", accepted: "text-green-400", rejected: "text-red-400" };
+
+  if (loading) return <div className="text-center py-8 text-neutral-500">Loading...</div>;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xl font-semibold text-white mb-4">Collaboration Requests</h3>
+      {requests.length === 0 && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-8 text-center">
+          <Users className="h-10 w-10 text-neutral-600 mx-auto mb-3" />
+          <p className="text-neutral-400">No collaboration requests yet.</p>
+          <p className="text-sm text-neutral-500 mt-1">Vendors will find you based on your profile and send collaboration offers.</p>
+        </div>
+      )}
+      {requests.map((req) => (
+        <div key={req.request_id} className={`border rounded-xl p-5 ${statusStyle[req.status] || "border-neutral-700 bg-neutral-800/50"}`}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <h4 className="text-white font-semibold text-lg">{req.vendor_name || "Vendor"}</h4>
+              <p className="text-sm text-neutral-400">{req.campaign_name || "General Collaboration"}</p>
+            </div>
+            <span className={`text-xs px-3 py-1 rounded-full capitalize font-medium ${statusText[req.status]}`}>
+              {req.status}
+            </span>
+          </div>
+          <p className="text-neutral-300 mb-4 bg-neutral-900/50 rounded-lg p-3 text-sm italic">"{req.message}"</p>
+          <div className="flex items-center gap-4 text-sm text-neutral-400 mb-4">
+            {req.commission_rate && (
+              <span className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-gold" />
+                <span className="text-gold font-medium">{req.commission_rate}% commission offered</span>
+              </span>
+            )}
+            <span>Received: {new Date(req.created_at).toLocaleDateString()}</span>
+          </div>
+          {req.status === "pending" && (
+            <div className="flex gap-3">
+              <button onClick={() => respond(req.request_id, "accept")}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-medium transition-colors text-sm"
+                data-testid={`accept-${req.request_id}`}>
+                Accept Collaboration
+              </button>
+              <button onClick={() => respond(req.request_id, "reject")}
+                className="flex-1 bg-neutral-700 hover:bg-neutral-600 text-white py-2.5 rounded-lg font-medium transition-colors text-sm"
+                data-testid={`reject-${req.request_id}`}>
+                Decline
+              </button>
+            </div>
+          )}
+          {req.status === "accepted" && req.responded_at && (
+            <p className="text-xs text-green-400">Accepted on {new Date(req.responded_at).toLocaleDateString()}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const InfluencerDashboard = () => {
   const navigate = useNavigate();
   const { user, token, logout } = useAuth();
@@ -319,6 +408,9 @@ export const InfluencerDashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="leaderboard" className="data-[state=active]:bg-gold data-[state=active]:text-black">
                 Leaderboard
+              </TabsTrigger>
+              <TabsTrigger value="collabs" className="data-[state=active]:bg-gold data-[state=active]:text-black">
+                Collaborations
               </TabsTrigger>
             </TabsList>
 
@@ -709,6 +801,11 @@ export const InfluencerDashboard = () => {
                   ))}
                 </div>
               </div>
+            </TabsContent>
+
+            {/* Collaborations Tab */}
+            <TabsContent value="collabs">
+              <CollabsSection token={token} />
             </TabsContent>
           </Tabs>
         ) : (

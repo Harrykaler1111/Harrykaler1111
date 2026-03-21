@@ -871,55 +871,211 @@ const VendorOffers = ({ vendor }) => {
 // =============== INFLUENCERS ===============
 const VendorInfluencers = ({ vendor }) => {
   const [influencers, setInfluencers] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("browse");
+  const [collabModal, setCollabModal] = useState(null);
+  const [collabForm, setCollabForm] = useState({ message: "", commission_rate: "", campaign_name: "" });
+  const [sending, setSending] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  useEffect(() => {
-    axios.get(`${API}/vendors/influencers/browse`, { headers: getVendorHeaders() })
-      .then(res => setInfluencers(res.data))
-      .catch(() => toast.error("Failed to load influencers"))
-      .finally(() => setLoading(false));
+  const fetchData = useCallback(async () => {
+    try {
+      const [infRes, reqRes] = await Promise.all([
+        axios.get(`${API}/vendors/influencers/browse`, { headers: getVendorHeaders() }),
+        axios.get(`${API}/collaborations/vendor/sent`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
+      ]);
+      setInfluencers(infRes.data);
+      setSentRequests(reqRes.data);
+    } catch { toast.error("Failed to load data"); }
+    finally { setLoading(false); }
   }, []);
 
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const getCollabStatus = (infId) => {
+    const req = sentRequests.find(r => r.influencer_id === infId);
+    return req ? req.status : null;
+  };
+
+  const handleSendCollab = async (influencerIds) => {
+    if (!collabForm.message.trim()) { toast.error("Please write a collaboration message"); return; }
+    setSending(true);
+    try {
+      const payload = {
+        influencer_ids: influencerIds,
+        message: collabForm.message,
+        commission_rate: collabForm.commission_rate ? parseFloat(collabForm.commission_rate) : null,
+        campaign_name: collabForm.campaign_name || null
+      };
+      const res = await axios.post(`${API}/collaborations/request`, payload, { headers: getVendorHeaders() });
+      const sent = res.data.results?.filter(r => r.status === "sent").length || 0;
+      toast.success(`Collaboration request sent to ${sent} influencer(s)!`);
+      setCollabModal(null);
+      setCollabForm({ message: "", commission_rate: "", campaign_name: "" });
+      setSelectedIds([]);
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to send"); }
+    finally { setSending(false); }
+  };
+
+  const toggleSelect = (infId) => {
+    setSelectedIds(prev => prev.includes(infId) ? prev.filter(id => id !== infId) : [...prev, infId]);
+  };
+
+  const statusColor = { pending: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", accepted: "text-green-400 bg-green-500/10 border-green-500/30", rejected: "text-red-400 bg-red-500/10 border-red-500/30" };
+
   return (
-    <div>
-      <h2 className="font-serif text-2xl font-bold text-white mb-6">Browse Influencers</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {influencers.map((inf) => (
-          <div key={inf.influencer_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center">
-                <Users className="h-5 w-5 text-gold" />
+    <div className="space-y-6">
+      <div className="flex justify-between items-center flex-wrap gap-3">
+        <h2 className="font-serif text-2xl font-bold text-white">Influencer Collaborations</h2>
+        {selectedIds.length > 0 && (
+          <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setCollabModal("bulk")} data-testid="bulk-collab-btn">
+            <Users className="h-4 w-4 mr-2" /> Send to {selectedIds.length} Selected
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-neutral-800 pb-3">
+        <button onClick={() => setTab("browse")}
+          className={`px-4 py-2 rounded-lg text-sm transition-colors ${tab === "browse" ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}
+          data-testid="tab-browse">
+          Browse Influencers
+        </button>
+        <button onClick={() => setTab("sent")}
+          className={`px-4 py-2 rounded-lg text-sm transition-colors flex items-center gap-2 ${tab === "sent" ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}
+          data-testid="tab-sent">
+          My Requests {sentRequests.length > 0 && <span className="bg-neutral-700 text-neutral-300 text-xs px-1.5 py-0.5 rounded-full">{sentRequests.length}</span>}
+        </button>
+      </div>
+
+      {/* Browse Tab */}
+      {tab === "browse" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {influencers.map((inf) => {
+            const status = getCollabStatus(inf.influencer_id);
+            const isSelected = selectedIds.includes(inf.influencer_id);
+            return (
+              <div key={inf.influencer_id} className={`bg-neutral-800/50 border rounded-xl p-5 transition-all ${isSelected ? "border-gold" : "border-neutral-700"}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    {!status && (
+                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(inf.influencer_id)}
+                        className="accent-gold mt-1 flex-shrink-0" />
+                    )}
+                    <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center flex-shrink-0">
+                      <Users className="h-5 w-5 text-gold" />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-medium">{inf.name}</h3>
+                      {inf.instagram_handle && <p className="text-xs text-neutral-400">@{inf.instagram_handle}</p>}
+                    </div>
+                  </div>
+                  {status ? (
+                    <span className={`text-xs px-2.5 py-1 rounded-full border capitalize ${statusColor[status] || "text-neutral-400"}`}>
+                      {status}
+                    </span>
+                  ) : (
+                    <Button size="sm" className="bg-gold text-black hover:bg-gold/90 text-xs h-8"
+                      onClick={() => { setCollabModal(inf.influencer_id); setCollabForm({ message: "", commission_rate: "", campaign_name: "" }); }}
+                      data-testid={`collab-btn-${inf.influencer_id}`}>
+                      Send Collab
+                    </Button>
+                  )}
+                </div>
+                <p className="text-sm text-neutral-300 mb-3 line-clamp-2">{inf.bio}</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-neutral-900 rounded-lg p-2">
+                    <p className="text-lg font-bold text-white">{(inf.followers_count || 0).toLocaleString()}</p>
+                    <p className="text-xs text-neutral-500">Followers</p>
+                  </div>
+                  <div className="bg-neutral-900 rounded-lg p-2">
+                    <p className="text-lg font-bold text-white">{inf.total_conversions || 0}</p>
+                    <p className="text-xs text-neutral-500">Conversions</p>
+                  </div>
+                  <div className="bg-neutral-900 rounded-lg p-2">
+                    <p className="text-lg font-bold text-gold">{inf.commission_rate}%</p>
+                    <p className="text-xs text-neutral-500">Commission</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {inf.niche?.map((n) => (
+                    <span key={n} className="text-xs px-2 py-0.5 bg-neutral-700 rounded-full text-neutral-300">{n}</span>
+                  ))}
+                </div>
               </div>
-              <div>
-                <h3 className="text-white font-medium">{inf.name}</h3>
-                {inf.instagram_handle && <p className="text-xs text-neutral-400">@{inf.instagram_handle}</p>}
+            );
+          })}
+          {loading && <div className="text-center py-8 text-neutral-500 col-span-2">Loading...</div>}
+          {!loading && influencers.length === 0 && <div className="text-center py-12 text-neutral-500 col-span-2">No approved influencers available</div>}
+        </div>
+      )}
+
+      {/* Sent Requests Tab */}
+      {tab === "sent" && (
+        <div className="space-y-3">
+          {sentRequests.length === 0 && <div className="text-center py-12 text-neutral-500">No collaboration requests sent yet</div>}
+          {sentRequests.map((req) => (
+            <div key={req.request_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gold/10 flex items-center justify-center">
+                    <Users className="h-4 w-4 text-gold" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-medium">{req.influencer_name}</h4>
+                    <p className="text-xs text-neutral-400">{req.campaign_name || "General Collaboration"}</p>
+                  </div>
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full border capitalize ${statusColor[req.status] || "text-neutral-400"}`}>
+                  {req.status}
+                </span>
+              </div>
+              <p className="text-sm text-neutral-300 mb-2">{req.message}</p>
+              <div className="flex gap-4 text-xs text-neutral-500">
+                {req.commission_rate && <span>Offered: {req.commission_rate}% commission</span>}
+                <span>Sent: {new Date(req.created_at).toLocaleDateString()}</span>
+                {req.responded_at && <span>Responded: {new Date(req.responded_at).toLocaleDateString()}</span>}
               </div>
             </div>
-            <p className="text-sm text-neutral-300 mb-3 line-clamp-2">{inf.bio}</p>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-neutral-900 rounded-lg p-2">
-                <p className="text-lg font-bold text-white">{(inf.followers_count || 0).toLocaleString()}</p>
-                <p className="text-xs text-neutral-500">Followers</p>
-              </div>
-              <div className="bg-neutral-900 rounded-lg p-2">
-                <p className="text-lg font-bold text-white">{inf.total_conversions || 0}</p>
-                <p className="text-xs text-neutral-500">Conversions</p>
-              </div>
-              <div className="bg-neutral-900 rounded-lg p-2">
-                <p className="text-lg font-bold text-gold">{inf.commission_rate}%</p>
-                <p className="text-xs text-neutral-500">Commission</p>
-              </div>
+          ))}
+        </div>
+      )}
+
+      {/* Collab Request Modal */}
+      {collabModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setCollabModal(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-2xl w-full max-w-lg p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white">
+              {collabModal === "bulk" ? `Send Collaboration to ${selectedIds.length} Influencers` : "Send Collaboration Request"}
+            </h3>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Campaign Name (optional)</label>
+              <Input value={collabForm.campaign_name} onChange={(e) => setCollabForm(f => ({ ...f, campaign_name: e.target.value }))}
+                placeholder="e.g. Summer Collection Launch" className="bg-neutral-800 border-neutral-700 text-white" data-testid="collab-campaign" />
             </div>
-            <div className="mt-3 flex flex-wrap gap-1">
-              {inf.niche?.map((n) => (
-                <span key={n} className="text-xs px-2 py-0.5 bg-neutral-700 rounded-full text-neutral-300">{n}</span>
-              ))}
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Your Message *</label>
+              <textarea value={collabForm.message} onChange={(e) => setCollabForm(f => ({ ...f, message: e.target.value }))}
+                placeholder="Hi! We'd love to collaborate with you on promoting our new collection. We think your audience would love our products..."
+                rows={4} className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 text-white rounded-md text-sm resize-none" data-testid="collab-message" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Offer Commission Rate % (optional — leave blank for platform default)</label>
+              <Input type="number" value={collabForm.commission_rate} onChange={(e) => setCollabForm(f => ({ ...f, commission_rate: e.target.value }))}
+                placeholder="e.g. 15" className="bg-neutral-800 border-neutral-700 text-white" data-testid="collab-rate" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button className="bg-gold text-black hover:bg-gold/90 font-semibold flex-1" disabled={sending}
+                onClick={() => handleSendCollab(collabModal === "bulk" ? selectedIds : [collabModal])} data-testid="send-collab-btn">
+                {sending ? "Sending..." : "Send Request"}
+              </Button>
+              <Button variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setCollabModal(null)}>Cancel</Button>
             </div>
           </div>
-        ))}
-      </div>
-      {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-      {!loading && influencers.length === 0 && <div className="text-center py-12 text-neutral-500">No approved influencers available</div>}
+        </div>
+      )}
     </div>
   );
 };
