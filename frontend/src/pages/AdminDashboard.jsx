@@ -804,21 +804,35 @@ const AdminUsersManagement = () => {
 // Products Management (Admin)
 const ProductsManagement = () => {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [editingStock, setEditingStock] = useState(null);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [newStockVal, setNewStockVal] = useState("");
+  const [newPriceVal, setNewPriceVal] = useState("");
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [newProduct, setNewProduct] = useState({
+    name: "", description: "", price: "", compare_price: "", category: "",
+    sizes: "", colors: "", stock: "", images: "", is_limited_edition: false, tags: ""
+  });
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await axios.get(`${API}/products?limit=100`);
-        setProducts(response.data);
-      } catch (error) {
-        toast.error("Failed to load products");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
+  const fetchData = async () => {
+    try {
+      const [prodRes, catRes] = await Promise.all([
+        axios.get(`${API}/products?limit=100`),
+        axios.get(`${API}/admin/settings/categories`, { headers: getAdminHeaders() }).catch(() => ({ data: [] }))
+      ]);
+      setProducts(prodRes.data);
+      setCategories(catRes.data);
+    } catch { toast.error("Failed to load products"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, []);
 
   const deleteProduct = async (productId) => {
     if (!window.confirm("Delete this product?")) return;
@@ -826,16 +840,215 @@ const ProductsManagement = () => {
       await axios.delete(`${API}/products/${productId}`, { headers: getAdminHeaders() });
       toast.success("Product deleted");
       setProducts(products.filter(p => p.product_id !== productId));
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to delete");
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed to delete"); }
   };
 
+  const handleAddProduct = async (e) => {
+    e.preventDefault();
+    if (!newProduct.name || !newProduct.price) { toast.error("Name and price are required"); return; }
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: newProduct.name,
+        description: newProduct.description,
+        price: parseFloat(newProduct.price),
+        compare_price: newProduct.compare_price ? parseFloat(newProduct.compare_price) : null,
+        category: newProduct.category,
+        sizes: newProduct.sizes ? newProduct.sizes.split(",").map(s => s.trim()) : [],
+        colors: newProduct.colors ? newProduct.colors.split(",").map(s => s.trim()) : [],
+        stock: parseInt(newProduct.stock) || 0,
+        images: newProduct.images ? newProduct.images.split(",").map(s => s.trim()).filter(Boolean) : [],
+        is_limited_edition: newProduct.is_limited_edition,
+        tags: newProduct.tags ? newProduct.tags.split(",").map(s => s.trim()) : [],
+      };
+      await axios.post(`${API}/admin/products`, payload, { headers: getAdminHeaders() });
+      toast.success("Product created!");
+      setShowAddProduct(false);
+      setNewProduct({ name: "", description: "", price: "", compare_price: "", category: "", sizes: "", colors: "", stock: "", images: "", is_limited_edition: false, tags: "" });
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to create product"); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCatName.trim()) { toast.error("Category name required"); return; }
+    try {
+      await axios.post(`${API}/admin/settings/categories?name=${encodeURIComponent(newCatName)}&description=${encodeURIComponent(newCatDesc)}`, {}, { headers: getAdminHeaders() });
+      toast.success("Category created!");
+      setNewCatName(""); setNewCatDesc("");
+      setShowAddCategory(false);
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const handleDeleteCategory = async (catId) => {
+    if (!window.confirm("Delete this category?")) return;
+    try {
+      await axios.delete(`${API}/admin/settings/categories/${catId}`, { headers: getAdminHeaders() });
+      toast.success("Category deleted");
+      setCategories(categories.filter(c => c.category_id !== catId));
+    } catch { toast.error("Failed to delete category"); }
+  };
+
+  const handleUpdateStock = async (productId) => {
+    try {
+      await axios.put(`${API}/admin/products/${productId}/stock?stock=${parseInt(newStockVal)}`, {}, { headers: getAdminHeaders() });
+      toast.success("Stock updated");
+      setEditingStock(null);
+      fetchData();
+    } catch { toast.error("Failed to update stock"); }
+  };
+
+  const handleUpdatePrice = async (productId) => {
+    try {
+      await axios.put(`${API}/admin/products/${productId}`, { price: parseFloat(newPriceVal) }, { headers: getAdminHeaders() });
+      toast.success("Price updated");
+      setEditingPrice(null);
+      fetchData();
+    } catch { toast.error("Failed to update price"); }
+  };
+
+  const canCreate = hasPermission("products", "create");
+  const canEdit = hasPermission("products", "edit");
   const canDelete = hasPermission("products", "delete");
 
   return (
-    <div>
-      <h2 className="font-serif text-2xl font-bold text-white mb-6">Products Management</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="font-serif text-2xl font-bold text-white">Products Management</h2>
+        <div className="flex gap-2">
+          {canCreate && (
+            <>
+              <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowAddCategory(true)} data-testid="add-category-btn">
+                <Plus className="h-4 w-4 mr-1" /> Add Category
+              </Button>
+              <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowAddProduct(true)} data-testid="add-product-btn">
+                <Plus className="h-4 w-4 mr-1" /> Add Product
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Add Category Modal */}
+      {showAddCategory && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-white">Add Category</h3>
+            <Button variant="ghost" size="sm" className="text-neutral-400" onClick={() => setShowAddCategory(false)}>Cancel</Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Category Name *</label>
+              <Input value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="e.g. Ankle Boots"
+                className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-cat-name" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Description</label>
+              <Input value={newCatDesc} onChange={(e) => setNewCatDesc(e.target.value)} placeholder="Optional description"
+                className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-cat-desc" />
+            </div>
+          </div>
+          <Button className="bg-gold text-black" onClick={handleAddCategory} data-testid="save-category-btn">Save Category</Button>
+
+          {/* Existing categories */}
+          {categories.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-neutral-400 mb-2">Existing Categories:</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.map(c => (
+                  <Badge key={c.category_id} variant="outline" className="border-neutral-600 text-neutral-300 flex items-center gap-1 px-3 py-1">
+                    {c.name}
+                    <button onClick={() => handleDeleteCategory(c.category_id)} className="text-red-400 hover:text-red-300 ml-1"><Trash2 className="h-3 w-3" /></button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add Product Form */}
+      {showAddProduct && (
+        <form onSubmit={handleAddProduct} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-white">Add New Product</h3>
+            <Button type="button" variant="ghost" size="sm" className="text-neutral-400" onClick={() => setShowAddProduct(false)}>Cancel</Button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Product Name *</label>
+              <Input value={newProduct.name} onChange={(e) => setNewProduct(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Midnight Platform Boots" className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-prod-name" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Category *</label>
+              <Select value={newProduct.category} onValueChange={(v) => setNewProduct(p => ({ ...p, category: v }))}>
+                <SelectTrigger className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-prod-category">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(c => <SelectItem key={c.category_id} value={c.name}>{c.name}</SelectItem>)}
+                  <SelectItem value="Platform Boots">Platform Boots</SelectItem>
+                  <SelectItem value="Stiletto Heels">Stiletto Heels</SelectItem>
+                  <SelectItem value="Ankle Boots">Ankle Boots</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Price (₹) *</label>
+              <Input type="number" value={newProduct.price} onChange={(e) => setNewProduct(p => ({ ...p, price: e.target.value }))}
+                placeholder="8999" className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-prod-price" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Compare/MRP Price (₹)</label>
+              <Input type="number" value={newProduct.compare_price} onChange={(e) => setNewProduct(p => ({ ...p, compare_price: e.target.value }))}
+                placeholder="12999" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Stock Quantity *</label>
+              <Input type="number" value={newProduct.stock} onChange={(e) => setNewProduct(p => ({ ...p, stock: e.target.value }))}
+                placeholder="50" className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-prod-stock" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Sizes (comma-separated)</label>
+              <Input value={newProduct.sizes} onChange={(e) => setNewProduct(p => ({ ...p, sizes: e.target.value }))}
+                placeholder="6, 7, 8, 9, 10" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Colors (comma-separated)</label>
+              <Input value={newProduct.colors} onChange={(e) => setNewProduct(p => ({ ...p, colors: e.target.value }))}
+                placeholder="Black, Gold, Silver" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Image URLs (comma-separated)</label>
+              <Input value={newProduct.images} onChange={(e) => setNewProduct(p => ({ ...p, images: e.target.value }))}
+                placeholder="https://example.com/img1.jpg, ..." className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-neutral-400 block mb-1">Description</label>
+              <textarea value={newProduct.description} onChange={(e) => setNewProduct(p => ({ ...p, description: e.target.value }))}
+                placeholder="Product description..." rows={3}
+                className="w-full bg-neutral-900 border border-neutral-700 text-white rounded-md px-3 py-2 text-sm" data-testid="new-prod-desc" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Tags (comma-separated)</label>
+              <Input value={newProduct.tags} onChange={(e) => setNewProduct(p => ({ ...p, tags: e.target.value }))}
+                placeholder="new arrival, trending" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div className="flex items-center gap-3 pt-5">
+              <input type="checkbox" checked={newProduct.is_limited_edition}
+                onChange={(e) => setNewProduct(p => ({ ...p, is_limited_edition: e.target.checked }))} id="limited-ed" className="accent-gold" />
+              <label htmlFor="limited-ed" className="text-sm text-neutral-300">Limited Edition</label>
+            </div>
+          </div>
+          <Button type="submit" className="bg-gold text-black hover:bg-gold/90 font-semibold" disabled={submitting} data-testid="save-product-btn">
+            {submitting ? "Creating..." : "Create Product"}
+          </Button>
+        </form>
+      )}
+
+      {/* Products Table */}
       <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
@@ -845,30 +1058,65 @@ const ProductsManagement = () => {
               <TableHead className="text-neutral-400">Price</TableHead>
               <TableHead className="text-neutral-400">Stock</TableHead>
               <TableHead className="text-neutral-400">Limited</TableHead>
-              {canDelete && <TableHead className="text-neutral-400">Actions</TableHead>}
+              <TableHead className="text-neutral-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {products.map((p) => (
               <TableRow key={p.product_id} className="border-neutral-700">
-                <TableCell className="text-white">{p.name}</TableCell>
+                <TableCell className="text-white font-medium">{p.name}</TableCell>
                 <TableCell className="text-neutral-300">{p.category}</TableCell>
-                <TableCell className="text-gold">{p.price?.toLocaleString()}</TableCell>
-                <TableCell className={p.stock < 10 ? "text-red-400" : "text-neutral-300"}>{p.stock}</TableCell>
+                <TableCell>
+                  {editingPrice === p.product_id ? (
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={newPriceVal} onChange={(e) => setNewPriceVal(e.target.value)}
+                        className="w-24 h-7 text-xs bg-neutral-900 border-neutral-600 text-white" />
+                      <Button size="sm" className="h-7 px-2 bg-green-600 text-white text-xs" onClick={() => handleUpdatePrice(p.product_id)}>OK</Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-neutral-400 text-xs" onClick={() => setEditingPrice(null)}>X</Button>
+                    </div>
+                  ) : (
+                    <span className="text-gold cursor-pointer hover:underline" onClick={() => { if (canEdit) { setEditingPrice(p.product_id); setNewPriceVal(String(p.price)); } }}>
+                      ₹{p.price?.toLocaleString()}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {editingStock === p.product_id ? (
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={newStockVal} onChange={(e) => setNewStockVal(e.target.value)}
+                        className="w-20 h-7 text-xs bg-neutral-900 border-neutral-600 text-white" />
+                      <Button size="sm" className="h-7 px-2 bg-green-600 text-white text-xs" onClick={() => handleUpdateStock(p.product_id)}>OK</Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-neutral-400 text-xs" onClick={() => setEditingStock(null)}>X</Button>
+                    </div>
+                  ) : (
+                    <span className={`cursor-pointer hover:underline ${p.stock < 10 ? "text-red-400" : "text-neutral-300"}`}
+                      onClick={() => { if (canEdit) { setEditingStock(p.product_id); setNewStockVal(String(p.stock)); } }}>
+                      {p.stock}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>{p.is_limited_edition ? <Badge variant="outline" className="border-gold text-gold">Limited</Badge> : "-"}</TableCell>
-                {canDelete && (
-                  <TableCell>
-                    <Button size="sm" variant="ghost" className="text-red-400" onClick={() => deleteProduct(p.product_id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                )}
+                <TableCell>
+                  <div className="flex gap-1">
+                    {canEdit && (
+                      <Button size="sm" variant="ghost" className="text-blue-400 h-7 px-2 text-xs"
+                        onClick={() => { setEditingPrice(p.product_id); setNewPriceVal(String(p.price)); }}>
+                        Edit
+                      </Button>
+                    )}
+                    {canDelete && (
+                      <Button size="sm" variant="ghost" className="text-red-400 h-7 px-2" onClick={() => deleteProduct(p.product_id)} data-testid={`delete-prod-${p.product_id}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
         {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-        {!loading && products.length === 0 && <div className="text-center py-12 text-neutral-500">No products</div>}
+        {!loading && products.length === 0 && <div className="text-center py-12 text-neutral-500">No products yet. Click "Add Product" to create one.</div>}
       </div>
     </div>
   );
