@@ -342,6 +342,30 @@ async def delete_vendor_product(product_id: str, vendor: Dict = Depends(get_curr
     return {"message": "Product delisted"}
 
 
+@router.put("/products/{product_id}/stock")
+async def update_vendor_product_stock(product_id: str, stock: int, vendor: Dict = Depends(get_current_vendor)):
+    """Update stock without triggering re-approval"""
+    result = await db.vendor_products.update_one(
+        {"product_id": product_id, "vendor_id": vendor["vendor_id"]},
+        {"$set": {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"message": f"Stock updated to {stock}"}
+
+
+@router.put("/products/{product_id}/price")
+async def update_vendor_product_price(product_id: str, price: float, vendor: Dict = Depends(get_current_vendor)):
+    """Update price without triggering re-approval"""
+    result = await db.vendor_products.update_one(
+        {"product_id": product_id, "vendor_id": vendor["vendor_id"]},
+        {"$set": {"price": price, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return {"message": f"Price updated to {price}"}
+
+
 # ============== VENDOR ORDERS ==============
 
 @router.get("/orders")

@@ -306,11 +306,17 @@ const VendorProducts = ({ vendor }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingStock, setEditingStock] = useState(null);
+  const [editingPrice, setEditingPrice] = useState(null);
+  const [newStockVal, setNewStockVal] = useState("");
+  const [newPriceVal, setNewPriceVal] = useState("");
   const [form, setForm] = useState({
     name: "", description: "", price: "", compare_price: "", category: "",
     sizes: "", colors: "", images: "", stock: "", tags: "", is_limited_edition: false
   });
   const [creating, setCreating] = useState(false);
+
+  const categories = ["Platform Boots", "Stiletto Heels", "Ankle Boots", "Wedge Heels", "Sneakers", "Sandals", "Loafers", "Other"];
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -355,14 +361,32 @@ const VendorProducts = ({ vendor }) => {
     } catch { toast.error("Failed to delist"); }
   };
 
+  const handleUpdateStock = async (productId) => {
+    try {
+      await axios.put(`${API}/vendors/products/${productId}/stock?stock=${parseInt(newStockVal)}`, {}, { headers: getVendorHeaders() });
+      toast.success("Stock updated");
+      setEditingStock(null);
+      fetchProducts();
+    } catch { toast.error("Failed to update stock"); }
+  };
+
+  const handleUpdatePrice = async (productId) => {
+    try {
+      await axios.put(`${API}/vendors/products/${productId}/price?price=${parseFloat(newPriceVal)}`, {}, { headers: getVendorHeaders() });
+      toast.success("Price updated");
+      setEditingPrice(null);
+      fetchProducts();
+    } catch { toast.error("Failed to update price"); }
+  };
+
   const statusBadge = (s) => {
     const map = { approved: "bg-green-500/20 text-green-400", pending_approval: "bg-yellow-500/20 text-yellow-400", rejected: "bg-red-500/20 text-red-400", draft: "bg-neutral-500/20 text-neutral-400", delisted: "bg-neutral-600/20 text-neutral-500" };
     return map[s] || map.draft;
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-6">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <h2 className="font-serif text-2xl font-bold text-white">My Products</h2>
         {vendor.status === "approved" && (
           <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowForm(!showForm)} data-testid="add-product-btn">
@@ -372,63 +396,80 @@ const VendorProducts = ({ vendor }) => {
       </div>
 
       {vendor.status !== "approved" && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
           <p className="text-yellow-300 text-sm">Your vendor account must be approved to add products.</p>
         </div>
       )}
 
       {showForm && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4">New Product</h3>
+          className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">New Product</h3>
+            <Button variant="ghost" size="sm" className="text-neutral-400" onClick={() => setShowForm(false)}>Cancel</Button>
+          </div>
           <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+            <div>
               <label className="text-sm text-neutral-400 mb-1 block">Product Name *</label>
               <Input value={form.name} onChange={(e) => setForm({...form, name: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-name" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-sm text-neutral-400 mb-1 block">Description *</label>
-              <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})}
-                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 text-white rounded-md resize-none" rows={2} required data-testid="product-desc" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Price *</label>
-              <Input type="number" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-price" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Compare Price</label>
-              <Input type="number" value={form.compare_price} onChange={(e) => setForm({...form, compare_price: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" />
+                placeholder="e.g. Classic Black Heels" className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-name" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Category *</label>
-              <Input value={form.category} onChange={(e) => setForm({...form, category: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-category" />
+              <select value={form.category} onChange={(e) => setForm({...form, category: e.target.value})}
+                className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm" required data-testid="product-category">
+                <option value="">Select category</option>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Stock *</label>
+              <label className="text-sm text-neutral-400 mb-1 block">Price (₹) *</label>
+              <Input type="number" value={form.price} onChange={(e) => setForm({...form, price: e.target.value})}
+                placeholder="8999" className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-price" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Compare/MRP Price (₹)</label>
+              <Input type="number" value={form.compare_price} onChange={(e) => setForm({...form, compare_price: e.target.value})}
+                placeholder="12999" className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Stock Quantity *</label>
               <Input type="number" value={form.stock} onChange={(e) => setForm({...form, stock: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-stock" />
+                placeholder="50" className="bg-neutral-900 border-neutral-700 text-white" required data-testid="product-stock" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Sizes (comma separated)</label>
               <Input value={form.sizes} onChange={(e) => setForm({...form, sizes: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" placeholder="S, M, L, XL" />
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="6, 7, 8, 9, 10" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Colors (comma separated)</label>
               <Input value={form.colors} onChange={(e) => setForm({...form, colors: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" placeholder="Black, White" />
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="Black, Gold, Silver" />
             </div>
-            <div className="md:col-span-2">
+            <div>
               <label className="text-sm text-neutral-400 mb-1 block">Image URLs (comma separated)</label>
               <Input value={form.images} onChange={(e) => setForm({...form, images: e.target.value})}
                 className="bg-neutral-900 border-neutral-700 text-white" placeholder="https://..." />
             </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-neutral-400 mb-1 block">Description *</label>
+              <textarea value={form.description} onChange={(e) => setForm({...form, description: e.target.value})}
+                className="w-full px-3 py-2 bg-neutral-900 border border-neutral-700 text-white rounded-md resize-none text-sm" rows={3} required data-testid="product-desc"
+                placeholder="Describe your product..." />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Tags (comma separated)</label>
+              <Input value={form.tags} onChange={(e) => setForm({...form, tags: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="new arrival, trending" />
+            </div>
+            <div className="flex items-center gap-3 pt-5">
+              <input type="checkbox" checked={form.is_limited_edition}
+                onChange={(e) => setForm({...form, is_limited_edition: e.target.checked})} id="v-limited" className="accent-gold" />
+              <label htmlFor="v-limited" className="text-sm text-neutral-300">Limited Edition</label>
+            </div>
             <div className="md:col-span-2 flex gap-3">
-              <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold/90" data-testid="submit-product-btn">
+              <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold/90 font-semibold" data-testid="submit-product-btn">
                 {creating ? "Submitting..." : "Submit for Approval"}
               </Button>
               <Button type="button" variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -437,6 +478,31 @@ const VendorProducts = ({ vendor }) => {
         </motion.div>
       )}
 
+      {/* Inventory Summary */}
+      {products.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-white">{products.length}</p>
+            <p className="text-xs text-neutral-400">Total Products</p>
+          </div>
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-green-400">{products.filter(p => p.approval_status === "approved").length}</p>
+            <p className="text-xs text-neutral-400">Approved</p>
+          </div>
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-yellow-400">{products.filter(p => p.approval_status === "pending_approval").length}</p>
+            <p className="text-xs text-neutral-400">Pending</p>
+          </div>
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+            <p className={`text-2xl font-bold ${products.some(p => p.stock < 10) ? "text-red-400" : "text-neutral-300"}`}>
+              {products.filter(p => p.stock < 10).length}
+            </p>
+            <p className="text-xs text-neutral-400">Low Stock</p>
+          </div>
+        </div>
+      )}
+
+      {/* Products Table */}
       <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
@@ -452,16 +518,43 @@ const VendorProducts = ({ vendor }) => {
           <TableBody>
             {products.map((p) => (
               <TableRow key={p.product_id} className="border-neutral-700">
-                <TableCell className="text-white">{p.name}</TableCell>
+                <TableCell className="text-white font-medium">{p.name}</TableCell>
                 <TableCell className="text-neutral-300">{p.category}</TableCell>
-                <TableCell className="text-gold">{p.price?.toLocaleString()}</TableCell>
-                <TableCell className={p.stock < 10 ? "text-red-400" : "text-neutral-300"}>{p.stock}</TableCell>
+                <TableCell>
+                  {editingPrice === p.product_id ? (
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={newPriceVal} onChange={(e) => setNewPriceVal(e.target.value)}
+                        className="w-24 h-7 text-xs bg-neutral-900 border-neutral-600 text-white" />
+                      <Button size="sm" className="h-7 px-2 bg-green-600 text-white text-xs" onClick={() => handleUpdatePrice(p.product_id)}>OK</Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-1 text-neutral-400 text-xs" onClick={() => setEditingPrice(null)}>X</Button>
+                    </div>
+                  ) : (
+                    <span className="text-gold cursor-pointer hover:underline" onClick={() => { setEditingPrice(p.product_id); setNewPriceVal(String(p.price)); }}>
+                      ₹{p.price?.toLocaleString()}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {editingStock === p.product_id ? (
+                    <div className="flex items-center gap-1">
+                      <Input type="number" value={newStockVal} onChange={(e) => setNewStockVal(e.target.value)}
+                        className="w-20 h-7 text-xs bg-neutral-900 border-neutral-600 text-white" />
+                      <Button size="sm" className="h-7 px-2 bg-green-600 text-white text-xs" onClick={() => handleUpdateStock(p.product_id)}>OK</Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-1 text-neutral-400 text-xs" onClick={() => setEditingStock(null)}>X</Button>
+                    </div>
+                  ) : (
+                    <span className={`cursor-pointer hover:underline ${p.stock < 10 ? "text-red-400 font-bold" : "text-neutral-300"}`}
+                      onClick={() => { setEditingStock(p.product_id); setNewStockVal(String(p.stock)); }}>
+                      {p.stock} {p.stock < 10 && "(Low)"}
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(p.approval_status)}`}>{p.approval_status?.replace("_", " ")}</span>
                   {p.rejection_reason && <p className="text-xs text-red-400 mt-1">{p.rejection_reason}</p>}
                 </TableCell>
                 <TableCell>
-                  <Button size="sm" variant="ghost" className="text-red-400" onClick={() => deleteProduct(p.product_id)}>
+                  <Button size="sm" variant="ghost" className="text-red-400 h-7 px-2" onClick={() => deleteProduct(p.product_id)} data-testid={`delist-${p.product_id}`}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -470,7 +563,7 @@ const VendorProducts = ({ vendor }) => {
           </TableBody>
         </Table>
         {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-        {!loading && products.length === 0 && <div className="text-center py-12 text-neutral-500">No products yet. Add your first product!</div>}
+        {!loading && products.length === 0 && <div className="text-center py-12 text-neutral-500">No products yet. Click "Add Product" to create one!</div>}
       </div>
     </div>
   );
