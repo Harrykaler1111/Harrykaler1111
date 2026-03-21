@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { 
   Users, Link2, TrendingUp, DollarSign, Copy, Instagram, 
   Youtube, Facebook, Award, ArrowRight, Check, Clock, Wallet,
-  CreditCard, ExternalLink, Plus, Settings, Power, AlertCircle
+  CreditCard, ExternalLink, Plus, Settings, Power, AlertCircle,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ import axios from "axios";
 
 export const InfluencerDashboard = () => {
   const navigate = useNavigate();
-  const { user, token } = useAuth();
+  const { user, token, logout } = useAuth();
   const [influencer, setInfluencer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
@@ -274,7 +275,32 @@ export const InfluencerDashboard = () => {
               <span className="text-sm">Application Pending</span>
             </div>
           )}
+          <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-300"
+            onClick={() => { logout(); navigate("/"); }}
+            data-testid="influencer-logout-btn">
+            <LogOut className="h-4 w-4 mr-1" /> Logout
+          </Button>
         </div>
+
+        {/* Status warning for suspended/disconnected accounts */}
+        {influencer && ["suspended", "disconnected", "discontinued"].includes(influencer.status) && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-red-300">Account {influencer.status.charAt(0).toUpperCase() + influencer.status.slice(1)}</p>
+              <p className="text-sm text-neutral-400">Your influencer account has been {influencer.status} by admin. Features are restricted. Contact support for assistance.</p>
+            </div>
+          </div>
+        )}
+        {influencer?.status === "rejected" && (
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-orange-400 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-orange-300">Application Rejected</p>
+              <p className="text-sm text-neutral-400">Your influencer application was not approved. You may reapply or contact support for details.</p>
+            </div>
+          </div>
+        )}
 
         {influencer ? (
           <Tabs defaultValue="overview" className="space-y-8">

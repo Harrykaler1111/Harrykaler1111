@@ -320,15 +320,94 @@ async def update_order_status(order_id: str, status: str, admin: Dict = Depends(
     if status not in valid_statuses:
         raise HTTPException(status_code=400, detail="Invalid status")
 
-    result = await db.orders.update_one(
+    order = await db.orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    await db.orders.update_one(
         {"order_id": order_id},
         {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
 
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Order not found")
+    settlement_info = None
 
-    return {"message": f"Order status updated to {status}"}
+    # Auto-settle commissions when order is delivered
+    if status == "delivered" and order.get("settlement_status") != "settled":
+        settings = await db.platform_settings.find_one({"setting_id": "global"}, {"_id": 0})
+        commission_enabled = settings.get("commission_enabled", True) if settings else True
+
+        if commission_enabled:
+            from routes.order_routes import credit_influencer_commission, credit_vendor_wallet, record_platform_commission
+            from config import DEFAULT_COMMISSION_RATE
+
+            total = order["total"]
+            platform_rate = settings.get("platform_commission_rate", 15.0) if settings else 15.0
+            inf_rate_default = settings.get("influencer_commission_rate", 10.0) if settings else 10.0
+            reseller_rate_default = settings.get("reseller_commission_rate", 5.0) if settings else 5.0
+
+            actual_platform = total * (platform_rate / 100)
+            actual_influencer = 0.0
+            actual_reseller = 0.0
+
+            # Credit influencer
+            if order.get("influencer_id"):
+                inf = await db.influencers.find_one({"influencer_id": order["influencer_id"]}, {"_id": 0})
+                rate = inf.get("commission_rate", inf_rate_default) if inf else inf_rate_default
+                actual_influencer = await credit_influencer_commission(order["influencer_id"], order_id, total, rate)
+
+            # Credit reseller
+            if order.get("referral_code"):
+                reseller = await db.resellers.find_one({"referral_code": order["referral_code"], "status": "approved"}, {"_id": 0})
+                if reseller:
+                    actual_reseller = total * (reseller.get("commission_rate", reseller_rate_default) / 100)
+                    new_bal = reseller.get("wallet_balance", 0) + actual_reseller
+                    from auth import generate_id as gen_id
+                    await db.reseller_wallet_transactions.insert_one({
+                        "transaction_id": gen_id("rtxn_"),
+                        "reseller_id": reseller["reseller_id"],
+                        "type": "commission",
+                        "amount": actual_reseller,
+                        "balance_after": new_bal,
+                        "description": f"Commission for order {order_id}",
+                        "order_id": order_id,
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    })
+                    await db.resellers.update_one(
+                        {"reseller_id": reseller["reseller_id"]},
+                        {"$set": {"wallet_balance": new_bal}, "$inc": {"total_earnings": actual_reseller, "total_conversions": 1}}
+                    )
+
+            # Credit vendor
+            actual_vendor = 0.0
+            if order.get("vendor_id"):
+                actual_vendor = total - actual_platform - actual_influencer - actual_reseller
+                from routes.order_routes import credit_vendor_wallet as cv
+                await cv(order["vendor_id"], order_id, actual_vendor)
+                await record_platform_commission(order_id, actual_platform, order["vendor_id"])
+
+            # Mark as settled
+            await db.orders.update_one(
+                {"order_id": order_id},
+                {"$set": {
+                    "payment_status": "paid",
+                    "settlement_status": "settled",
+                    "platform_commission": round(actual_platform, 2),
+                    "influencer_commission": round(actual_influencer, 2),
+                    "reseller_commission": round(actual_reseller, 2),
+                    "vendor_amount": round(actual_vendor, 2),
+                }}
+            )
+
+            settlement_info = {
+                "total": total,
+                "platform": round(actual_platform, 2),
+                "influencer": round(actual_influencer, 2),
+                "reseller": round(actual_reseller, 2),
+                "vendor": round(actual_vendor, 2),
+            }
+            logger.info(f"Auto-settled order {order_id} on delivery: {settlement_info}")
+
+    return {"message": f"Order status updated to {status}", "settlement": settlement_info}
 
 
 # ============== ADMIN CUSTOMER MANAGEMENT ==============
@@ -518,3 +597,134 @@ async def get_marketplace_analytics(admin: Dict = Depends(get_admin_user)):
             "rating": v.get("rating", 0)
         } for v in top_vendors]
     }
+
+
+
+# ============== SUPER ADMIN: PASSWORD & ROLE MANAGEMENT ==============
+
+@router.put("/users/{admin_id}/password")
+async def change_admin_password(admin_id: str, new_password: str, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "admin_users", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    await db.admin_users.update_one(
+        {"admin_id": admin_id},
+        {"$set": {"password": hash_password(new_password), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Password updated"}
+
+
+@router.put("/users/{admin_id}/role")
+async def change_admin_role(admin_id: str, role: str, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "admin_users", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    valid_roles = [r.value for r in AdminRole]
+    if role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {valid_roles}")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    await db.admin_users.update_one(
+        {"admin_id": admin_id},
+        {"$set": {"role": role, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"Role changed to {role}"}
+
+
+# ============== PLATFORM STATS ==============
+
+@router.get("/platform-stats")
+async def get_platform_stats(admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "analytics", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    total_customers = await db.users.count_documents({"role": "customer"})
+    total_vendors = await db.vendors.count_documents({})
+    total_influencers = await db.influencers.count_documents({})
+    total_resellers = await db.resellers.count_documents({})
+    total_admins = await db.admin_users.count_documents({})
+    total_products = await db.products.count_documents({"is_active": True})
+    total_orders = await db.orders.count_documents({})
+
+    return {
+        "total_customers": total_customers,
+        "total_vendors": total_vendors,
+        "total_influencers": total_influencers,
+        "total_resellers": total_resellers,
+        "total_admins": total_admins,
+        "total_products": total_products,
+        "total_orders": total_orders,
+        "total_users": total_customers + total_vendors + total_influencers + total_resellers,
+    }
+
+
+# ============== ADMIN PRODUCT CRUD (Super Admin + Product Manager) ==============
+
+@router.post("/products")
+async def admin_create_product(product: Dict, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "products", "create"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    product_id = generate_id("prod_")
+    product_doc = {
+        "product_id": product_id,
+        "name": product.get("name", ""),
+        "description": product.get("description", ""),
+        "price": float(product.get("price", 0)),
+        "compare_price": product.get("compare_price"),
+        "category": product.get("category", ""),
+        "sizes": product.get("sizes", []),
+        "colors": product.get("colors", []),
+        "images": product.get("images", []),
+        "stock": int(product.get("stock", 0)),
+        "is_limited_edition": product.get("is_limited_edition", False),
+        "drop_date": product.get("drop_date"),
+        "tags": product.get("tags", []),
+        "is_active": True,
+        "created_by": admin["admin_id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    await db.products.insert_one(product_doc)
+    product_doc.pop("_id", None)
+    return {"message": "Product created", "product": product_doc}
+
+
+@router.put("/products/{product_id}")
+async def admin_update_product(product_id: str, updates: Dict, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "products", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    existing = await db.products.find_one({"product_id": product_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    allowed_fields = ["name", "description", "price", "compare_price", "category", "sizes", "colors", "images", "stock", "is_limited_edition", "drop_date", "tags", "is_active"]
+    update_dict = {k: v for k, v in updates.items() if k in allowed_fields}
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.products.update_one({"product_id": product_id}, {"$set": update_dict})
+    return {"message": "Product updated"}
+
+
+@router.put("/products/{product_id}/stock")
+async def admin_update_stock(product_id: str, stock: int, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "products", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    result = await db.products.update_one(
+        {"product_id": product_id},
+        {"$set": {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    return {"message": f"Stock updated to {stock}"}

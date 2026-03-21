@@ -15,7 +15,7 @@ import {
 import {
   LayoutDashboard, Package, ShoppingCart, Wallet, FileText, Tag, Users,
   LogOut, Plus, Trash2, Eye, ArrowUpRight, ArrowDownRight, Store,
-  Upload, CheckCircle, XCircle, Clock, AlertCircle, IndianRupee
+  Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -99,6 +99,25 @@ export const VendorDashboard = () => {
         </aside>
 
         <main className="flex-1 md:ml-64 p-6">
+          {/* Status warning for suspended/disconnected vendors */}
+          {vendor && ["suspended", "disconnected", "discontinued"].includes(vendor.status) && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3" data-testid="vendor-status-warning">
+              <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-red-300">Account {vendor.status.charAt(0).toUpperCase() + vendor.status.slice(1)}</p>
+                <p className="text-sm text-neutral-400">Your vendor account has been {vendor.status} by admin. Some features may be restricted. Contact support.</p>
+              </div>
+            </div>
+          )}
+          {vendor?.status === "rejected" && (
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-orange-400 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-orange-300">Account Rejected</p>
+                <p className="text-sm text-neutral-400">Your vendor application has been rejected. Please contact support.</p>
+              </div>
+            </div>
+          )}
           <Routes>
             <Route index element={<VendorOverview vendor={vendor} />} />
             <Route path="kyc" element={<VendorKYC vendor={vendor} setVendor={setVendor} />} />

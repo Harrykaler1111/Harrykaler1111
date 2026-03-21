@@ -42,6 +42,7 @@ export const Header = () => {
     { label: "Stiletto Heels", href: "/products/Stiletto Heels" },
     { label: "Limited Drops", href: "/products?limited=true" },
     { label: "Sell on Pigma", href: "/vendor-login" },
+    { label: "Become Reseller", href: "/reseller-register" },
   ];
 
   const isHomePage = location.pathname === "/";
@@ -56,10 +57,10 @@ export const Header = () => {
       data-testid="header"
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        <div className="flex items-center justify-between h-16 md:h-20">
+        <div className="flex items-center h-16 md:h-20 gap-6">
           {/* Mobile Menu Button */}
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild className="md:hidden flex-shrink-0">
               <Button variant="ghost" size="icon" className={textColor} data-testid="mobile-menu-btn">
                 <Menu className="h-6 w-6" />
               </Button>
@@ -117,19 +118,19 @@ export const Header = () => {
           {/* Logo */}
           <Link
             to="/"
-            className={`font-serif text-2xl md:text-3xl font-bold tracking-tight ${textColor}`}
+            className={`font-serif text-2xl md:text-3xl font-bold tracking-tight flex-shrink-0 ${textColor}`}
             data-testid="logo"
           >
             PIGMA
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden lg:flex items-center gap-6 flex-1 justify-center">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className={`text-sm uppercase tracking-widest font-medium hover:text-gold transition-colors ${textColor}`}
+                className={`text-xs uppercase tracking-widest font-medium hover:text-gold transition-colors whitespace-nowrap ${textColor}`}
                 data-testid={`nav-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
               >
                 {link.label}
@@ -138,7 +139,7 @@ export const Header = () => {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-3 flex-shrink-0 ml-auto lg:ml-0">
             <Button
               variant="ghost"
               size="icon"
@@ -174,7 +175,7 @@ export const Header = () => {
             )}
 
             {/* User Menu */}
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -204,6 +205,9 @@ export const Header = () => {
                         Influencer Dashboard
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => navigate("/reseller-register")} data-testid="menu-reseller">
+                      Reseller Portal
+                    </DropdownMenuItem>
                     {user.role === "admin" && (
                       <DropdownMenuItem onClick={() => navigate("/admin")} className="text-gold" data-testid="menu-admin">
                         Admin Dashboard

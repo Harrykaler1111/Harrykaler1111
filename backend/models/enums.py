@@ -3,6 +3,7 @@ from enum import Enum
 
 class AdminRole(str, Enum):
     SUPER_ADMIN = "super_admin"
+    PRODUCT_MANAGER = "product_manager"
     MARKETING_MANAGER = "marketing_manager"
     FINANCE_MANAGER = "finance_manager"
     SUPPORT_MANAGER = "support_manager"
@@ -77,6 +78,29 @@ ROLE_PERMISSIONS = {
         "vendor_products": ["view", "approve", "reject"],
         "vendor_kyc": ["view", "approve", "reject"],
         "vendor_withdrawals": ["view", "approve", "reject", "process"],
+        "platform_settings": ["view", "edit"],
+        "categories": ["view", "create", "edit", "delete"],
+    },
+    AdminRole.PRODUCT_MANAGER: {
+        "products": ["view", "create", "edit", "delete"],
+        "orders": ["view"],
+        "influencers": ["view"],
+        "affiliates": ["view"],
+        "resellers": ["view"],
+        "commissions": ["view"],
+        "wallets": [],
+        "payouts": [],
+        "analytics": ["view"],
+        "admin_users": [],
+        "system": [],
+        "customers": ["view"],
+        "coupons": ["view"],
+        "vendors": ["view"],
+        "vendor_products": ["view", "approve", "reject"],
+        "vendor_kyc": [],
+        "vendor_withdrawals": [],
+        "platform_settings": [],
+        "categories": ["view", "create", "edit", "delete"],
     },
     AdminRole.MARKETING_MANAGER: {
         "products": ["view"],
@@ -91,11 +115,13 @@ ROLE_PERMISSIONS = {
         "admin_users": [],
         "system": [],
         "customers": ["view"],
-        "coupons": ["view", "create", "edit"],
+        "coupons": ["view", "create", "edit", "delete"],
         "vendors": ["view"],
         "vendor_products": ["view"],
         "vendor_kyc": [],
         "vendor_withdrawals": [],
+        "platform_settings": [],
+        "categories": ["view"],
     },
     AdminRole.FINANCE_MANAGER: {
         "products": ["view"],
@@ -115,6 +141,8 @@ ROLE_PERMISSIONS = {
         "vendor_products": ["view"],
         "vendor_kyc": ["view", "approve", "reject"],
         "vendor_withdrawals": ["view", "approve", "reject", "process"],
+        "platform_settings": ["view"],
+        "categories": ["view"],
     },
     AdminRole.SUPPORT_MANAGER: {
         "products": ["view"],
@@ -134,5 +162,7 @@ ROLE_PERMISSIONS = {
         "vendor_products": ["view"],
         "vendor_kyc": [],
         "vendor_withdrawals": [],
+        "platform_settings": [],
+        "categories": ["view"],
     },
 }

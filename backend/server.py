@@ -28,6 +28,9 @@ from routes.misc_routes import router as misc_router
 from routes.vendor_routes import router as vendor_router
 from routes.reseller_routes import router as reseller_router
 from routes.user_control_routes import router as user_control_router
+from routes.platform_settings_routes import router as settings_router
+from routes.review_routes import router as review_router
+from routes.collaboration_routes import router as collab_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -51,6 +54,9 @@ app.include_router(misc_router, prefix="/api")
 app.include_router(vendor_router, prefix="/api")
 app.include_router(reseller_router, prefix="/api")
 app.include_router(user_control_router, prefix="/api")
+app.include_router(settings_router, prefix="/api")
+app.include_router(review_router, prefix="/api")
+app.include_router(collab_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -95,6 +101,27 @@ async def startup_event():
     await db.resellers.create_index("referral_code", unique=True)
     await db.suspension_logs.create_index("entity_id")
     await db.reseller_wallet_transactions.create_index("reseller_id")
+    await db.reviews.create_index("product_id")
+    await db.reviews.create_index("review_id", unique=True)
+    await db.collaboration_requests.create_index("request_id", unique=True)
+
+    # Seed platform settings
+    settings = await db.platform_settings.find_one({"setting_id": "global"})
+    if not settings:
+        await db.platform_settings.insert_one({
+            "setting_id": "global",
+            "commission_enabled": True,
+            "platform_commission_rate": 15.0,
+            "influencer_commission_rate": 10.0,
+            "reseller_commission_rate": 5.0,
+            "min_withdrawal_amount": 1000,
+            "auto_settle_on_delivery": True,
+            "commission_targets": [],
+            "commission_rewards": [],
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_by": None,
+        })
+        logger.info("Platform settings seeded")
 
     # Seed super admin if not exists
     super_admin = await db.admin_users.find_one({"email": "superadmin@pigma.com"})
@@ -122,6 +149,7 @@ async def startup_event():
         {"email": "marketing@pigma.com", "name": "Marketing Manager", "role": AdminRole.MARKETING_MANAGER.value, "password": "marketing123"},
         {"email": "finance@pigma.com", "name": "Finance Manager", "role": AdminRole.FINANCE_MANAGER.value, "password": "finance123"},
         {"email": "support@pigma.com", "name": "Support Manager", "role": AdminRole.SUPPORT_MANAGER.value, "password": "support123"},
+        {"email": "products@pigma.com", "name": "Product Manager", "role": AdminRole.PRODUCT_MANAGER.value, "password": "products123"},
     ]
 
     for admin_data in demo_admins:

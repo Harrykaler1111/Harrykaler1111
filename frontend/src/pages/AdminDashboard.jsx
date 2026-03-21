@@ -723,6 +723,7 @@ const AdminUsersManagement = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="product_manager">Product Manager</SelectItem>
                   <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
                   <SelectItem value="finance_manager">Finance Manager</SelectItem>
                   <SelectItem value="support_manager">Support Manager</SelectItem>
@@ -1536,6 +1537,124 @@ export const AdminDashboard = () => {
     );
   };
 
+  // ====== COMMISSION SETTINGS (Super Admin) ======
+  const CommissionSettings = () => {
+    const [settings, setSettings] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [stats, setStats] = useState(null);
+
+    useEffect(() => {
+      Promise.all([
+        axios.get(`${API}/admin/settings/commission`, { headers: getAdminHeaders() }),
+        axios.get(`${API}/admin/platform-stats`, { headers: getAdminHeaders() })
+      ]).then(([settingsRes, statsRes]) => {
+        setSettings(settingsRes.data);
+        setStats(statsRes.data);
+      }).catch(() => toast.error("Failed to load settings"))
+        .finally(() => setLoading(false));
+    }, []);
+
+    const updateSettings = async (updates) => {
+      setSaving(true);
+      try {
+        await axios.put(`${API}/admin/settings/commission`, updates, { headers: getAdminHeaders() });
+        setSettings(prev => ({ ...prev, ...updates }));
+        toast.success("Settings updated");
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+      finally { setSaving(false); }
+    };
+
+    if (loading) return <div className="text-center py-8 text-neutral-500">Loading...</div>;
+
+    return (
+      <div className="space-y-6">
+        <h2 className="font-serif text-2xl font-bold text-white">Platform Settings</h2>
+
+        {/* Platform Stats */}
+        {stats && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard icon={<Users className="h-5 w-5 text-blue-400" />} label="Total Users" value={stats.total_users} bg="bg-blue-500/10" />
+            <StatCard icon={<Store className="h-5 w-5 text-green-400" />} label="Vendors" value={stats.total_vendors} bg="bg-green-500/10" />
+            <StatCard icon={<UserCheck className="h-5 w-5 text-purple-400" />} label="Influencers" value={stats.total_influencers} bg="bg-purple-500/10" />
+            <StatCard icon={<Package className="h-5 w-5 text-gold" />} label="Products" value={stats.total_products} bg="bg-gold/10" />
+          </div>
+        )}
+
+        {/* Commission Controls */}
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">Commission Controls</h3>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-neutral-400">Commissions</span>
+              <button
+                onClick={() => updateSettings({ commission_enabled: !settings.commission_enabled })}
+                className={`w-12 h-6 rounded-full transition-colors relative ${settings.commission_enabled ? "bg-green-500" : "bg-neutral-600"}`}
+                data-testid="commission-toggle"
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${settings.commission_enabled ? "left-6" : "left-0.5"}`} />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Platform Commission (%)</label>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.platform_commission_rate}
+                  onChange={(e) => setSettings(prev => ({ ...prev, platform_commission_rate: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="platform-rate-input" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ platform_commission_rate: settings.platform_commission_rate })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Influencer Commission (%)</label>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.influencer_commission_rate}
+                  onChange={(e) => setSettings(prev => ({ ...prev, influencer_commission_rate: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="influencer-rate-input" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ influencer_commission_rate: settings.influencer_commission_rate })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Reseller Commission (%)</label>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.reseller_commission_rate}
+                  onChange={(e) => setSettings(prev => ({ ...prev, reseller_commission_rate: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="reseller-rate-input" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ reseller_commission_rate: settings.reseller_commission_rate })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Min Withdrawal Amount (₹)</label>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.min_withdrawal_amount}
+                  onChange={(e) => setSettings(prev => ({ ...prev, min_withdrawal_amount: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ min_withdrawal_amount: settings.min_withdrawal_amount })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="text-sm text-neutral-400 mb-1 block">Auto-settle on Delivery</label>
+                <p className="text-xs text-neutral-500">When order is delivered, auto-distribute commissions</p>
+              </div>
+              <button
+                onClick={() => updateSettings({ auto_settle_on_delivery: !settings.auto_settle_on_delivery })}
+                className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${settings.auto_settle_on_delivery ? "bg-green-500" : "bg-neutral-600"}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${settings.auto_settle_on_delivery ? "left-6" : "left-0.5"}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const navItems = [
     { path: "/admin", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview", permission: ["analytics", "view"] },
     { path: "/admin/orders", icon: <ShoppingCart className="h-5 w-5" />, label: "Orders", permission: ["orders", "view"] },
@@ -1549,6 +1668,7 @@ export const AdminDashboard = () => {
     { path: "/admin/vendor-products", icon: <FileCheck className="h-5 w-5" />, label: "Product Approvals", permission: ["vendor_products", "view"] },
     { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },
     { path: "/admin/suspension-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
+    { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
 
@@ -1631,6 +1751,7 @@ export const AdminDashboard = () => {
             <Route path="vendor-products" element={<VendorProductApprovals />} />
             <Route path="resellers" element={<ResellersManagement />} />
             <Route path="suspension-history" element={<SuspensionHistoryPage />} />
+            <Route path="settings" element={<CommissionSettings />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>
