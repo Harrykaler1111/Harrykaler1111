@@ -1075,14 +1075,33 @@ export const AdminDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const admin = getAdmin();
+  const [admin, setAdminState] = useState(getAdmin());
 
   useEffect(() => {
     // Check if admin is logged in
     const token = localStorage.getItem("pigma_admin_token");
     if (!token) {
       navigate("/admin-login");
+      return;
     }
+
+    // Refresh admin data from server to get latest permissions
+    const refreshAdmin = async () => {
+      try {
+        const response = await axios.get(`${API}/admin/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const adminData = response.data;
+        localStorage.setItem("pigma_admin", JSON.stringify(adminData));
+        setAdminState(adminData);
+      } catch (err) {
+        // Token expired or invalid - force re-login
+        localStorage.removeItem("pigma_admin_token");
+        localStorage.removeItem("pigma_admin");
+        navigate("/admin-login");
+      }
+    };
+    refreshAdmin();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -1690,31 +1709,32 @@ export const AdminDashboard = () => {
     <div className="min-h-screen bg-neutral-900 text-white" data-testid="admin-dashboard">
       <div className="flex">
         {/* Sidebar */}
-        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 p-4 fixed left-0 top-0">
+        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 fixed left-0 top-0 bottom-0 overflow-y-auto">
+          <div className="p-4 flex flex-col h-full">
           {/* Brand */}
-          <div className="mb-4 pb-3 border-b border-neutral-800">
+          <div className="mb-4 pb-3 border-b border-neutral-800 flex-shrink-0">
             <h1 className="font-serif text-xl font-bold text-gold tracking-wider">PIGMA</h1>
             <p className="text-xs text-neutral-500">Admin Panel</p>
           </div>
           {/* Admin Info */}
-          <div className="mb-6 pb-4 border-b border-neutral-800">
+          <div className="mb-4 pb-3 border-b border-neutral-800 flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gold rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gold rounded-lg flex items-center justify-center flex-shrink-0">
                 <User className="h-5 w-5 text-black" />
               </div>
-              <div>
-                <p className="font-medium text-sm">{admin.name}</p>
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{admin.name}</p>
                 <p className="text-xs text-neutral-400 capitalize">{admin.role?.replace("_", " ")}</p>
               </div>
             </div>
           </div>
 
-          <nav className="space-y-1 flex-1">
+          <nav className="space-y-1 flex-1 overflow-y-auto">
             {filteredNavItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-sm ${
                   currentPath === item.path
                     ? "bg-gold text-black"
                     : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
@@ -1729,11 +1749,13 @@ export const AdminDashboard = () => {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors mt-4"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors mt-2 flex-shrink-0"
+            data-testid="admin-logout-btn"
           >
             <LogOut className="h-5 w-5" />
             <span>Logout</span>
           </button>
+          </div>
         </aside>
 
         {/* Main Content */}
