@@ -41,10 +41,14 @@ const CollabsSection = ({ token }) => {
 
   const respond = async (requestId, action) => {
     try {
-      await axios.put(`${API}/collaborations/${requestId}/${action}`, {}, {
+      const res = await axios.put(`${API}/collaborations/${requestId}/${action}`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success(`Collaboration ${action}ed!`);
+      if (action === "accept" && res.data.vendor_contact) {
+        toast.success("Collaboration accepted! Contact details shared below.");
+      } else {
+        toast.success(`Collaboration ${action}ed!`);
+      }
       fetchRequests();
     } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
   };
@@ -103,8 +107,23 @@ const CollabsSection = ({ token }) => {
               </button>
             </div>
           )}
-          {req.status === "accepted" && req.responded_at && (
-            <p className="text-xs text-green-400">Accepted on {new Date(req.responded_at).toLocaleDateString()}</p>
+          {req.status === "accepted" && req.vendor_contact && (
+            <div className="bg-neutral-900/80 border border-green-500/20 rounded-lg p-4 mt-3 space-y-2">
+              <p className="text-green-400 font-medium text-sm flex items-center gap-2">
+                <Check className="h-4 w-4" /> Vendor Contact Details
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
+                <div><span className="text-neutral-500">Store:</span> <span className="text-white">{req.vendor_contact.name}</span></div>
+                <div><span className="text-neutral-500">Email:</span> <span className="text-white">{req.vendor_contact.email}</span></div>
+                <div><span className="text-neutral-500">Phone:</span> <span className="text-white">{req.vendor_contact.phone || "N/A"}</span></div>
+              </div>
+              {req.platform_collab_fee && (
+                <p className="text-xs text-neutral-400 mt-1">Platform fee: {req.platform_collab_fee}% on collab sales</p>
+              )}
+            </div>
+          )}
+          {req.status === "accepted" && req.responded_at && !req.vendor_contact && (
+            <p className="text-xs text-green-400 mt-2">Accepted on {new Date(req.responded_at).toLocaleDateString()}</p>
           )}
         </div>
       ))}

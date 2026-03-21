@@ -1894,7 +1894,17 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Collab Platform Fee (%)</label>
+              <p className="text-xs text-neutral-500 mb-1">Cut from every vendor-influencer collab sale</p>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.collab_platform_fee || 5}
+                  onChange={(e) => setSettings(prev => ({ ...prev, collab_platform_fee: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="collab-fee-input" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ collab_platform_fee: settings.collab_platform_fee })} disabled={saving}>Save</Button>
+              </div>
+            </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Min Withdrawal Amount (₹)</label>
               <div className="flex gap-2">

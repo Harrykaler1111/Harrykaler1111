@@ -16,6 +16,7 @@ DEFAULT_SETTINGS = {
     "platform_commission_rate": 15.0,
     "influencer_commission_rate": 10.0,
     "reseller_commission_rate": 5.0,
+    "collab_platform_fee": 5.0,
     "min_withdrawal_amount": 1000,
     "auto_settle_on_delivery": True,
     "commission_targets": [],
@@ -30,6 +31,7 @@ class CommissionSettingsUpdate(BaseModel):
     platform_commission_rate: Optional[float] = None
     influencer_commission_rate: Optional[float] = None
     reseller_commission_rate: Optional[float] = None
+    collab_platform_fee: Optional[float] = None
     min_withdrawal_amount: Optional[float] = None
     auto_settle_on_delivery: Optional[bool] = None
 

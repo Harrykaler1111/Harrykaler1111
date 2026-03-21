@@ -91,22 +91,84 @@ async def accept_collaboration(request_id: str, user: Dict = Depends(get_current
     if req["status"] != "pending":
         raise HTTPException(status_code=400, detail="Request is not pending")
 
+    # Get vendor and influencer contact details
+    vendor = await db.vendors.find_one({"vendor_id": req["vendor_id"]}, {"_id": 0})
+    vendor_user = await db.users.find_one({"user_id": vendor["user_id"]}, {"_id": 0}) if vendor else None
+
+    # Get platform collab fee
+    settings = await db.platform_settings.find_one({"setting_id": "global"}, {"_id": 0})
+    collab_fee = settings.get("collab_platform_fee", 5.0) if settings else 5.0
+
+    vendor_contact = {
+        "name": vendor.get("store_name", "") if vendor else "",
+        "email": vendor_user.get("email", "") if vendor_user else "",
+        "phone": vendor_user.get("phone", "") if vendor_user else "",
+    }
+    influencer_contact = {
+        "name": inf.get("name", ""),
+        "email": user.get("email", ""),
+        "phone": user.get("phone", ""),
+        "instagram": inf.get("instagram_handle", ""),
+    }
+
     await db.collaboration_requests.update_one(
         {"request_id": request_id},
-        {"$set": {"status": "accepted", "responded_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": {
+            "status": "accepted",
+            "responded_at": datetime.now(timezone.utc).isoformat(),
+            "vendor_contact": vendor_contact,
+            "influencer_contact": influencer_contact,
+            "platform_collab_fee": collab_fee,
+        }}
     )
 
-    # If custom commission rate, update influencer's rate for this vendor
-    if req.get("commission_rate"):
-        await db.vendor_influencer_links.insert_one({
-            "vendor_id": req["vendor_id"],
-            "influencer_id": inf["influencer_id"],
-            "commission_rate": req["commission_rate"],
-            "campaign_name": req.get("campaign_name"),
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
+    # Create vendor-influencer link for commission tracking
+    link_data = {
+        "link_id": generate_id("vlink_"),
+        "vendor_id": req["vendor_id"],
+        "influencer_id": inf["influencer_id"],
+        "commission_rate": req.get("commission_rate") or (settings.get("influencer_commission_rate", 10.0) if settings else 10.0),
+        "platform_collab_fee": collab_fee,
+        "campaign_name": req.get("campaign_name"),
+        "request_id": request_id,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.vendor_influencer_links.update_one(
+        {"vendor_id": req["vendor_id"], "influencer_id": inf["influencer_id"]},
+        {"$set": link_data},
+        upsert=True
+    )
 
-    return {"message": "Collaboration accepted"}
+    return {
+        "message": "Collaboration accepted! Contact details shared.",
+        "vendor_contact": vendor_contact,
+        "influencer_contact": influencer_contact,
+        "platform_collab_fee": collab_fee,
+    }
+
+
+@router.get("/{request_id}/details")
+async def get_collab_details(request_id: str, user: Dict = Depends(get_current_user)):
+    """Get full collab details including contact info (only for accepted collabs)"""
+    req = await db.collaboration_requests.find_one({"request_id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    if req["status"] != "accepted":
+        raise HTTPException(status_code=400, detail="Contact details are only available for accepted collaborations")
+
+    # Verify caller is part of this collab
+    inf = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    is_influencer = inf and inf["influencer_id"] == req.get("influencer_id")
+
+    vendor = await db.vendors.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    is_vendor = vendor and vendor["vendor_id"] == req.get("vendor_id")
+
+    if not is_influencer and not is_vendor:
+        raise HTTPException(status_code=403, detail="You are not part of this collaboration")
+
+    return req
 
 
 @router.put("/{request_id}/reject")

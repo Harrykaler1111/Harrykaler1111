@@ -1033,11 +1033,28 @@ const VendorInfluencers = ({ vendor }) => {
                 </span>
               </div>
               <p className="text-sm text-neutral-300 mb-2">{req.message}</p>
-              <div className="flex gap-4 text-xs text-neutral-500">
+              <div className="flex gap-4 text-xs text-neutral-500 mb-4">
                 {req.commission_rate && <span>Offered: {req.commission_rate}% commission</span>}
+                {req.platform_collab_fee && <span>Platform fee: {req.platform_collab_fee}%</span>}
                 <span>Sent: {new Date(req.created_at).toLocaleDateString()}</span>
                 {req.responded_at && <span>Responded: {new Date(req.responded_at).toLocaleDateString()}</span>}
               </div>
+              {req.status === "accepted" && req.influencer_contact && (
+                <div className="bg-neutral-900/80 border border-green-500/20 rounded-lg p-4 space-y-2">
+                  <p className="text-green-400 font-medium text-sm flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" /> Influencer Contact Details
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                    <div><span className="text-neutral-500">Name:</span> <span className="text-white">{req.influencer_contact.name}</span></div>
+                    <div><span className="text-neutral-500">Email:</span> <span className="text-white">{req.influencer_contact.email}</span></div>
+                    <div><span className="text-neutral-500">Phone:</span> <span className="text-white">{req.influencer_contact.phone || "N/A"}</span></div>
+                    {req.influencer_contact.instagram && (
+                      <div><span className="text-neutral-500">Instagram:</span> <span className="text-white">@{req.influencer_contact.instagram}</span></div>
+                    )}
+                  </div>
+                  <p className="text-xs text-neutral-400 mt-1">Platform collab fee: {req.platform_collab_fee || 5}% on every collab sale goes to Pigma</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
