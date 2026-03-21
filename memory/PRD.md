@@ -1,106 +1,103 @@
 # Pigma Multi-Vendor E-commerce & Influencer Marketplace - PRD
 
 ## Original Problem Statement
-Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace platform for "Pigma". Transform from single-vendor to a marketplace where vendors register, upload products, sell through the platform, and collaborate with influencers. Platform owner earns commission on every sale.
+Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace platform "Pigma". Features: vendor registration & product management, influencer/reseller commission system, admin RBAC, commission auto-settlement on delivery, reviews, vendor-influencer collaboration.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, Shadcn/UI, Framer Motion
-- **Backend:** FastAPI (Python), modular architecture
+- **Backend:** FastAPI (Python), modular architecture (15 route modules)
 - **Database:** MongoDB
-- **Auth:** JWT (separate tokens for customer, vendor, admin), Google OAuth, RBAC
+- **Auth:** JWT (separate tokens per role), Google OAuth, RBAC (5 admin roles)
 
 ## Architecture
 ```
 /app/backend/
-  server.py          - App setup, router includes, seed data, file serving
-  config.py          - DB, env vars, platform commission rates
-  auth.py            - JWT, password, auth deps (get_current_user, get_admin_user, get_current_vendor, get_current_reseller)
-  models/
-    enums.py         - AdminRole, VendorStatus, VendorProductStatus, permissions
-    schemas.py       - All Pydantic models
-  routes/
-    auth_routes.py, admin_routes.py, product_routes.py, cart_routes.py,
-    order_routes.py, wishlist_routes.py, influencer_routes.py,
-    affiliate_routes.py, coupon_routes.py, chat_routes.py, misc_routes.py,
-    vendor_routes.py, reseller_routes.py, user_control_routes.py
+  server.py, config.py, auth.py
+  models/ (enums.py, schemas.py)
+  routes/ (admin_routes, auth_routes, product_routes, cart_routes,
+           order_routes, wishlist_routes, influencer_routes,
+           affiliate_routes, coupon_routes, chat_routes, misc_routes,
+           vendor_routes, reseller_routes, user_control_routes,
+           platform_settings_routes, review_routes, collaboration_routes)
 
 /app/frontend/src/
-  App.js             - Router with all routes (vendor, reseller, admin)
-  pages/
-    HomePage.jsx, ProductsPage.jsx, ProductDetailPage.jsx, CartPage.jsx,
-    CheckoutPage.jsx, AuthPage.jsx, AuthCallback.jsx, ProfilePage.jsx,
-    WishlistPage.jsx, OrdersPage.jsx, InfluencerDashboard.jsx,
-    AffiliateDashboard.jsx, AdminDashboard.jsx, AdminLoginPage.jsx,
-    VendorAuthPage.jsx, VendorDashboard.jsx, 
-    ResellerRegisterPage.jsx (NEW), ResellerDashboard.jsx (NEW)
+  App.js
+  pages/ (HomePage, ProductsPage, ProductDetailPage, CartPage,
+          CheckoutPage, AuthPage, ProfilePage, WishlistPage, OrdersPage,
+          InfluencerDashboard, AffiliateDashboard, AdminDashboard,
+          AdminLoginPage, VendorAuthPage, VendorDashboard,
+          ResellerRegisterPage, ResellerDashboard)
+  components/layout/ (Header.jsx, Footer.jsx)
 ```
 
-## Roles & Auth
-- **Customer:** JWT auth via /auth/*
-- **Vendor:** Separate JWT auth via /vendors/login
-- **Admin (4 RBAC roles):** Separate JWT auth via /admin/auth/login
-  - Super Admin, Marketing Manager, Finance Manager, Support Manager
-- **Influencer:** Customer who applied at /influencers/apply
-- **Reseller:** Customer who registered at /resellers/register
+## Admin Roles (5)
+| Role | Key Permissions |
+|------|----------------|
+| Super Admin | Everything + platform_settings, categories, admin_users |
+| Product Manager | products CRUD, vendor_products approve/reject, categories |
+| Marketing Manager | coupons CRUD, influencers/affiliates/resellers approve |
+| Finance Manager | commissions, wallets, payouts, vendor_kyc, withdrawals |
+| Support Manager | orders update, customers edit |
 
 ## Seeded Credentials
 - Super Admin: superadmin@pigma.com / superadmin123
+- Product Manager: products@pigma.com / products123
 - Marketing: marketing@pigma.com / marketing123
 - Finance: finance@pigma.com / finance123
 - Support: support@pigma.com / support123
 - Test Vendor: testvendor@example.com / vendor123
+- Test Customer: audit@test.com / test123
 
-## Completed Features (as of 2026-03-20)
+## Completed Features
 
 ### Phase 0 - MVP
-1. E-commerce store (homepage, products, cart, checkout, customer auth)
-2. Backend refactoring (monolith -> modular, 13 route modules)
-3. Admin RBAC system (4 roles, permission matrix)
-4. Admin dashboard (all management panels)
-5. Influencer wallet system
+- E-commerce store (homepage, products, cart, checkout, customer auth)
+- Backend refactoring (monolith → modular)
+- Admin RBAC system, Admin dashboard
 
 ### Phase 1 - Multi-Vendor Marketplace
-1. Vendor Registration + Login
-2. Vendor KYC submission
-3. Vendor Dashboard (overview, products, orders, wallet, offers, influencers)
-4. Vendor Product Management with admin approval flow
-5. Admin Vendor Management + KYC approval
-6. Admin Product Approvals
+- Vendor registration, login, KYC, dashboard
+- Vendor product management + admin approval
+- Admin vendor management + KYC approval
 
-### Admin Control System (P0 - COMPLETED 2026-03-20)
-1. Universal suspend/disconnect/discontinue/reactivate for all user types
-2. Admin action history logging with audit trail
-3. Reseller management panel in admin
-4. Suspension history page with type filtering
-5. Reseller registration page + dashboard (overview, referral links, wallet)
-6. Nav items + routes for Resellers & Action History in admin sidebar
+### Phase 2 - Commission & Control System (COMPLETED 2026-03-21)
+- **Auto commission settlement on delivery** (platform → vendor → influencer → reseller)
+- **Super Admin commission controls** (rates, toggle on/off, auto-settle, min withdrawal)
+- **Product Manager role** (new RBAC role for product CRUD + category management)
+- **Platform Settings page** (stats, commission controls, toggles)
+- **Reviews & Ratings system** (product reviews with images/videos, vendor ratings)
+- **Vendor-Influencer collaboration** (send/accept/reject collaboration requests)
+- **Reseller registration + dashboard** (overview, referral links, wallet)
+- **Logout on all dashboards** (admin, vendor, influencer, reseller)
+- **Status warnings** for suspended/disconnected users
+- **Header UI fix** (properly aligned nav with Sell on Pigma + Become Reseller)
+- **Admin action history** + suspension logs
 
 ## MOCKED Integrations
-- Razorpay payments/payouts (mock order IDs, mock verification)
-- Instagram OAuth & DM automation (mock flow)
-- AI chatbot (keyword-based)
-- OTP verification
-- KYC document storage (local server)
+- Razorpay payments/payouts → needs API keys
+- Instagram OAuth & DM → needs Meta credentials
+- AI chatbot → keyword-based
 
-## P0 - Next Up: Commission Auto-Distribution
-- Auto-distribute funds on order completion (platform -> vendor -> influencer/reseller)
-- Vendor wallet auto-credit on sale
-- Order flow with vendor_id attribution
+## P0 - Next Tasks
+- None pending
 
-## P1 - Pending Features
-- Real Razorpay integration (needs API keys)
-- Partial payment on COD
-- Shipping integration (Shiprocket/Delhivery)
-- Email notifications (SendGrid/Resend)
-- Instagram username verification
-- CRM system
+## P1 - Upcoming Tasks
+1. Real Razorpay integration (when keys provided)
+2. WhatsApp integration (Interakt - user will provide credentials later)
+3. Instagram API integration (needs Meta credentials)
+4. OTP verification for login/registration (needs SMS provider)
+5. Partial payment on COD
+6. Shipping integration (Shiprocket/Delhivery)
+7. Email notifications (SendGrid/Resend)
 
 ## P2 - Future/Backlog
-- WhatsApp automation (Twilio/Meta)
+- WhatsApp cart abandonment automation
 - Push notifications (Firebase)
 - Auto Creator Recruitment landing page
 - Creator Growth Tools
-- Vendor Rating System
+- Vendor Rating System (UI already exists via reviews API)
 - Return & Dispute Management
 - Real AI chatbot (GPT via Emergent LLM Key)
-- Multi-platform social integrations
+- CRM system
+- SEO management tools
+- Marketing pixels (Meta, Google)
