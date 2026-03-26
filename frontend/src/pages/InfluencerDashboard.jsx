@@ -84,11 +84,17 @@ const CollabsSection = ({ token }) => {
             </span>
           </div>
           <p className="text-neutral-300 mb-4 bg-neutral-900/50 rounded-lg p-3 text-sm italic">"{req.message}"</p>
-          <div className="flex items-center gap-4 text-sm text-neutral-400 mb-4">
+          <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-400 mb-4">
             {req.commission_rate && (
               <span className="flex items-center gap-1">
                 <DollarSign className="h-4 w-4 text-gold" />
-                <span className="text-gold font-medium">{req.commission_rate}% commission offered</span>
+                <span className="text-gold font-medium">{req.commission_rate}% commission</span>
+              </span>
+            )}
+            {req.fixed_payment && (
+              <span className="flex items-center gap-1">
+                <DollarSign className="h-4 w-4 text-green-400" />
+                <span className="text-green-400 font-medium">Fixed: ₹{req.fixed_payment.toLocaleString()}</span>
               </span>
             )}
             <span>Received: {new Date(req.created_at).toLocaleDateString()}</span>
@@ -117,6 +123,13 @@ const CollabsSection = ({ token }) => {
                 <div><span className="text-neutral-500">Email:</span> <span className="text-white">{req.vendor_contact.email}</span></div>
                 <div><span className="text-neutral-500">Phone:</span> <span className="text-white">{req.vendor_contact.phone || "N/A"}</span></div>
               </div>
+              {req.referral_code && (
+                <div className="mt-3 p-3 bg-gold/10 border border-gold/30 rounded-lg">
+                  <p className="text-gold text-xs font-mono uppercase tracking-wider mb-1">Your Referral Code</p>
+                  <p className="text-white font-bold text-lg tracking-widest" data-testid={`referral-code-${req.request_id}`}>{req.referral_code}</p>
+                  <p className="text-neutral-400 text-xs mt-1">Share this code to track sales from your promotion</p>
+                </div>
+              )}
               {req.platform_collab_fee && (
                 <p className="text-xs text-neutral-400 mt-1">Platform fee: {req.platform_collab_fee}% on collab sales</p>
               )}

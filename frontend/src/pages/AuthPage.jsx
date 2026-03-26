@@ -34,6 +34,13 @@ export const AuthPage = () => {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
 
+  // Reset password
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetNewPw, setResetNewPw] = useState("");
+  const [resetStep, setResetStep] = useState(1);
+
   useEffect(() => {
     if (user) {
       navigate(from, { replace: true });
@@ -121,6 +128,39 @@ export const AuthPage = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
     const redirectUrl = window.location.origin + "/";
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  };
+
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const res = await axios.post(`${API}/auth/password/reset-request`, { email: resetEmail });
+      setResetStep(2);
+      toast.success("Reset OTP sent to your email");
+      if (res.data.demo_otp) toast.info(`Demo OTP: ${res.data.demo_otp}`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Failed to send reset OTP");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetConfirm = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      await axios.post(`${API}/auth/password/reset-confirm`, {
+        email: resetEmail, otp: resetOtp, new_password: resetNewPw
+      });
+      toast.success("Password reset! Please sign in.");
+      setShowReset(false);
+      setResetStep(1);
+      setResetEmail(""); setResetOtp(""); setResetNewPw("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Reset failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -229,7 +269,75 @@ export const AuthPage = () => {
                 >
                   {isLoading ? "Signing in..." : "Sign In"}
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowReset(true)}
+                  className="w-full text-sm text-gold hover:text-gold/80 transition-colors text-center mt-2"
+                  data-testid="forgot-password-link"
+                >
+                  Forgot Password?
+                </button>
               </form>
+
+              {showReset && (
+                <div className="mt-6 pt-6 border-t" data-testid="reset-password-section">
+                  <h3 className="font-serif text-lg font-semibold mb-4">Reset Password</h3>
+                  {resetStep === 1 ? (
+                    <form onSubmit={handleResetRequest} className="space-y-3">
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                        <Input
+                          type="email"
+                          placeholder="Enter your email"
+                          value={resetEmail}
+                          onChange={(e) => setResetEmail(e.target.value)}
+                          className="pl-10"
+                          required
+                          data-testid="reset-email-input"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full bg-gold hover:bg-gold/90 text-white" disabled={isLoading} data-testid="reset-send-otp-btn">
+                        {isLoading ? "Sending..." : "Send Reset OTP"}
+                      </Button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleResetConfirm} className="space-y-3">
+                      <Input
+                        type="text"
+                        placeholder="Enter OTP"
+                        value={resetOtp}
+                        onChange={(e) => setResetOtp(e.target.value)}
+                        className="text-center tracking-widest"
+                        maxLength={6}
+                        required
+                        data-testid="reset-otp-input"
+                      />
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                        <Input
+                          type="password"
+                          placeholder="New password (min 6 chars)"
+                          value={resetNewPw}
+                          onChange={(e) => setResetNewPw(e.target.value)}
+                          className="pl-10"
+                          required
+                          data-testid="reset-new-password-input"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full bg-gold hover:bg-gold/90 text-white" disabled={isLoading} data-testid="reset-confirm-btn">
+                        {isLoading ? "Resetting..." : "Reset Password"}
+                      </Button>
+                    </form>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setShowReset(false); setResetStep(1); }}
+                    className="w-full text-xs text-neutral-400 hover:text-neutral-600 mt-2 text-center"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              )}
             </TabsContent>
 
             {/* Signup Tab */}

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel as PydanticBaseModel
 import uuid
 import os
 import shutil
@@ -84,6 +85,25 @@ async def vendor_login(credentials: VendorLogin):
 @router.get("/me", response_model=VendorResponse)
 async def get_vendor_profile(vendor: Dict = Depends(get_current_vendor)):
     return VendorResponse(**vendor)
+
+
+class VendorPasswordUpdate(PydanticBaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.put("/password/update")
+async def update_vendor_password(data: VendorPasswordUpdate, vendor: Dict = Depends(get_current_vendor)):
+    if not verify_password(data.current_password, vendor["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    hashed = hash_password(data.new_password)
+    await db.vendors.update_one(
+        {"vendor_id": vendor["vendor_id"]},
+        {"$set": {"password": hashed, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Password updated successfully"}
 
 
 @router.put("/me", response_model=VendorResponse)

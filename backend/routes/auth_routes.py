@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Header
 from typing import Dict, Optional
 from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
 import uuid
 import httpx
 import logging
@@ -11,6 +12,17 @@ from auth import generate_id, hash_password, verify_password, create_jwt_token, 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+async def log_action(user_id: str, user_type: str, action: str, details: str = ""):
+    await db.action_history.insert_one({
+        "action_id": generate_id("act_"),
+        "user_id": user_id,
+        "user_type": user_type,
+        "action": action,
+        "details": details,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
 
 
 @router.post("/register", response_model=Dict)
@@ -53,11 +65,109 @@ async def login_user(credentials: UserLogin):
     if not user or not verify_password(credentials.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    await log_action(user["user_id"], "user", "login", f"Login from {credentials.email}")
     token = create_jwt_token(user["user_id"], user["role"])
     return {
         "token": token,
         "user": UserResponse(**{k: v for k, v in user.items() if k != "password"}).model_dump()
     }
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordConfirm(BaseModel):
+    email: str
+    otp: str
+    new_password: str
+
+class UpdatePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/password/reset-request")
+async def request_password_reset(data: ResetPasswordRequest):
+    """Send OTP for password reset - works for users, vendors, influencers"""
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    vendor = await db.vendors.find_one({"email": data.email}, {"_id": 0}) if not user else None
+
+    if not user and not vendor:
+        raise HTTPException(status_code=404, detail="No account found with this email")
+
+    otp = str(uuid.uuid4().int)[:6]
+    await db.password_resets.update_one(
+        {"email": data.email},
+        {"$set": {
+            "email": data.email,
+            "otp": otp,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+        }},
+        upsert=True
+    )
+    logger.info(f"Password reset OTP for {data.email}: {otp}")
+    return {"message": "Password reset OTP sent", "demo_otp": otp}
+
+
+@router.post("/password/reset-confirm")
+async def confirm_password_reset(data: ResetPasswordConfirm):
+    """Confirm password reset with OTP"""
+    reset = await db.password_resets.find_one({"email": data.email}, {"_id": 0})
+    if not reset or reset["otp"] != data.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    expires_at = datetime.fromisoformat(reset["expires_at"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="OTP expired")
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    hashed = hash_password(data.new_password)
+
+    # Update in users collection
+    user_result = await db.users.update_one(
+        {"email": data.email}, {"$set": {"password": hashed, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    # Also update in vendors collection
+    vendor_result = await db.vendors.update_one(
+        {"email": data.email}, {"$set": {"password": hashed, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    await db.password_resets.delete_one({"email": data.email})
+
+    uid = ""
+    if user_result.modified_count > 0:
+        u = await db.users.find_one({"email": data.email}, {"_id": 0})
+        uid = u.get("user_id", "") if u else ""
+    elif vendor_result.modified_count > 0:
+        v = await db.vendors.find_one({"email": data.email}, {"_id": 0})
+        uid = v.get("vendor_id", "") if v else ""
+
+    if uid:
+        await log_action(uid, "user", "password_reset", f"Password reset for {data.email}")
+
+    return {"message": "Password reset successfully"}
+
+
+@router.put("/password/update")
+async def update_password(data: UpdatePasswordRequest, user: Dict = Depends(get_current_user)):
+    """Update password for logged-in user"""
+    if not verify_password(data.current_password, user["password"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+
+    hashed = hash_password(data.new_password)
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"password": hashed, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await log_action(user["user_id"], "user", "password_update", "Password updated")
+    return {"message": "Password updated successfully"}
 
 
 @router.get("/me", response_model=UserResponse)

@@ -875,7 +875,7 @@ const VendorInfluencers = ({ vendor }) => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("browse");
   const [collabModal, setCollabModal] = useState(null);
-  const [collabForm, setCollabForm] = useState({ message: "", commission_rate: "", campaign_name: "" });
+  const [collabForm, setCollabForm] = useState({ message: "", commission_rate: "", campaign_name: "", fixed_payment: "" });
   const [sending, setSending] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -906,13 +906,14 @@ const VendorInfluencers = ({ vendor }) => {
         influencer_ids: influencerIds,
         message: collabForm.message,
         commission_rate: collabForm.commission_rate ? parseFloat(collabForm.commission_rate) : null,
+        fixed_payment: collabForm.fixed_payment ? parseFloat(collabForm.fixed_payment) : null,
         campaign_name: collabForm.campaign_name || null
       };
       const res = await axios.post(`${API}/collaborations/request`, payload, { headers: getVendorHeaders() });
       const sent = res.data.results?.filter(r => r.status === "sent").length || 0;
       toast.success(`Collaboration request sent to ${sent} influencer(s)!`);
       setCollabModal(null);
-      setCollabForm({ message: "", commission_rate: "", campaign_name: "" });
+      setCollabForm({ message: "", commission_rate: "", campaign_name: "", fixed_payment: "" });
       setSelectedIds([]);
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Failed to send"); }
@@ -1033,12 +1034,42 @@ const VendorInfluencers = ({ vendor }) => {
                 </span>
               </div>
               <p className="text-sm text-neutral-300 mb-2">{req.message}</p>
-              <div className="flex gap-4 text-xs text-neutral-500 mb-4">
-                {req.commission_rate && <span>Offered: {req.commission_rate}% commission</span>}
+              <div className="flex flex-wrap gap-4 text-xs text-neutral-500 mb-4">
+                {req.commission_rate && <span>Commission: {req.commission_rate}%</span>}
+                {req.fixed_payment && <span className="text-green-400">Fixed: ₹{req.fixed_payment.toLocaleString()}</span>}
                 {req.platform_collab_fee && <span>Platform fee: {req.platform_collab_fee}%</span>}
                 <span>Sent: {new Date(req.created_at).toLocaleDateString()}</span>
                 {req.responded_at && <span>Responded: {new Date(req.responded_at).toLocaleDateString()}</span>}
               </div>
+              {req.referral_code && req.status === "accepted" && (
+                <div className="bg-gold/10 border border-gold/30 rounded-lg p-3 mb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-gold text-xs font-mono uppercase tracking-wider">Referral Code</p>
+                      <p className="text-white font-bold text-lg tracking-widest" data-testid={`ref-code-${req.request_id}`}>{req.referral_code}</p>
+                    </div>
+                    <div className="text-right text-xs text-neutral-400">
+                      <p>Sales: <span className="text-white font-medium">{req.sales_count || 0}</span></p>
+                      <p>Revenue: <span className="text-gold font-medium">₹{(req.sales_revenue || 0).toLocaleString()}</span></p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {(req.status === "rejected" || req.status === "expired") && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await axios.post(`${API}/collaborations/${req.request_id}/resend`, {}, { headers: getVendorHeaders() });
+                      toast.success("Collaboration request resent!");
+                      fetchData();
+                    } catch (err) { toast.error(err.response?.data?.detail || "Failed to resend"); }
+                  }}
+                  className="text-sm text-gold hover:text-gold/80 font-medium transition-colors mb-3"
+                  data-testid={`resend-${req.request_id}`}
+                >
+                  Resend Request
+                </button>
+              )}
               {req.status === "accepted" && req.influencer_contact && (
                 <div className="bg-neutral-900/80 border border-green-500/20 rounded-lg p-4 space-y-3 mt-3">
                   <p className="text-green-400 font-semibold text-sm flex items-center gap-2">
@@ -1118,9 +1149,14 @@ const VendorInfluencers = ({ vendor }) => {
                 rows={4} className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 text-white rounded-md text-sm resize-none" data-testid="collab-message" />
             </div>
             <div>
-              <label className="text-sm text-neutral-400 block mb-1">Offer Commission Rate % (optional — leave blank for platform default)</label>
+              <label className="text-sm text-neutral-400 block mb-1">Offer Commission Rate % (optional)</label>
               <Input type="number" value={collabForm.commission_rate} onChange={(e) => setCollabForm(f => ({ ...f, commission_rate: e.target.value }))}
                 placeholder="e.g. 15" className="bg-neutral-800 border-neutral-700 text-white" data-testid="collab-rate" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 block mb-1">Fixed Payment ₹ (optional)</label>
+              <Input type="number" value={collabForm.fixed_payment} onChange={(e) => setCollabForm(f => ({ ...f, fixed_payment: e.target.value }))}
+                placeholder="e.g. 50000" className="bg-neutral-800 border-neutral-700 text-white" data-testid="collab-fixed-payment" />
             </div>
             <div className="flex gap-3 pt-2">
               <Button className="bg-gold text-black hover:bg-gold/90 font-semibold flex-1" disabled={sending}

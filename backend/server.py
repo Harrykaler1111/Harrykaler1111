@@ -31,6 +31,7 @@ from routes.user_control_routes import router as user_control_router
 from routes.platform_settings_routes import router as settings_router
 from routes.review_routes import router as review_router
 from routes.collaboration_routes import router as collab_router
+from routes.action_history_routes import router as action_history_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -57,6 +58,7 @@ app.include_router(user_control_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(review_router, prefix="/api")
 app.include_router(collab_router, prefix="/api")
+app.include_router(action_history_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
