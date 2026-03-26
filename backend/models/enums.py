@@ -7,6 +7,7 @@ class AdminRole(str, Enum):
     MARKETING_MANAGER = "marketing_manager"
     FINANCE_MANAGER = "finance_manager"
     SUPPORT_MANAGER = "support_manager"
+    SALES_MANAGER = "sales_manager"
 
 
 class WithdrawalStatus(str, Enum):
@@ -166,5 +167,27 @@ ROLE_PERMISSIONS = {
         "platform_settings": [],
         "categories": ["view"],
         "tickets": ["view", "manage", "assign"],
+    },
+    AdminRole.SALES_MANAGER: {
+        "products": ["view"],
+        "orders": ["view"],
+        "influencers": ["view"],
+        "affiliates": ["view"],
+        "resellers": ["view"],
+        "commissions": ["view"],
+        "wallets": ["view"],
+        "payouts": [],
+        "analytics": ["view"],
+        "admin_users": [],
+        "system": [],
+        "customers": ["view"],
+        "coupons": ["view", "create", "edit", "delete"],
+        "vendors": ["view"],
+        "vendor_products": ["view"],
+        "vendor_kyc": [],
+        "vendor_withdrawals": [],
+        "platform_settings": ["view", "edit"],
+        "categories": ["view"],
+        "tickets": ["view"],
     },
 }

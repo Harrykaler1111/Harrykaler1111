@@ -68,6 +68,25 @@ async def get_ticket_categories():
     return [{"value": k, "label": v} for k, v in CATEGORY_LABELS.items()]
 
 
+@router.get("/tickets/unread-count")
+async def get_unread_ticket_count(user: Dict = Depends(get_current_user)):
+    """Count tickets where support replied and user hasn't responded yet"""
+    count = await db.tickets.count_documents({
+        "user_id": user["user_id"],
+        "status": "waiting_for_user"
+    })
+    return {"unread_count": count}
+
+
+@router.get("/vendors/tickets/unread-count")
+async def get_vendor_unread_ticket_count(vendor: Dict = Depends(get_current_vendor)):
+    count = await db.tickets.count_documents({
+        "user_id": vendor["vendor_id"],
+        "status": "waiting_for_user"
+    })
+    return {"unread_count": count}
+
+
 # ========== USER TICKET ENDPOINTS ==========
 
 @router.post("/tickets")

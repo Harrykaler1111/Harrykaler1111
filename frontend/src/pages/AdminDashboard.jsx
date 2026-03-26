@@ -2257,6 +2257,226 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Reward Campaigns */}
+        <RewardCampaigns />
+
+        {/* Featured Vendors / Top Listing Control */}
+        <FeaturedVendorsControl />
+      </div>
+    );
+  };
+
+  // ====== REWARD CAMPAIGNS ======
+  const RewardCampaigns = () => {
+    const [campaigns, setCampaigns] = useState([]);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState({ title: "", description: "", target_amount: "", reward_description: "", reward_image: "", start_date: "", end_date: "" });
+    const [tagForm, setTagForm] = useState({ campaign_id: "", user_id: "", user_type: "vendor", user_name: "" });
+
+    const fetchCampaigns = async () => {
+      try {
+        const res = await axios.get(`${API}/admin/rewards/campaigns`, { headers: getAdminHeaders() });
+        setCampaigns(res.data || []);
+      } catch {}
+    };
+    useEffect(() => { fetchCampaigns(); }, []);
+
+    const createCampaign = async () => {
+      if (!form.title || !form.target_amount) { toast.error("Fill title and target amount"); return; }
+      try {
+        await axios.post(`${API}/admin/rewards/campaigns`, {
+          ...form, target_amount: parseFloat(form.target_amount), target_user_types: ["vendor", "influencer"]
+        }, { headers: getAdminHeaders() });
+        toast.success("Campaign created!");
+        setShowForm(false);
+        setForm({ title: "", description: "", target_amount: "", reward_description: "", reward_image: "", start_date: "", end_date: "" });
+        fetchCampaigns();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const tagUser = async () => {
+      if (!tagForm.campaign_id || !tagForm.user_id) { toast.error("Select campaign and enter user ID"); return; }
+      try {
+        await axios.post(`${API}/admin/rewards/campaigns/${tagForm.campaign_id}/tag`, {
+          user_id: tagForm.user_id, user_type: tagForm.user_type, user_name: tagForm.user_name
+        }, { headers: getAdminHeaders() });
+        toast.success("User tagged!");
+        setTagForm({ campaign_id: "", user_id: "", user_type: "vendor", user_name: "" });
+        fetchCampaigns();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    return (
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4" data-testid="reward-campaigns-section">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-white">Reward Campaigns</h3>
+          <Button size="sm" className="bg-gold text-black" onClick={() => setShowForm(!showForm)} data-testid="new-campaign-btn">
+            <Plus className="h-4 w-4 mr-1" /> {showForm ? "Cancel" : "New Campaign"}
+          </Button>
+        </div>
+
+        {showForm && (
+          <div className="border border-neutral-600 rounded-lg p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Campaign title" className="bg-neutral-900 border-neutral-700 text-white" data-testid="campaign-title" />
+              <Input type="number" value={form.target_amount} onChange={(e) => setForm(f => ({ ...f, target_amount: e.target.value }))}
+                placeholder="Target amount (Rs.)" className="bg-neutral-900 border-neutral-700 text-white" data-testid="campaign-target" />
+            </div>
+            <Input value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Campaign description" className="bg-neutral-900 border-neutral-700 text-white" />
+            <Input value={form.reward_description} onChange={(e) => setForm(f => ({ ...f, reward_description: e.target.value }))}
+              placeholder="Reward (e.g. Goa Trip for 2)" className="bg-neutral-900 border-neutral-700 text-white" />
+            <div className="grid grid-cols-2 gap-3">
+              <Input type="date" value={form.start_date} onChange={(e) => setForm(f => ({ ...f, start_date: e.target.value }))}
+                className="bg-neutral-900 border-neutral-700 text-white" />
+              <Input type="date" value={form.end_date} onChange={(e) => setForm(f => ({ ...f, end_date: e.target.value }))}
+                className="bg-neutral-900 border-neutral-700 text-white" />
+            </div>
+            <Button onClick={createCampaign} className="bg-gold text-black" data-testid="save-campaign-btn">Create Campaign</Button>
+          </div>
+        )}
+
+        {/* Tag User */}
+        <div className="border border-neutral-600 rounded-lg p-3 space-y-2">
+          <p className="text-sm text-neutral-400">Tag user to campaign</p>
+          <div className="flex gap-2 flex-wrap items-end">
+            <select value={tagForm.campaign_id} onChange={(e) => setTagForm(f => ({ ...f, campaign_id: e.target.value }))}
+              className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm" data-testid="tag-campaign-select">
+              <option value="">Select campaign</option>
+              {campaigns.filter(c => c.is_active).map(c => <option key={c.campaign_id} value={c.campaign_id}>{c.title}</option>)}
+            </select>
+            <select value={tagForm.user_type} onChange={(e) => setTagForm(f => ({ ...f, user_type: e.target.value }))}
+              className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm">
+              <option value="vendor">Vendor</option>
+              <option value="influencer">Influencer</option>
+            </select>
+            <Input value={tagForm.user_id} onChange={(e) => setTagForm(f => ({ ...f, user_id: e.target.value }))}
+              placeholder="User/Vendor ID" className="bg-neutral-900 border-neutral-700 text-white max-w-[200px]" data-testid="tag-user-id" />
+            <Input value={tagForm.user_name} onChange={(e) => setTagForm(f => ({ ...f, user_name: e.target.value }))}
+              placeholder="Name (optional)" className="bg-neutral-900 border-neutral-700 text-white max-w-[150px]" />
+            <Button size="sm" className="bg-gold text-black" onClick={tagUser} data-testid="tag-user-btn">Tag</Button>
+          </div>
+        </div>
+
+        {/* Campaign List */}
+        {campaigns.map(c => (
+          <div key={c.campaign_id} className="border border-neutral-700 rounded-lg p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div>
+                <h4 className="text-white font-medium">{c.title}</h4>
+                <p className="text-xs text-neutral-400">{c.description}</p>
+                <p className="text-xs text-gold mt-1">Target: Rs. {c.target_amount?.toLocaleString()} | Reward: {c.reward_description}</p>
+                <p className="text-xs text-neutral-500">{c.start_date} → {c.end_date}</p>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? "bg-green-500/20 text-green-400" : "bg-neutral-500/20 text-neutral-400"}`}>
+                {c.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+            {c.tagged_users?.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-neutral-500 font-medium">Tagged Users:</p>
+                {c.tagged_users.map((u, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm bg-neutral-900/50 rounded px-3 py-1.5">
+                    <span className="text-neutral-300">{u.user_name || u.user_id} <span className="text-neutral-500">({u.user_type})</span></span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-neutral-400">
+                        Progress: Rs. {(u.current_progress || 0).toLocaleString()} / {c.target_amount?.toLocaleString()}
+                      </span>
+                      <div className="w-24 h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${u.target_reached ? "bg-green-500" : "bg-gold"}`}
+                          style={{ width: `${Math.min(100, ((u.current_progress || 0) / c.target_amount) * 100)}%` }} />
+                      </div>
+                      {u.target_reached && <span className="text-xs text-green-400 font-medium">TARGET MET!</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {campaigns.length === 0 && <p className="text-sm text-neutral-500 text-center py-4">No campaigns yet</p>}
+      </div>
+    );
+  };
+
+  // ====== FEATURED VENDORS / TOP LISTING CONTROL ======
+  const FeaturedVendorsControl = () => {
+    const [vendors, setVendors] = useState([]);
+    const [featured, setFeatured] = useState([]);
+    const [selectedVendor, setSelectedVendor] = useState("");
+    const [position, setPosition] = useState("1");
+
+    const fetchData = async () => {
+      try {
+        const [v, f] = await Promise.all([
+          axios.get(`${API}/vendors/admin/list`, { headers: getAdminHeaders() }),
+          axios.get(`${API}/admin/vendors/featured`, { headers: getAdminHeaders() })
+        ]);
+        setVendors(v.data || []);
+        setFeatured(f.data || []);
+      } catch {}
+    };
+    useEffect(() => { fetchData(); }, []);
+
+    const featureVendor = async () => {
+      if (!selectedVendor) { toast.error("Select a vendor"); return; }
+      try {
+        await axios.put(`${API}/admin/vendors/featured`, {
+          vendor_id: selectedVendor, featured: true, position: parseInt(position) || 1
+        }, { headers: getAdminHeaders() });
+        toast.success("Vendor featured!");
+        setSelectedVendor("");
+        fetchData();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const unfeatureVendor = async (vendorId) => {
+      try {
+        await axios.put(`${API}/admin/vendors/featured`, {
+          vendor_id: vendorId, featured: false
+        }, { headers: getAdminHeaders() });
+        toast.success("Vendor removed from featured");
+        fetchData();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    return (
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4" data-testid="featured-vendors-section">
+        <h3 className="text-lg font-semibold text-white">Top Listing / Featured Vendors</h3>
+        <p className="text-xs text-neutral-400">Manually push vendors to the featured/top list visible to customers.</p>
+
+        <div className="flex gap-2 flex-wrap items-end">
+          <select value={selectedVendor} onChange={(e) => setSelectedVendor(e.target.value)}
+            className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm flex-1" data-testid="feature-vendor-select">
+            <option value="">Select vendor</option>
+            {vendors.map(v => <option key={v.vendor_id} value={v.vendor_id}>{v.store_name} ({v.vendor_id.slice(0, 10)})</option>)}
+          </select>
+          <Input type="number" value={position} onChange={(e) => setPosition(e.target.value)}
+            className="bg-neutral-900 border-neutral-700 text-white w-24" placeholder="Position" data-testid="feature-position" />
+          <Button className="bg-gold text-black" onClick={featureVendor} data-testid="feature-vendor-btn">
+            <TrendingUp className="h-4 w-4 mr-1" /> Feature
+          </Button>
+        </div>
+
+        {featured.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm text-neutral-400 font-medium">Currently Featured:</p>
+            {featured.map(f => (
+              <div key={f.vendor_id} className="flex items-center justify-between bg-neutral-900/50 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-gold font-bold">#{f.featured_position || "-"}</span>
+                  <span className="text-white text-sm">{f.store_name}</span>
+                  <span className="text-xs text-neutral-500">{f.vendor_id}</span>
+                </div>
+                <Button size="sm" variant="ghost" className="text-red-400 text-xs" onClick={() => unfeatureVendor(f.vendor_id)}
+                  data-testid={`unfeature-${f.vendor_id}`}>Remove</Button>
+              </div>
+            ))}
+          </div>
+        )}
+        {featured.length === 0 && <p className="text-sm text-neutral-500 text-center py-3">No featured vendors</p>}
       </div>
     );
   };

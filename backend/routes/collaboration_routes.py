@@ -147,6 +147,65 @@ async def accept_collaboration(request_id: str, user: Dict = Depends(get_current
     settings = await db.platform_settings.find_one({"setting_id": "global"}, {"_id": 0})
     collab_fee = settings.get("collab_platform_fee", 5.0) if settings else 5.0
 
+    # ===== PAYMENT ENFORCEMENT: Deduct fixed_payment from vendor wallet =====
+    fixed_payment = req.get("fixed_payment")
+    payment_status = "not_applicable"
+    if fixed_payment and fixed_payment > 0 and vendor:
+        vendor_balance = vendor.get("wallet_balance", 0.0)
+        if vendor_balance < fixed_payment:
+            # Record payment failure
+            failures = vendor.get("payment_failures", 0) + 1
+            update_data = {"payment_failures": failures, "updated_at": datetime.now(timezone.utc).isoformat()}
+
+            # Auto-suspend after 3 failures
+            if failures >= 3:
+                update_data["status"] = "suspended"
+                update_data["suspension_reason"] = "Auto-suspended: 3 payment failures"
+
+            await db.vendors.update_one({"vendor_id": req["vendor_id"]}, {"$set": update_data})
+
+            await db.collaboration_requests.update_one(
+                {"request_id": request_id},
+                {"$set": {"status": "payment_pending", "payment_status": "failed_insufficient_funds"}}
+            )
+
+            detail_msg = "Vendor has insufficient wallet balance for fixed payment."
+            if failures >= 3:
+                detail_msg += " Vendor account has been suspended due to repeated payment failures."
+            raise HTTPException(status_code=402, detail=detail_msg)
+
+        # Deduct from vendor wallet
+        new_vendor_balance = vendor_balance - fixed_payment
+        await db.vendors.update_one(
+            {"vendor_id": req["vendor_id"]},
+            {"$set": {"wallet_balance": new_vendor_balance, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        await db.vendor_wallet_transactions.insert_one({
+            "transaction_id": generate_id("vtxn_"),
+            "vendor_id": req["vendor_id"],
+            "type": "collab_payment",
+            "amount": -fixed_payment,
+            "balance_after": new_vendor_balance,
+            "description": f"Fixed payment for collab with {inf.get('name', 'influencer')}",
+            "collab_request_id": request_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        # Credit influencer (platform takes collab_fee %)
+        platform_cut = fixed_payment * (collab_fee / 100)
+        influencer_payout = fixed_payment - platform_cut
+        await db.influencer_wallet_transactions.insert_one({
+            "transaction_id": generate_id("itxn_"),
+            "influencer_id": inf["influencer_id"],
+            "type": "collab_fixed_payment",
+            "amount": influencer_payout,
+            "description": f"Fixed payment from {vendor.get('store_name', 'vendor')} (platform fee: {collab_fee}%)",
+            "collab_request_id": request_id,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+
+        payment_status = "completed"
+
     vendor_contact = {
         "name": vendor.get("store_name", "") if vendor else "",
         "email": vendor.get("email", "") if vendor else "",
@@ -172,6 +231,7 @@ async def accept_collaboration(request_id: str, user: Dict = Depends(get_current
             "influencer_contact": influencer_contact,
             "platform_collab_fee": collab_fee,
             "referral_code": referral_code,
+            "payment_status": payment_status,
         }}
     )
 

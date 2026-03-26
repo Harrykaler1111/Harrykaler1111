@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "@/App";
+import { useAuth, API } from "@/App";
+import axios from "axios";
 import { 
-  ShoppingBag, Heart, User, Menu, Search, ChevronDown
+  ShoppingBag, Heart, User, Menu, Search, ChevronDown, LifeBuoy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,17 +13,26 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadTickets, setUnreadTickets] = useState(0);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (user && token) {
+      axios.get(`${API}/tickets/unread-count`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => setUnreadTickets(r.data.unread_count || 0))
+        .catch(() => {});
+    }
+  }, [user, token, location.pathname]);
 
   const navLinks = [
     { label: "Shop All", href: "/products" },
@@ -134,7 +144,15 @@ export const Header = () => {
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="menu-profile">My Account</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/orders")} data-testid="menu-orders">Orders</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/support")} data-testid="menu-support">Support</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/support")} data-testid="menu-support">
+                      <span className="flex items-center gap-2">
+                        Support
+                        {unreadTickets > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold rounded-full h-4 min-w-[16px] flex items-center justify-center px-1"
+                            data-testid="unread-ticket-badge">{unreadTickets}</span>
+                        )}
+                      </span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/wishlist")} data-testid="menu-wishlist">Wishlist</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {user.role === "influencer" && (

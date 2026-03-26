@@ -512,6 +512,45 @@ async def get_vendor_withdrawals(vendor: Dict = Depends(get_current_vendor)):
     return [VendorWithdrawalResponse(**w) for w in withdrawals]
 
 
+# ============== WALLET TOP-UP (Mocked Razorpay) ==============
+
+class WalletTopUp(PydanticBaseModel):
+    amount: float
+
+
+@router.post("/wallet/topup")
+async def topup_vendor_wallet(data: WalletTopUp, vendor: Dict = Depends(get_current_vendor)):
+    """Add money to vendor wallet (payment gateway mocked)"""
+    if data.amount < 100:
+        raise HTTPException(status_code=400, detail="Minimum top-up is Rs. 100")
+    if data.amount > 500000:
+        raise HTTPException(status_code=400, detail="Maximum top-up is Rs. 5,00,000")
+
+    new_balance = vendor.get("wallet_balance", 0.0) + data.amount
+    await db.vendors.update_one(
+        {"vendor_id": vendor["vendor_id"]},
+        {"$set": {"wallet_balance": new_balance, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    txn = {
+        "transaction_id": generate_id("vtxn_"),
+        "vendor_id": vendor["vendor_id"],
+        "type": "topup",
+        "amount": data.amount,
+        "balance_after": new_balance,
+        "description": f"Wallet top-up of Rs. {data.amount}",
+        "payment_method": "razorpay_mock",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.vendor_wallet_transactions.insert_one(txn)
+
+    return {
+        "message": f"Rs. {data.amount} added to wallet (MOCKED)",
+        "wallet_balance": new_balance,
+        "transaction_id": txn["transaction_id"]
+    }
+
+
 # ============== VENDOR OFFERS ==============
 
 @router.post("/offers", response_model=VendorOfferResponse)

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 import logging
 
 from config import db
@@ -729,3 +730,46 @@ async def admin_update_stock(product_id: str, stock: int, admin: Dict = Depends(
         raise HTTPException(status_code=404, detail="Product not found")
 
     return {"message": f"Stock updated to {stock}"}
+
+
+# ============== TOP LISTING MANUAL CONTROL ==============
+
+class TopListingControl(BaseModel):
+    vendor_id: str
+    featured: bool = True
+    position: Optional[int] = None
+
+
+@router.put("/vendors/featured")
+async def admin_feature_vendor(data: TopListingControl, admin: Dict = Depends(get_admin_user)):
+    """Super Admin / Marketing Manager can push vendors to featured/top list"""
+    if not check_permission(admin, "vendors", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    vendor = await db.vendors.find_one({"vendor_id": data.vendor_id})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    await db.vendors.update_one(
+        {"vendor_id": data.vendor_id},
+        {"$set": {
+            "is_featured": data.featured,
+            "featured_position": data.position,
+            "featured_by": admin["admin_id"],
+            "featured_at": datetime.now(timezone.utc).isoformat() if data.featured else None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    action = "featured" if data.featured else "unfeatured"
+    return {"message": f"Vendor {action} successfully"}
+
+
+@router.get("/vendors/featured")
+async def get_featured_vendors(admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "vendors", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    vendors = await db.vendors.find(
+        {"is_featured": True},
+        {"_id": 0, "vendor_id": 1, "store_name": 1, "featured_position": 1, "featured_at": 1}
+    ).sort("featured_position", 1).to_list(50)
+    return vendors

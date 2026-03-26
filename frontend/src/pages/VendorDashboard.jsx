@@ -648,20 +648,34 @@ const VendorWallet = ({ vendor }) => {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [topupAmount, setTopupAmount] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    Promise.all([
-      axios.get(`${API}/vendors/wallet/balance`, { headers: getVendorHeaders() }),
-      axios.get(`${API}/vendors/wallet/transactions`, { headers: getVendorHeaders() }),
-      axios.get(`${API}/vendors/withdrawals`, { headers: getVendorHeaders() })
-    ]).then(([b, t, w]) => {
+  const refreshWallet = async () => {
+    try {
+      const [b, t, w] = await Promise.all([
+        axios.get(`${API}/vendors/wallet/balance`, { headers: getVendorHeaders() }),
+        axios.get(`${API}/vendors/wallet/transactions`, { headers: getVendorHeaders() }),
+        axios.get(`${API}/vendors/withdrawals`, { headers: getVendorHeaders() })
+      ]);
       setBalance(b.data);
       setTransactions(t.data);
       setWithdrawals(w.data);
-    }).catch(() => toast.error("Failed to load wallet"))
-      .finally(() => setLoading(false));
-  }, []);
+    } catch { toast.error("Failed to load wallet"); }
+  };
+
+  useEffect(() => { refreshWallet().finally(() => setLoading(false)); }, []);
+
+  const handleTopup = async () => {
+    const amt = parseFloat(topupAmount);
+    if (!amt || amt < 100) { toast.error("Minimum top-up is Rs. 100"); return; }
+    try {
+      await axios.post(`${API}/vendors/wallet/topup`, { amount: amt }, { headers: getVendorHeaders() });
+      toast.success(`Rs. ${amt.toLocaleString()} added to wallet!`);
+      setTopupAmount("");
+      refreshWallet();
+    } catch (err) { toast.error(err.response?.data?.detail || "Top-up failed"); }
+  };
 
   const requestWithdrawal = async () => {
     const amt = parseFloat(withdrawAmount);
@@ -670,12 +684,7 @@ const VendorWallet = ({ vendor }) => {
       await axios.post(`${API}/vendors/wallet/withdraw`, { amount: amt }, { headers: getVendorHeaders() });
       toast.success("Withdrawal request submitted!");
       setWithdrawAmount("");
-      const [b, w] = await Promise.all([
-        axios.get(`${API}/vendors/wallet/balance`, { headers: getVendorHeaders() }),
-        axios.get(`${API}/vendors/withdrawals`, { headers: getVendorHeaders() })
-      ]);
-      setBalance(b.data);
-      setWithdrawals(w.data);
+      refreshWallet();
     } catch (err) { toast.error(err.response?.data?.detail || "Failed to request withdrawal"); }
   };
 
@@ -697,6 +706,30 @@ const VendorWallet = ({ vendor }) => {
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
           <p className="text-sm text-neutral-400">Pending Withdrawals</p>
           <p className="text-3xl font-bold text-yellow-400 mt-1">{(balance?.pending_withdrawals || 0).toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* Wallet Top-Up */}
+      <div className="bg-neutral-800/50 border border-green-500/20 rounded-xl p-5 mb-6">
+        <h3 className="text-lg font-semibold text-white mb-3">Add Money to Wallet</h3>
+        <p className="text-xs text-neutral-400 mb-3">Top up your wallet to pay for collaborations and promotions. Payment is via Razorpay (MOCKED).</p>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="text-sm text-neutral-400 mb-1 block">Amount (Min Rs. 100)</label>
+            <Input type="number" value={topupAmount} onChange={(e) => setTopupAmount(e.target.value)}
+              className="bg-neutral-900 border-neutral-700 text-white" placeholder="1000" data-testid="topup-amount" />
+          </div>
+          <Button onClick={handleTopup} className="bg-green-600 text-white hover:bg-green-700" data-testid="topup-btn">
+            <IndianRupee className="h-4 w-4 mr-1" /> Add Money
+          </Button>
+        </div>
+        <div className="flex gap-2 mt-3">
+          {[500, 1000, 5000, 10000].map(a => (
+            <button key={a} onClick={() => setTopupAmount(String(a))}
+              className="text-xs px-3 py-1 rounded-full border border-neutral-700 text-neutral-400 hover:border-green-500 hover:text-green-400 transition-colors">
+              +{a.toLocaleString()}
+            </button>
+          ))}
         </div>
       </div>
 
