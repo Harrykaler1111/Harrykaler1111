@@ -23,6 +23,7 @@ import { VendorAuthPage } from "@/pages/VendorAuthPage";
 import { VendorDashboard } from "@/pages/VendorDashboard";
 import { ResellerRegisterPage } from "@/pages/ResellerRegisterPage";
 import { ResellerDashboard } from "@/pages/ResellerDashboard";
+import { VendorStorePage } from "@/pages/VendorStorePage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -165,6 +166,7 @@ const AppRouter = () => {
       <Route path="/products" element={<ProductsPage />} />
       <Route path="/products/:category" element={<ProductsPage />} />
       <Route path="/product/:productId" element={<ProductDetailPage />} />
+      <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route

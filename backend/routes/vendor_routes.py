@@ -877,3 +877,54 @@ async def get_public_vendor_profile(vendor_id: str):
         "vendor": VendorResponse(**vendor).model_dump(),
         "products": [VendorProductResponse(**p).model_dump() for p in products]
     }
+
+
+# ============== PUBLIC STORE ==============
+
+@router.get("/store/{vendor_id}")
+async def get_public_vendor_store(vendor_id: str):
+    """Public endpoint - no auth required. Returns vendor store info + approved products."""
+    vendor = await db.vendors.find_one(
+        {"vendor_id": vendor_id, "status": VendorStatus.APPROVED.value},
+        {"_id": 0, "password": 0, "kyc_data": 0, "kyc_documents": 0, "bank_details": 0, "wallet_balance": 0}
+    )
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    products = await db.vendor_products.find(
+        {"vendor_id": vendor_id, "approval_status": VendorProductStatus.APPROVED.value, "is_active": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+
+    # Get review stats
+    review_stats = await db.reviews.aggregate([
+        {"$match": {"vendor_id": vendor_id}},
+        {"$group": {
+            "_id": None,
+            "avg_rating": {"$avg": "$rating"},
+            "total": {"$sum": 1},
+            "five": {"$sum": {"$cond": [{"$eq": ["$rating", 5]}, 1, 0]}},
+            "four": {"$sum": {"$cond": [{"$eq": ["$rating", 4]}, 1, 0]}},
+            "three": {"$sum": {"$cond": [{"$eq": ["$rating", 3]}, 1, 0]}},
+            "two": {"$sum": {"$cond": [{"$eq": ["$rating", 2]}, 1, 0]}},
+            "one": {"$sum": {"$cond": [{"$eq": ["$rating", 1]}, 1, 0]}},
+        }}
+    ]).to_list(1)
+
+    recent_reviews = await db.reviews.find(
+        {"vendor_id": vendor_id}, {"_id": 0}
+    ).sort("created_at", -1).limit(10).to_list(10)
+
+    return {
+        "store_name": vendor.get("store_name", ""),
+        "store_description": vendor.get("store_description", ""),
+        "owner_name": vendor.get("owner_name", ""),
+        "vendor_id": vendor["vendor_id"],
+        "rating": vendor.get("rating", 0.0),
+        "review_count": vendor.get("review_count", 0),
+        "total_products": len(products),
+        "member_since": vendor.get("created_at", ""),
+        "products": [VendorProductResponse(**p).model_dump() for p in products],
+        "review_stats": review_stats[0] if review_stats else {"avg_rating": 0, "total": 0, "five": 0, "four": 0, "three": 0, "two": 0, "one": 0},
+        "recent_reviews": recent_reviews,
+    }

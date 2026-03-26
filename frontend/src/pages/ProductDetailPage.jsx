@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -185,9 +185,9 @@ export const ProductDetailPage = () => {
                 </div>
               )}
               {product.vendor_name && (
-                <p className="text-sm text-gold mt-1" data-testid="product-vendor">
-                  Sold by <span className="font-medium">{product.vendor_name}</span>
-                </p>
+                <Link to={`/store/${product.vendor_id}`} className="text-sm text-gold hover:text-gold/80 transition-colors mt-1 inline-block" data-testid="product-vendor">
+                  Sold by <span className="font-medium underline underline-offset-2">{product.vendor_name}</span>
+                </Link>
               )}
             </div>
 
