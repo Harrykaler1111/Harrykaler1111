@@ -46,11 +46,19 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Sales Manager Account, Marketing Pixel Settings UI
 
 ### Phase 10 - Credit System, ChatWidget, Marketing Hub, UI Update (2026-03-26)
-- **Real-Money Credit System:** Razorpay-integrated credit purchase with order creation, payment verification, and transaction history. Auto-mocks when keys not configured. Credits only deducted on successful product promotion.
-- **ChatWidget + Ticket Integration:** Rebuilt ChatWidget with dual-mode: "Create Support Ticket" (structured form → POST /api/tickets with category/priority/description) and "Quick Chat with AI". Globally accessible on all customer-facing pages. Login required for ticket creation.
-- **Admin Marketing Hub:** Renamed Coupons tab to "Marketing" in sidebar. Contains Coupons & Offers, Sales Targets, and Rewards tabs. RBAC restricted to Super Admin and Marketing Manager only.
-- **Zomato-style Top Vendors:** Moved Top Sellers from lower page section to immediately below Hero. Redesigned as circular avatars with store initials, horizontal scroll, hover effects. Clickable → navigates to vendor store.
-- **Testing:** Iteration 13 - 100% pass (20 backend + all frontend verified)
+- Real-Money Credit System with Razorpay integration (mocked without keys)
+- ChatWidget + Ticket Integration (dual-mode: ticket creation + AI chat)
+- Admin Marketing Hub (RBAC restricted to Super Admin & Marketing Manager)
+- Zomato-style Top Vendors in Hero Section (circular avatars, horizontal scroll)
+- Testing: Iteration 13 - 100% pass
+
+### Phase 10.5 - Vendor Analytics Dashboard (2026-03-26)
+- **Summary Cards:** Total Revenue, Orders, Avg Order Value, Promotion ROI, Credit Balance, Credits Spent, Active Promotions, Promoted Revenue
+- **Sales Trend Chart:** 30-day bar chart with hover tooltips showing daily revenue & orders
+- **Top Products Table:** Ranked by revenue with orders and units sold
+- **Credit Analytics:** Credit usage breakdown by promotion type (horizontal bars), recent credit transactions table
+- **Backend:** GET /api/vendors/analytics/overview aggregating orders, promotions, credits data
+- **Testing:** Iteration 14 - 100% pass (16 backend + all frontend verified)
 
 ## MOCKED Integrations
 - Razorpay (payments/payouts/wallet/refunds/credits) -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
@@ -69,4 +77,4 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Real payment gateway integration (Razorpay live keys)
 - OTP verification for login/registration (real SMS)
 - AI chatbot integration enhancement
-- Frontend refactoring (AdminDashboard 3300+ lines, VendorDashboard 1800+ lines)
+- Frontend refactoring (AdminDashboard 3300+ lines, VendorDashboard 2100+ lines)
