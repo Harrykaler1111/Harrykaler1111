@@ -269,6 +269,111 @@ async def get_vendor_sales_analytics(vendor: Dict = Depends(get_current_vendor))
     }
 
 
+# ============== VENDOR ANALYTICS ==============
+
+@router.get("/analytics/overview")
+async def get_vendor_analytics_overview(vendor: Dict = Depends(get_current_vendor)):
+    """Comprehensive analytics overview for vendor dashboard"""
+    vid = vendor["vendor_id"]
+
+    # Orders data
+    orders = await db.orders.find(
+        {"vendor_id": vid, "payment_status": "paid"}, {"_id": 0}
+    ).to_list(5000)
+
+    total_revenue = sum(o.get("vendor_amount", o.get("total", 0)) for o in orders)
+    total_orders = len(orders)
+    avg_order_value = round(total_revenue / total_orders, 2) if total_orders else 0
+
+    # Credits data
+    credits = await db.vendor_credits.find_one({"vendor_id": vid}, {"_id": 0})
+    credit_balance = credits.get("balance", 0) if credits else 0
+    total_credits_spent = credits.get("total_spent", 0) if credits else 0
+
+    # Promotions data
+    promotions = await db.product_promotions.find({"vendor_id": vid}, {"_id": 0}).to_list(200)
+    active_promos = [p for p in promotions if p.get("is_active")]
+    total_promo_spend = sum(p.get("total_cost", 0) for p in promotions)
+
+    # Revenue from promoted products
+    promoted_product_ids = list(set(p.get("product_id") for p in promotions))
+    promoted_revenue = 0
+    if promoted_product_ids:
+        promo_orders = [o for o in orders if any(
+            item.get("product_id") in promoted_product_ids
+            for item in o.get("items", [])
+        )]
+        promoted_revenue = sum(o.get("vendor_amount", o.get("total", 0)) for o in promo_orders)
+
+    roi = round((promoted_revenue / total_promo_spend - 1) * 100, 1) if total_promo_spend > 0 else 0
+
+    # Daily sales for last 30 days
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    daily_sales = {}
+    for i in range(30):
+        day = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+        daily_sales[day] = {"date": day, "revenue": 0, "orders": 0}
+
+    for o in orders:
+        day = o.get("created_at", "")[:10]
+        if day in daily_sales:
+            daily_sales[day]["revenue"] += o.get("vendor_amount", o.get("total", 0))
+            daily_sales[day]["orders"] += 1
+
+    sales_trend = sorted(daily_sales.values(), key=lambda x: x["date"])
+
+    # Top products by revenue
+    product_revenue = {}
+    for o in orders:
+        for item in o.get("items", []):
+            pid = item.get("product_id", "")
+            if pid not in product_revenue:
+                product_revenue[pid] = {
+                    "product_id": pid,
+                    "name": item.get("name", "Unknown"),
+                    "revenue": 0,
+                    "orders": 0,
+                    "units_sold": 0
+                }
+            product_revenue[pid]["revenue"] += item.get("price", 0) * item.get("quantity", 1)
+            product_revenue[pid]["orders"] += 1
+            product_revenue[pid]["units_sold"] += item.get("quantity", 1)
+
+    top_products = sorted(product_revenue.values(), key=lambda x: x["revenue"], reverse=True)[:10]
+
+    # Credit usage breakdown by promotion type
+    credit_by_type = {}
+    for p in promotions:
+        lt = p.get("listing_type", "unknown")
+        if lt not in credit_by_type:
+            credit_by_type[lt] = {"type": lt, "credits": 0, "count": 0}
+        credit_by_type[lt]["credits"] += p.get("total_cost", 0)
+        credit_by_type[lt]["count"] += 1
+
+    # Credit transactions
+    credit_txns = await db.credit_transactions.find(
+        {"vendor_id": vid}, {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+
+    return {
+        "summary": {
+            "total_revenue": round(total_revenue, 2),
+            "total_orders": total_orders,
+            "avg_order_value": avg_order_value,
+            "credit_balance": credit_balance,
+            "total_credits_spent": total_credits_spent,
+            "active_promotions": len(active_promos),
+            "total_promotions": len(promotions),
+            "promoted_revenue": round(promoted_revenue, 2),
+            "promotion_roi": roi
+        },
+        "sales_trend": sales_trend,
+        "top_products": top_products,
+        "credit_usage": list(credit_by_type.values()),
+        "recent_credit_transactions": credit_txns
+    }
+
 
 # ============== VENDOR PRODUCT MANAGEMENT ==============
 

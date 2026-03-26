@@ -16,7 +16,8 @@ import {
   LayoutDashboard, Package, ShoppingCart, Wallet, FileText, Tag, Users,
   LogOut, Plus, Trash2, Eye, ArrowUpRight, ArrowDownRight, Store,
   Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee,
-  Megaphone, FolderOpen, Zap, Key, DollarSign, Check, Copy, LifeBuoy, Send, ArrowLeft
+  Megaphone, FolderOpen, Zap, Key, DollarSign, Check, Copy, LifeBuoy, Send, ArrowLeft,
+  BarChart3, TrendingUp
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 
@@ -66,6 +67,7 @@ export const VendorDashboard = () => {
     { path: "/vendor/wallet", icon: Wallet, label: "Wallet" },
     { path: "/vendor/offers", icon: Tag, label: "Offers" },
     { path: "/vendor/promotions", icon: Megaphone, label: "Promotions" },
+    { path: "/vendor/analytics", icon: BarChart3, label: "Analytics" },
     { path: "/vendor/influencers", icon: Users, label: "Influencers" },
     { path: "/vendor/support", icon: LifeBuoy, label: "Support" },
     { path: "/vendor/returns", icon: Package, label: "Returns" },
@@ -133,6 +135,7 @@ export const VendorDashboard = () => {
             <Route path="wallet" element={<VendorWallet vendor={vendor} />} />
             <Route path="offers" element={<VendorOffers vendor={vendor} />} />
             <Route path="promotions" element={<VendorPromotions vendor={vendor} />} />
+            <Route path="analytics" element={<VendorAnalytics vendor={vendor} />} />
             <Route path="influencers" element={<VendorInfluencers vendor={vendor} />} />
             <Route path="support" element={<VendorSupport vendor={vendor} />} />
             <Route path="returns" element={<VendorReturns vendor={vendor} />} />
@@ -1223,6 +1226,224 @@ const VendorPromotions = ({ vendor }) => {
               </Table>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// =============== ANALYTICS ===============
+const VendorAnalytics = ({ vendor }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState("overview"); // overview | products | credits
+
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/vendors/analytics/overview`, { headers: getVendorHeaders() });
+      setData(res.data);
+    } catch { toast.error("Failed to load analytics"); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-gold" /></div>;
+  if (!data) return <div className="text-center py-12 text-neutral-500">No analytics data available</div>;
+
+  const { summary, sales_trend, top_products, credit_usage, recent_credit_transactions } = data;
+  const maxRevenue = Math.max(...sales_trend.map(d => d.revenue), 1);
+
+  return (
+    <div className="space-y-6" data-testid="vendor-analytics-page">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <BarChart3 className="h-6 w-6 text-gold" /> Analytics
+        </h2>
+        <div className="flex gap-2">
+          {["overview", "products", "credits"].map(v => (
+            <button key={v} onClick={() => setActiveView(v)}
+              className={`px-4 py-1.5 rounded-lg text-sm capitalize transition-colors ${activeView === v ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}
+              data-testid={`analytics-tab-${v}`}>
+              {v === "credits" ? "Credit Analytics" : v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: "Total Revenue", value: `₹${summary.total_revenue.toLocaleString()}`, icon: IndianRupee, color: "text-gold", bg: "from-gold/20 to-gold/5" },
+          { label: "Total Orders", value: summary.total_orders, icon: ShoppingCart, color: "text-blue-400", bg: "from-blue-500/20 to-blue-500/5" },
+          { label: "Avg Order Value", value: `₹${summary.avg_order_value.toLocaleString()}`, icon: TrendingUp, color: "text-green-400", bg: "from-green-500/20 to-green-500/5" },
+          { label: "Promotion ROI", value: `${summary.promotion_roi > 0 ? "+" : ""}${summary.promotion_roi}%`, icon: Megaphone, color: summary.promotion_roi >= 0 ? "text-green-400" : "text-red-400", bg: summary.promotion_roi >= 0 ? "from-green-500/20 to-green-500/5" : "from-red-500/20 to-red-500/5" }
+        ].map(s => (
+          <div key={s.label} className={`bg-gradient-to-br ${s.bg} border border-neutral-700/50 rounded-xl p-4`} data-testid={`stat-${s.label.toLowerCase().replace(/ /g, "-")}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <s.icon className={`h-4 w-4 ${s.color}`} />
+              <span className="text-[10px] text-neutral-400 uppercase tracking-wider">{s.label}</span>
+            </div>
+            <p className="text-2xl font-bold text-white">{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Second Row Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: "Credit Balance", value: summary.credit_balance, color: "text-gold" },
+          { label: "Credits Spent", value: summary.total_credits_spent, color: "text-red-400" },
+          { label: "Active Promotions", value: summary.active_promotions, color: "text-green-400" },
+          { label: "Promoted Revenue", value: `₹${summary.promoted_revenue.toLocaleString()}`, color: "text-purple-400" }
+        ].map(s => (
+          <div key={s.label} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+            <p className="text-[10px] text-neutral-400 uppercase tracking-wider mb-1">{s.label}</p>
+            <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Overview Tab - Sales Chart */}
+      {activeView === "overview" && (
+        <div className="space-y-6">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6" data-testid="sales-chart">
+            <h3 className="text-lg font-semibold text-white mb-4">Revenue Trend (30 Days)</h3>
+            <div className="flex items-end gap-[2px] h-48 overflow-x-auto">
+              {sales_trend.map((d, i) => {
+                const height = maxRevenue > 0 ? Math.max((d.revenue / maxRevenue) * 100, 2) : 2;
+                const isToday = i === sales_trend.length - 1;
+                return (
+                  <div key={d.date} className="group relative flex flex-col items-center flex-1 min-w-[8px]">
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black border border-neutral-600 rounded px-2 py-1 text-[10px] text-white whitespace-nowrap hidden group-hover:block z-10">
+                      {d.date}: ₹{d.revenue.toLocaleString()} ({d.orders} orders)
+                    </div>
+                    <div
+                      className={`w-full rounded-t transition-colors ${isToday ? "bg-gold" : d.revenue > 0 ? "bg-gold/60 group-hover:bg-gold" : "bg-neutral-700 group-hover:bg-neutral-600"}`}
+                      style={{ height: `${height}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between mt-2 text-[10px] text-neutral-500">
+              <span>{sales_trend[0]?.date}</span>
+              <span>{sales_trend[sales_trend.length - 1]?.date}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Products Tab */}
+      {activeView === "products" && (
+        <div className="space-y-6">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid="top-products-table">
+            <div className="p-4 border-b border-neutral-700">
+              <h3 className="text-lg font-semibold text-white">Top Performing Products</h3>
+            </div>
+            {top_products.length === 0 ? (
+              <div className="text-center py-12 text-neutral-500">No product data yet. Start selling to see analytics!</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-neutral-700">
+                    <TableHead className="text-neutral-400">#</TableHead>
+                    <TableHead className="text-neutral-400">Product</TableHead>
+                    <TableHead className="text-neutral-400 text-right">Revenue</TableHead>
+                    <TableHead className="text-neutral-400 text-right">Orders</TableHead>
+                    <TableHead className="text-neutral-400 text-right">Units Sold</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {top_products.map((p, i) => (
+                    <TableRow key={p.product_id} className="border-neutral-700" data-testid={`top-product-${i}`}>
+                      <TableCell className="text-gold font-bold">{i + 1}</TableCell>
+                      <TableCell className="text-white font-medium max-w-[200px] truncate">{p.name}</TableCell>
+                      <TableCell className="text-right text-green-400 font-medium">₹{p.revenue.toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-neutral-300">{p.orders}</TableCell>
+                      <TableCell className="text-right text-neutral-300">{p.units_sold}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Credits Tab */}
+      {activeView === "credits" && (
+        <div className="space-y-6">
+          {/* Credit Usage by Promotion Type */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6" data-testid="credit-usage-chart">
+            <h3 className="text-lg font-semibold text-white mb-4">Credit Usage by Promotion Type</h3>
+            {credit_usage.length === 0 ? (
+              <div className="text-center py-8 text-neutral-500">No promotions yet</div>
+            ) : (
+              <div className="space-y-3">
+                {credit_usage.map(cu => {
+                  const maxCredits = Math.max(...credit_usage.map(c => c.credits), 1);
+                  const width = Math.max((cu.credits / maxCredits) * 100, 5);
+                  const typeLabels = { top_20: "Top 20", top_100: "Top 100", category_top: "Category Top" };
+                  return (
+                    <div key={cu.type} className="flex items-center gap-3" data-testid={`credit-usage-${cu.type}`}>
+                      <span className="text-sm text-neutral-300 w-28 shrink-0">{typeLabels[cu.type] || cu.type}</span>
+                      <div className="flex-1 bg-neutral-700 rounded-full h-6 overflow-hidden">
+                        <div className="bg-gold h-full rounded-full flex items-center px-2 text-[10px] font-bold text-black" style={{ width: `${width}%` }}>
+                          {cu.credits}
+                        </div>
+                      </div>
+                      <span className="text-xs text-neutral-400 w-20 text-right">{cu.count} promo{cu.count !== 1 ? "s" : ""}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Credit Transactions */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid="credit-transactions">
+            <div className="p-4 border-b border-neutral-700">
+              <h3 className="text-lg font-semibold text-white">Recent Credit Transactions</h3>
+            </div>
+            {recent_credit_transactions.length === 0 ? (
+              <div className="text-center py-8 text-neutral-500">No transactions yet</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-neutral-700">
+                    <TableHead className="text-neutral-400">Date</TableHead>
+                    <TableHead className="text-neutral-400">Type</TableHead>
+                    <TableHead className="text-neutral-400">Amount</TableHead>
+                    <TableHead className="text-neutral-400">Status</TableHead>
+                    <TableHead className="text-neutral-400">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recent_credit_transactions.map(txn => (
+                    <TableRow key={txn.transaction_id} className="border-neutral-700">
+                      <TableCell className="text-neutral-300 text-sm">{new Date(txn.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${txn.type === "purchase" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {txn.type === "purchase" ? "Purchase" : "Deduction"}
+                        </span>
+                      </TableCell>
+                      <TableCell className={`font-medium ${txn.type === "purchase" ? "text-green-400" : "text-red-400"}`}>
+                        {txn.type === "purchase" ? "+" : "-"}{txn.amount}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded ${txn.payment_status === "completed" || txn.payment_status === "mocked" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                          {txn.payment_status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-neutral-400 text-xs max-w-[200px] truncate">{txn.description || txn.razorpay_order_id || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
       )}
     </div>
