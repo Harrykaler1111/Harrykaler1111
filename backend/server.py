@@ -34,6 +34,7 @@ from routes.collaboration_routes import router as collab_router
 from routes.action_history_routes import router as action_history_router
 from routes.referral_manager_routes import router as referral_manager_router
 from routes.upload_routes import router as upload_router
+from routes.support_ticket_routes import router as ticket_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -63,6 +64,7 @@ app.include_router(collab_router, prefix="/api")
 app.include_router(action_history_router, prefix="/api")
 app.include_router(referral_manager_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
+app.include_router(ticket_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -118,6 +120,10 @@ async def startup_event():
     await db.reviews.create_index("product_id")
     await db.reviews.create_index("review_id", unique=True)
     await db.collaboration_requests.create_index("request_id", unique=True)
+    await db.tickets.create_index("ticket_id", unique=True)
+    await db.tickets.create_index("user_id")
+    await db.tickets.create_index("status")
+    await db.kb_articles.create_index("article_id", unique=True)
 
     # Seed platform settings
     settings = await db.platform_settings.find_one({"setting_id": "global"})

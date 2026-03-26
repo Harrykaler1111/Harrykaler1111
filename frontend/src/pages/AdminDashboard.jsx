@@ -5,11 +5,13 @@ import {
   LayoutDashboard, Package, ShoppingCart, Users, UserCheck, 
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
-  Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload
+  Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
+  LifeBuoy, Send, BookOpen, Clock, MessageSquare
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -18,14 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -2404,6 +2398,335 @@ export const AdminDashboard = () => {
     );
   };
 
+  // ====== SUPPORT TICKETS MANAGEMENT ======
+  const SupportTicketsManagement = () => {
+    const [tickets, setTickets] = useState([]);
+    const [analytics, setAnalytics] = useState(null);
+    const [total, setTotal] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState({ status: "", category: "", priority: "", search: "" });
+    const [selectedTicket, setSelectedTicket] = useState(null);
+    const [reply, setReply] = useState("");
+    const [sending, setSending] = useState(false);
+    const [admins, setAdmins] = useState([]);
+    const [kbTitle, setKbTitle] = useState("");
+    const [kbContent, setKbContent] = useState("");
+    const [kbCategory, setKbCategory] = useState("general");
+    const [showKbForm, setShowKbForm] = useState(false);
+
+    const fetchTickets = async () => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.status) params.set("status", filters.status);
+      if (filters.category) params.set("category", filters.category);
+      if (filters.priority) params.set("priority", filters.priority);
+      if (filters.search) params.set("search", filters.search);
+      params.set("limit", "50");
+      try {
+        const [tRes, aRes] = await Promise.all([
+          axios.get(`${API}/admin/tickets?${params}`, { headers: getAdminHeaders() }),
+          axios.get(`${API}/admin/tickets/analytics`, { headers: getAdminHeaders() })
+        ]);
+        setTickets(tRes.data.tickets || []);
+        setTotal(tRes.data.total || 0);
+        setAnalytics(aRes.data);
+      } catch { toast.error("Failed to load tickets"); }
+      finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchTickets(); }, [filters]);
+    useEffect(() => {
+      axios.get(`${API}/admin/users`, { headers: getAdminHeaders() }).then(r => setAdmins(r.data || [])).catch(() => {});
+    }, []);
+
+    const openTicketDetail = async (ticketId) => {
+      try {
+        const res = await axios.get(`${API}/admin/tickets/${ticketId}`, { headers: getAdminHeaders() });
+        setSelectedTicket(res.data);
+      } catch { toast.error("Failed to load ticket"); }
+    };
+
+    const assignTicket = async (ticketId, adminId) => {
+      try {
+        await axios.put(`${API}/admin/tickets/${ticketId}/assign?admin_id=${adminId}`, {}, { headers: getAdminHeaders() });
+        toast.success("Ticket assigned");
+        fetchTickets();
+        if (selectedTicket?.ticket_id === ticketId) openTicketDetail(ticketId);
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const changeStatus = async (ticketId, status) => {
+      try {
+        await axios.put(`${API}/admin/tickets/${ticketId}/status?status=${status}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Status changed to ${status}`);
+        fetchTickets();
+        if (selectedTicket?.ticket_id === ticketId) openTicketDetail(ticketId);
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const sendReply = async () => {
+      if (!reply.trim() || !selectedTicket) return;
+      setSending(true);
+      try {
+        await axios.post(`${API}/admin/tickets/${selectedTicket.ticket_id}/reply`, { message: reply, attachments: [] }, { headers: getAdminHeaders() });
+        toast.success("Reply sent");
+        setReply("");
+        openTicketDetail(selectedTicket.ticket_id);
+        fetchTickets();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+      finally { setSending(false); }
+    };
+
+    const escalateTicket = async (ticketId) => {
+      try {
+        await axios.put(`${API}/admin/tickets/${ticketId}/escalate`, {}, { headers: getAdminHeaders() });
+        toast.success("Ticket escalated");
+        fetchTickets();
+        if (selectedTicket?.ticket_id === ticketId) openTicketDetail(ticketId);
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const createKbArticle = async () => {
+      if (!kbTitle || !kbContent) { toast.error("Fill title and content"); return; }
+      try {
+        await axios.post(`${API}/admin/kb/articles`, { title: kbTitle, content: kbContent, category: kbCategory }, { headers: getAdminHeaders() });
+        toast.success("Article created");
+        setKbTitle(""); setKbContent(""); setKbCategory("general"); setShowKbForm(false);
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const statusBadge = (s) => {
+      const map = { open: "bg-blue-500/20 text-blue-400", assigned: "bg-purple-500/20 text-purple-400", in_progress: "bg-yellow-500/20 text-yellow-400", waiting_for_user: "bg-orange-500/20 text-orange-400", resolved: "bg-green-500/20 text-green-400", closed: "bg-neutral-500/20 text-neutral-400" };
+      return map[s] || "bg-neutral-500/20 text-neutral-400";
+    };
+    const prioBadge = (p) => {
+      const map = { high: "bg-red-500/20 text-red-400", medium: "bg-yellow-500/20 text-yellow-400", low: "bg-green-500/20 text-green-400" };
+      return map[p] || "bg-neutral-500/20 text-neutral-400";
+    };
+
+    if (selectedTicket) {
+      return (
+        <div className="space-y-4" data-testid="admin-ticket-detail">
+          <button onClick={() => setSelectedTicket(null)} className="text-gold text-sm hover:underline flex items-center gap-1">&larr; Back to tickets</button>
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="font-mono text-xs text-neutral-500">{selectedTicket.ticket_id}</span>
+                <h3 className="text-xl font-bold text-white mt-1">{selectedTicket.title}</h3>
+                <p className="text-sm text-neutral-400 mt-1">By {selectedTicket.user_name} ({selectedTicket.user_type}) - {selectedTicket.user_email}</p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${prioBadge(selectedTicket.priority)}`}>{selectedTicket.priority}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${statusBadge(selectedTicket.status)}`}>{selectedTicket.status.replace(/_/g, " ")}</span>
+                {selectedTicket.escalated && <span className="text-[10px] px-2 py-0.5 rounded-full uppercase bg-red-600/20 text-red-400">Escalated</span>}
+              </div>
+            </div>
+            <p className="text-sm text-neutral-300 mb-3">{selectedTicket.description}</p>
+            <div className="flex flex-wrap gap-3 text-xs text-neutral-500">
+              <span>Category: {selectedTicket.category.replace(/_/g, " ")}</span>
+              <span>Created: {new Date(selectedTicket.created_at).toLocaleString()}</span>
+              {selectedTicket.assigned_name && <span>Assigned: {selectedTicket.assigned_name}</span>}
+              {selectedTicket.sla_deadline && (
+                <span className={new Date() > new Date(selectedTicket.sla_deadline) ? "text-red-400 font-medium" : ""}>
+                  SLA: {new Date() > new Date(selectedTicket.sla_deadline) ? "OVERDUE" : new Date(selectedTicket.sla_deadline).toLocaleString()}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 flex-wrap">
+            <select onChange={(e) => { if (e.target.value) assignTicket(selectedTicket.ticket_id, e.target.value); }}
+              className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-1.5 text-sm" data-testid="assign-select">
+              <option value="">Assign to...</option>
+              {admins.map(a => <option key={a.admin_id} value={a.admin_id}>{a.name} ({a.role})</option>)}
+            </select>
+            {["in_progress", "waiting_for_user", "resolved", "closed"].map(s => (
+              <Button key={s} size="sm" variant="ghost" className="text-neutral-300 text-xs border border-neutral-700"
+                onClick={() => changeStatus(selectedTicket.ticket_id, s)} data-testid={`status-${s}`}>
+                {s.replace(/_/g, " ")}
+              </Button>
+            ))}
+            {!selectedTicket.escalated && (
+              <Button size="sm" variant="ghost" className="text-red-400 text-xs border border-red-500/30"
+                onClick={() => escalateTicket(selectedTicket.ticket_id)} data-testid="escalate-btn">
+                Escalate
+              </Button>
+            )}
+          </div>
+
+          {/* Replies */}
+          <div className="space-y-2">
+            {selectedTicket.replies?.map(r => (
+              <div key={r.reply_id} className={`p-3 rounded-lg border ${r.sender_type === "support" ? "bg-gold/5 border-gold/20 ml-6" : "bg-neutral-800/50 border-neutral-700 mr-6"}`}>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium text-white">{r.sender_name} <span className="text-neutral-500 text-xs">({r.sender_type})</span></span>
+                  <span className="text-xs text-neutral-500">{new Date(r.created_at).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-neutral-300 whitespace-pre-wrap">{r.message}</p>
+              </div>
+            ))}
+            {(!selectedTicket.replies || selectedTicket.replies.length === 0) && <p className="text-neutral-500 text-sm text-center py-4">No replies yet</p>}
+          </div>
+
+          {/* Reply form */}
+          <div className="flex gap-2 items-end">
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)}
+              placeholder="Type reply to user..." rows={2}
+              className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm resize-none" data-testid="admin-reply-input" />
+            <Button onClick={sendReply} disabled={sending} className="bg-gold text-black" data-testid="admin-reply-send">
+              <Send className="h-4 w-4 mr-1" /> Send
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6" data-testid="support-tickets-page">
+        <div className="flex justify-between items-center flex-wrap gap-3">
+          <h2 className="font-serif text-2xl font-bold text-white">Support Tickets</h2>
+          <Button size="sm" className="bg-gold text-black" onClick={() => setShowKbForm(!showKbForm)} data-testid="add-kb-btn">
+            <BookOpen className="h-4 w-4 mr-1" /> {showKbForm ? "Cancel" : "Add KB Article"}
+          </Button>
+        </div>
+
+        {/* KB Article Form */}
+        {showKbForm && (
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-white">New Knowledge Base Article</h3>
+            <Input value={kbTitle} onChange={(e) => setKbTitle(e.target.value)} placeholder="Article title"
+              className="bg-neutral-900 border-neutral-700 text-white" data-testid="kb-title-input" />
+            <textarea value={kbContent} onChange={(e) => setKbContent(e.target.value)} placeholder="Article content..."
+              rows={4} className="w-full bg-neutral-900 border border-neutral-700 text-white rounded px-3 py-2 text-sm resize-none" data-testid="kb-content-input" />
+            <div className="flex gap-3">
+              <select value={kbCategory} onChange={(e) => setKbCategory(e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm">
+                <option value="general">General</option>
+                <option value="payment">Payment</option>
+                <option value="order">Order</option>
+                <option value="account">Account</option>
+                <option value="vendor">Vendor</option>
+              </select>
+              <Button onClick={createKbArticle} className="bg-gold text-black" data-testid="save-kb-btn">Save Article</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics */}
+        {analytics && (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-white">{analytics.total}</p>
+              <p className="text-xs text-neutral-400">Total</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-blue-500/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-blue-400">{analytics.by_status?.open || 0}</p>
+              <p className="text-xs text-neutral-400">Open</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-yellow-500/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-yellow-400">{analytics.by_status?.in_progress || 0}</p>
+              <p className="text-xs text-neutral-400">In Progress</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-orange-500/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-orange-400">{analytics.by_status?.waiting_for_user || 0}</p>
+              <p className="text-xs text-neutral-400">Waiting</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-green-500/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-green-400">{analytics.by_status?.resolved || 0}</p>
+              <p className="text-xs text-neutral-400">Resolved</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-red-500/30 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-red-400">{analytics.escalated || 0}</p>
+              <p className="text-xs text-neutral-400">Escalated</p>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap">
+          <select value={filters.status} onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))}
+            className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm" data-testid="filter-status">
+            <option value="">All Statuses</option>
+            {["open", "assigned", "in_progress", "waiting_for_user", "resolved", "closed"].map(s => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+          </select>
+          <select value={filters.priority} onChange={(e) => setFilters(f => ({ ...f, priority: e.target.value }))}
+            className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm" data-testid="filter-priority">
+            <option value="">All Priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select value={filters.category} onChange={(e) => setFilters(f => ({ ...f, category: e.target.value }))}
+            className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm" data-testid="filter-category">
+            <option value="">All Categories</option>
+            <option value="payment">Payment</option>
+            <option value="order">Order</option>
+            <option value="refund">Refund</option>
+            <option value="vendor_collaboration">Vendor Collab</option>
+            <option value="account_login">Account</option>
+            <option value="technical_bug">Bug</option>
+          </select>
+          <Input value={filters.search} onChange={(e) => setFilters(f => ({ ...f, search: e.target.value }))}
+            placeholder="Search tickets..." className="bg-neutral-800 border-neutral-700 text-white max-w-[200px]" data-testid="filter-search" />
+        </div>
+
+        {/* Ticket Table */}
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">ID</TableHead>
+                <TableHead className="text-neutral-400">Title</TableHead>
+                <TableHead className="text-neutral-400">User</TableHead>
+                <TableHead className="text-neutral-400">Priority</TableHead>
+                <TableHead className="text-neutral-400">Status</TableHead>
+                <TableHead className="text-neutral-400">Assigned</TableHead>
+                <TableHead className="text-neutral-400">SLA</TableHead>
+                <TableHead className="text-neutral-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tickets.map(t => {
+                const slaOver = t.sla_deadline && new Date() > new Date(t.sla_deadline) && !["resolved", "closed"].includes(t.status);
+                return (
+                  <TableRow key={t.ticket_id} className={`border-neutral-700 ${slaOver ? "bg-red-500/5" : ""}`}>
+                    <TableCell className="font-mono text-xs text-neutral-400">{t.ticket_id.slice(0, 12)}</TableCell>
+                    <TableCell>
+                      <p className="text-white text-sm truncate max-w-[200px]">{t.title}</p>
+                      <span className="text-xs text-neutral-500">{t.category.replace(/_/g, " ")}</span>
+                    </TableCell>
+                    <TableCell>
+                      <p className="text-neutral-300 text-sm">{t.user_name}</p>
+                      <span className="text-xs text-neutral-500">{t.user_type}</span>
+                    </TableCell>
+                    <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${prioBadge(t.priority)}`}>{t.priority}</span></TableCell>
+                    <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${statusBadge(t.status)}`}>{t.status.replace(/_/g, " ")}</span></TableCell>
+                    <TableCell className="text-neutral-400 text-sm">{t.assigned_name || "-"}</TableCell>
+                    <TableCell>
+                      {slaOver ? (
+                        <span className="text-xs text-red-400 font-medium flex items-center gap-1"><Clock className="h-3 w-3" /> Overdue</span>
+                      ) : t.sla_deadline ? (
+                        <span className="text-xs text-neutral-500">{new Date(t.sla_deadline).toLocaleString()}</span>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" className="text-gold text-xs" onClick={() => openTicketDetail(t.ticket_id)} data-testid={`view-ticket-${t.ticket_id}`}>
+                        <Eye className="h-3 w-3 mr-1" /> View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && tickets.length === 0 && <div className="text-center py-12 text-neutral-500">No tickets found</div>}
+        </div>
+      </div>
+    );
+  };
+
 
   const navItems = [
     { path: "/admin", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview", permission: ["analytics", "view"] },
@@ -2419,6 +2742,7 @@ export const AdminDashboard = () => {
     { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },
     { path: "/admin/action-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
     { path: "/admin/managers", icon: <Shield className="h-5 w-5" />, label: "Managers", permission: ["admin_users", "view"] },
+    { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
@@ -2507,6 +2831,7 @@ export const AdminDashboard = () => {
             <Route path="suspension-history" element={<SuspensionHistoryPage />} />
             <Route path="action-history" element={<ActionHistoryPage />} />
             <Route path="managers" element={<ManagersPage />} />
+            <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="settings" element={<CommissionSettings />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />

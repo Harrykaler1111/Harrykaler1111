@@ -80,6 +80,7 @@ ROLE_PERMISSIONS = {
         "vendor_withdrawals": ["view", "approve", "reject", "process"],
         "platform_settings": ["view", "edit"],
         "categories": ["view", "create", "edit", "delete"],
+        "tickets": ["view", "manage", "assign", "escalate"],
     },
     AdminRole.PRODUCT_MANAGER: {
         "products": ["view", "create", "edit", "delete"],
@@ -164,5 +165,6 @@ ROLE_PERMISSIONS = {
         "vendor_withdrawals": [],
         "platform_settings": [],
         "categories": ["view"],
+        "tickets": ["view", "manage", "assign"],
     },
 }

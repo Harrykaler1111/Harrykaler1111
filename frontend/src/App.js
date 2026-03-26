@@ -24,6 +24,7 @@ import { VendorDashboard } from "@/pages/VendorDashboard";
 import { ResellerRegisterPage } from "@/pages/ResellerRegisterPage";
 import { ResellerDashboard } from "@/pages/ResellerDashboard";
 import { VendorStorePage } from "@/pages/VendorStorePage";
+import { SupportPage } from "@/pages/SupportPage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -206,6 +207,14 @@ const AppRouter = () => {
         element={
           <ProtectedRoute>
             <OrdersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/support"
+        element={
+          <ProtectedRoute>
+            <SupportPage />
           </ProtectedRoute>
         }
       />

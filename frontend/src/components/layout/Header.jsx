@@ -134,6 +134,7 @@ export const Header = () => {
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="menu-profile">My Account</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/orders")} data-testid="menu-orders">Orders</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/support")} data-testid="menu-support">Support</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/wishlist")} data-testid="menu-wishlist">Wishlist</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     {user.role === "influencer" && (
