@@ -127,6 +127,59 @@ export const HomePage = () => {
         </motion.div>
       </section>
 
+      {/* Top Vendors - Zomato Style Circles */}
+      {topSellers.length > 0 && (
+        <section className="py-8 md:py-12 bg-white border-b border-neutral-100" data-testid="top-vendors-hero-section">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-6"
+            >
+              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-neutral-400 mb-1">Top Vendors</p>
+              <h2 className="font-serif text-lg md:text-xl font-bold text-black">Shop by Store</h2>
+            </motion.div>
+
+            <div
+              className="flex gap-6 md:gap-8 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              data-testid="top-vendors-scroll"
+            >
+              {topSellers.map((seller, index) => (
+                <motion.div
+                  key={seller.vendor_id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.07 }}
+                  className="flex flex-col items-center shrink-0 group cursor-pointer"
+                  onClick={() => navigate(`/store/${seller.vendor_id}`)}
+                  data-testid={`top-vendor-circle-${seller.vendor_id}`}
+                >
+                  <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden ring-2 ring-neutral-200 group-hover:ring-gold transition-all duration-300 group-hover:scale-105 bg-gradient-to-br from-neutral-900 to-neutral-700">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="font-serif text-2xl md:text-3xl font-bold text-gold select-none">
+                        {seller.store_name?.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-xs md:text-sm font-medium text-neutral-800 text-center max-w-[80px] md:max-w-[96px] truncate group-hover:text-gold transition-colors">
+                    {seller.store_name}
+                  </p>
+                  {seller.rating > 0 && (
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      <Star className="h-3 w-3 fill-gold text-gold" />
+                      <span className="text-[10px] text-neutral-500 font-medium">{seller.rating.toFixed(1)}</span>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Features Strip */}
       <section className="bg-black text-white py-6 border-y border-neutral-800">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
@@ -402,69 +455,7 @@ export const HomePage = () => {
         </section>
       )}
 
-      {/* Top Sellers */}
-      {topSellers.length > 0 && (
-        <section className="py-20 md:py-32 bg-neutral-50" data-testid="top-sellers-section">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center mb-12 md:mb-16"
-            >
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4">
-                Trusted By Thousands
-              </p>
-              <h2 className="font-serif text-3xl md:text-5xl font-bold">
-                Top Sellers
-              </h2>
-            </motion.div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-              {topSellers.map((seller, index) => (
-                <motion.div
-                  key={seller.vendor_id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Link
-                    to={`/store/${seller.vendor_id}`}
-                    className="group block bg-white border border-neutral-200 p-6 hover:border-gold hover:shadow-lg transition-all duration-300"
-                    data-testid={`top-seller-${seller.vendor_id}`}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-black text-gold flex items-center justify-center font-serif text-xl font-bold">
-                        {seller.store_name.charAt(0).toUpperCase()}
-                      </div>
-                      {seller.rating > 0 && (
-                        <div className="flex items-center gap-1.5 bg-neutral-50 px-2.5 py-1 rounded-full">
-                          <Star className="h-3.5 w-3.5 fill-gold text-gold" />
-                          <span className="text-sm font-medium">{seller.rating.toFixed(1)}</span>
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="font-serif text-lg font-bold mb-1 group-hover:text-gold transition-colors">
-                      {seller.store_name}
-                    </h3>
-                    <p className="text-sm text-neutral-500 line-clamp-2 mb-4">
-                      {seller.store_description}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-100">
-                      <span>{seller.total_products} product{seller.total_products !== 1 ? "s" : ""}</span>
-                      {seller.review_count > 0 && (
-                        <span>{seller.review_count} review{seller.review_count !== 1 ? "s" : ""}</span>
-                      )}
-                      <span className="text-gold font-medium group-hover:underline">Visit Store</span>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Top Sellers section moved to hero area above */}
 
       {/* Influencer CTA */}
       <section className="py-20 md:py-32 bg-black text-white relative overflow-hidden">

@@ -999,38 +999,88 @@ const VendorCategories = ({ vendor }) => {
 const VendorPromotions = ({ vendor }) => {
   const [credits, setCredits] = useState({ balance: 0, total_spent: 0 });
   const [promotions, setPromotions] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [buyAmount, setBuyAmount] = useState("500");
+  const [buying, setBuying] = useState(false);
   const [promoForm, setPromoForm] = useState({ product_id: "", listing_type: "top_100", days: "7" });
+  const [activeTab, setActiveTab] = useState("overview"); // overview | history
 
   const fetchData = useCallback(async () => {
     try {
-      const [credRes, promoRes, prodRes] = await Promise.all([
+      const [credRes, promoRes, prodRes, txnRes] = await Promise.all([
         axios.get(`${API}/vendors/promotions/credits`, { headers: getVendorHeaders() }),
         axios.get(`${API}/vendors/promotions/my`, { headers: getVendorHeaders() }),
-        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
+        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/vendors/promotions/credits/transactions`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
       ]);
       setCredits(credRes.data);
       setPromotions(promoRes.data);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.products || []);
+      setTransactions(Array.isArray(txnRes.data) ? txnRes.data : []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const buyCredits = async () => {
+    const amount = parseInt(buyAmount);
+    if (!amount || amount < 100) { toast.error("Minimum 100 credits"); return; }
+    setBuying(true);
     try {
-      await axios.post(`${API}/vendors/promotions/buy-credits?amount=${buyAmount}`, {}, { headers: getVendorHeaders() });
-      toast.success(`Added ${buyAmount} credits!`);
-      fetchData();
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+      const res = await axios.post(`${API}/vendors/promotions/credits/create-order`, { amount }, { headers: getVendorHeaders() });
+      const data = res.data;
+
+      if (data.mocked) {
+        toast.success(data.message || `Added ${data.credits_added} credits (mock mode)`);
+        fetchData();
+        setBuying(false);
+        return;
+      }
+
+      // Real Razorpay checkout
+      const options = {
+        key: data.key_id,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.order_id,
+        name: "Pigma",
+        description: `Purchase ${amount} Promotion Credits`,
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/vendors/promotions/credits/verify-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }, { headers: getVendorHeaders() });
+            toast.success(`Payment verified! Added ${amount} credits`);
+            fetchData();
+          } catch (err) {
+            toast.error(err.response?.data?.detail || "Payment verification failed");
+          }
+          setBuying(false);
+        },
+        modal: { ondismiss: () => setBuying(false) },
+        prefill: { email: vendor?.email || "" },
+        theme: { color: "#C9A050" }
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to create order");
+      setBuying(false);
+    }
   };
 
   const promoteProduct = async () => {
     if (!promoForm.product_id) { toast.error("Select a product"); return; }
     try {
-      await axios.post(`${API}/vendors/promotions/promote-product?product_id=${promoForm.product_id}&listing_type=${promoForm.listing_type}&days=${promoForm.days}`, {}, { headers: getVendorHeaders() });
+      await axios.post(`${API}/vendors/promotions/promote-product`, {
+        product_id: promoForm.product_id,
+        listing_type: promoForm.listing_type,
+        days: parseInt(promoForm.days) || 7
+      }, { headers: getVendorHeaders() });
       toast.success("Product promoted!");
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
@@ -1042,78 +1092,137 @@ const VendorPromotions = ({ vendor }) => {
 
   return (
     <div className="space-y-8" data-testid="vendor-promotions-page">
-      <h2 className="text-2xl font-bold text-white">Promotions</h2>
-
-      {/* Credits Balance */}
-      <div className="bg-gradient-to-r from-gold/20 to-gold/5 border border-gold/30 rounded-lg p-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <p className="text-gold text-xs font-mono uppercase tracking-wider mb-1">Credit Balance</p>
-            <p className="text-4xl font-bold text-white" data-testid="credit-balance">{credits.balance || 0}</p>
-            <p className="text-neutral-400 text-xs mt-1">Total spent: {credits.total_spent || 0} credits</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="w-24 bg-neutral-800 border-neutral-700 text-white" min="100" data-testid="buy-credits-amount" />
-            <Button onClick={buyCredits} className="bg-gold hover:bg-gold/90 text-black" data-testid="buy-credits-btn">
-              <Zap className="h-4 w-4 mr-1" /> Buy Credits
-            </Button>
-          </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">Promotions</h2>
+        <div className="flex gap-2">
+          {["overview", "history"].map(t => (
+            <button key={t} onClick={() => setActiveTab(t)}
+              className={`px-4 py-1.5 rounded-lg text-sm capitalize transition-colors ${activeTab === t ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}
+              data-testid={`promo-tab-${t}`}>
+              {t === "overview" ? "Overview" : "Transaction History"}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Promote Product */}
-      <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Promote a Product</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <Select value={promoForm.product_id} onValueChange={(v) => setPromoForm(f => ({ ...f, product_id: v }))}>
-            <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-product-select">
-              <SelectValue placeholder="Select product" />
-            </SelectTrigger>
-            <SelectContent>
-              {products.filter(p => p.approval_status === "approved").map((p) => (
-                <SelectItem key={p.product_id} value={p.product_id}>{p.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={promoForm.listing_type} onValueChange={(v) => setPromoForm(f => ({ ...f, listing_type: v }))}>
-            <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-type-select">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="top_20">Top 20 (₹50/day)</SelectItem>
-              <SelectItem value="top_100">Top 100 (₹20/day)</SelectItem>
-              <SelectItem value="category_top">Category Top (₹30/day)</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input type="number" value={promoForm.days} onChange={(e) => setPromoForm(f => ({ ...f, days: e.target.value }))} placeholder="Days" className="bg-neutral-800 border-neutral-700 text-white" min="1" data-testid="promo-days-input" />
-          <Button onClick={promoteProduct} className="bg-gold hover:bg-gold/90 text-black" data-testid="promote-btn">
-            <Megaphone className="h-4 w-4 mr-1" /> Promote ({(costMap[promoForm.listing_type] || 20) * (parseInt(promoForm.days) || 1)} credits)
-          </Button>
-        </div>
-      </div>
-
-      {/* Active Promotions */}
-      {promotions.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-white mb-4">Your Promotions</h3>
-          <div className="space-y-3">
-            {promotions.map((promo) => (
-              <div key={promo.promotion_id} className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 flex items-center justify-between" data-testid={`promo-${promo.promotion_id}`}>
-                <div>
-                  <p className="text-white font-medium">{promo.product_name}</p>
-                  <div className="flex items-center gap-3 mt-1 text-xs text-neutral-400">
-                    <Badge variant={promo.is_active ? "default" : "secondary"} className={promo.is_active ? "bg-green-500/20 text-green-400" : ""}>
-                      {promo.is_active ? "Active" : "Expired"}
-                    </Badge>
-                    <span>{promo.listing_type.replace("_", " ").toUpperCase()}</span>
-                    <span>{promo.days} days</span>
-                    <span>{promo.total_cost} credits</span>
-                  </div>
-                </div>
-                <p className="text-xs text-neutral-500">Expires: {new Date(promo.expires_at).toLocaleDateString()}</p>
+      {activeTab === "overview" && (
+        <>
+          {/* Credits Balance */}
+          <div className="bg-gradient-to-r from-gold/20 to-gold/5 border border-gold/30 rounded-lg p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <p className="text-gold text-xs font-mono uppercase tracking-wider mb-1">Credit Balance</p>
+                <p className="text-4xl font-bold text-white" data-testid="credit-balance">{credits.balance || 0}</p>
+                <p className="text-neutral-400 text-xs mt-1">Total spent: {credits.total_spent || 0} credits &bull; 1 credit = ₹1</p>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="w-24 bg-neutral-800 border-neutral-700 text-white" min="100" data-testid="buy-credits-amount" />
+                <Button onClick={buyCredits} disabled={buying} className="bg-gold hover:bg-gold/90 text-black" data-testid="buy-credits-btn">
+                  <Zap className="h-4 w-4 mr-1" /> {buying ? "Processing..." : `Buy (₹${buyAmount})`}
+                </Button>
+              </div>
+            </div>
           </div>
+
+          {/* Promote Product */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Promote a Product</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <Select value={promoForm.product_id} onValueChange={(v) => setPromoForm(f => ({ ...f, product_id: v }))}>
+                <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-product-select">
+                  <SelectValue placeholder="Select product" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.filter(p => p.approval_status === "approved").map((p) => (
+                    <SelectItem key={p.product_id} value={p.product_id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={promoForm.listing_type} onValueChange={(v) => setPromoForm(f => ({ ...f, listing_type: v }))}>
+                <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-type-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top_20">Top 20 (₹50/day)</SelectItem>
+                  <SelectItem value="top_100">Top 100 (₹20/day)</SelectItem>
+                  <SelectItem value="category_top">Category Top (₹30/day)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input type="number" value={promoForm.days} onChange={(e) => setPromoForm(f => ({ ...f, days: e.target.value }))} placeholder="Days" className="bg-neutral-800 border-neutral-700 text-white" min="1" data-testid="promo-days-input" />
+              <Button onClick={promoteProduct} className="bg-gold hover:bg-gold/90 text-black" data-testid="promote-btn">
+                <Megaphone className="h-4 w-4 mr-1" /> Promote ({(costMap[promoForm.listing_type] || 20) * (parseInt(promoForm.days) || 1)} credits)
+              </Button>
+            </div>
+          </div>
+
+          {/* Active Promotions */}
+          {promotions.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Your Promotions</h3>
+              <div className="space-y-3">
+                {promotions.map((promo) => (
+                  <div key={promo.promotion_id} className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 flex items-center justify-between" data-testid={`promo-${promo.promotion_id}`}>
+                    <div>
+                      <p className="text-white font-medium">{promo.product_name}</p>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-neutral-400">
+                        <Badge variant={promo.is_active ? "default" : "secondary"} className={promo.is_active ? "bg-green-500/20 text-green-400" : ""}>
+                          {promo.is_active ? "Active" : "Expired"}
+                        </Badge>
+                        <span>{promo.listing_type.replace("_", " ").toUpperCase()}</span>
+                        <span>{promo.days} days</span>
+                        <span>{promo.total_cost} credits</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-neutral-500">Expires: {new Date(promo.expires_at).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === "history" && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">Transaction History</h3>
+          {transactions.length === 0 ? (
+            <div className="text-center py-12 text-neutral-500">No transactions yet</div>
+          ) : (
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-neutral-700">
+                    <TableHead className="text-neutral-400">Date</TableHead>
+                    <TableHead className="text-neutral-400">Type</TableHead>
+                    <TableHead className="text-neutral-400">Amount</TableHead>
+                    <TableHead className="text-neutral-400">Status</TableHead>
+                    <TableHead className="text-neutral-400">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map(txn => (
+                    <TableRow key={txn.transaction_id} className="border-neutral-700" data-testid={`txn-${txn.transaction_id}`}>
+                      <TableCell className="text-neutral-300 text-sm">{new Date(txn.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${txn.type === "purchase" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {txn.type === "purchase" ? "Purchase" : "Deduction"}
+                        </span>
+                      </TableCell>
+                      <TableCell className={`font-medium ${txn.type === "purchase" ? "text-green-400" : "text-red-400"}`}>
+                        {txn.type === "purchase" ? "+" : "-"}{txn.amount} credits
+                      </TableCell>
+                      <TableCell>
+                        <span className={`text-xs px-2 py-0.5 rounded ${txn.payment_status === "completed" || txn.payment_status === "mocked" ? "bg-green-500/20 text-green-400" : txn.payment_status === "pending" ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400"}`}>
+                          {txn.payment_status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-neutral-400 text-xs max-w-[200px] truncate">{txn.description || txn.razorpay_order_id || "-"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       )}
     </div>

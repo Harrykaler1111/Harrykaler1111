@@ -1169,7 +1169,7 @@ const CustomersManagement = () => {
   );
 };
 
-// Coupons, Offers & Rewards Management
+// Marketing Hub - Coupons, Offers & Rewards Management
 const CouponsManagement = () => {
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1185,6 +1185,10 @@ const CouponsManagement = () => {
   const [settings, setSettings] = useState(null);
   const [targetForm, setTargetForm] = useState({ name: "", target_type: "influencer", target_amount: "", reward_type: "bonus", reward_value: "", is_active: true });
 
+  // Marketing tab RBAC: only super_admin and marketing_manager can access
+  const admin = getAdmin();
+  const isMarketingAuthorized = admin && (admin.role === "super_admin" || admin.role === "marketing_manager");
+
   const fetchData = async () => {
     try {
       const [couponRes, settingsRes] = await Promise.all([
@@ -1197,7 +1201,17 @@ const CouponsManagement = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (isMarketingAuthorized) fetchData(); }, [isMarketingAuthorized]);
+
+  if (!isMarketingAuthorized) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-neutral-500">
+        <Shield className="h-12 w-12 mb-3 text-neutral-600" />
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p className="text-sm">Only Super Admin and Marketing Manager can access this section.</p>
+      </div>
+    );
+  }
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -1287,7 +1301,7 @@ const CouponsManagement = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="font-serif text-2xl font-bold text-white">Coupons, Offers & Rewards</h2>
+        <h2 className="font-serif text-2xl font-bold text-white">Marketing Hub</h2>
         {canCreate && (
           <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowCreate(true)} data-testid="create-coupon-btn">
             <Plus className="h-4 w-4 mr-1" /> Create Coupon
@@ -3193,7 +3207,7 @@ export const AdminDashboard = () => {
     { path: "/admin/withdrawals", icon: <Wallet className="h-5 w-5" />, label: "Withdrawals", permission: ["wallets", "view"] },
     { path: "/admin/products", icon: <Package className="h-5 w-5" />, label: "Products", permission: ["products", "view"] },
     { path: "/admin/customers", icon: <Users className="h-5 w-5" />, label: "Customers", permission: ["customers", "view"] },
-    { path: "/admin/coupons", icon: <Tag className="h-5 w-5" />, label: "Coupons", permission: ["coupons", "view"] },
+    { path: "/admin/coupons", icon: <Tag className="h-5 w-5" />, label: "Marketing", permission: ["coupons", "view"] },
     { path: "/admin/vendors", icon: <Store className="h-5 w-5" />, label: "Vendors", permission: ["vendors", "view"] },
     { path: "/admin/vendor-products", icon: <FileCheck className="h-5 w-5" />, label: "Product Approvals", permission: ["vendor_products", "view"] },
     { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },

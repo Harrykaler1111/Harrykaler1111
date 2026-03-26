@@ -1065,6 +1065,20 @@ async def delete_vendor_category(category_id: str, vendor: Dict = Depends(get_cu
 
 # ============== CREDIT-BASED PROMOTIONS ==============
 
+class CreditPurchaseRequest(PydanticBaseModel):
+    amount: int  # credits to buy (1 credit = ₹1)
+
+class CreditVerifyRequest(PydanticBaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+class PromoteProductRequest(PydanticBaseModel):
+    product_id: str
+    listing_type: str = "top_100"
+    days: int = 7
+
+
 @router.get("/promotions/credits")
 async def get_vendor_credits(vendor: Dict = Depends(get_current_vendor)):
     """Get vendor's promotion credits balance"""
@@ -1076,36 +1090,160 @@ async def get_vendor_credits(vendor: Dict = Depends(get_current_vendor)):
     return credits
 
 
-@router.post("/promotions/buy-credits")
-async def buy_promotion_credits(amount: int, vendor: Dict = Depends(get_current_vendor)):
-    """Buy promotion credits (1 credit = ₹1)"""
-    if amount < 100:
-        raise HTTPException(status_code=400, detail="Minimum purchase is 100 credits")
+@router.get("/promotions/credits/transactions")
+async def get_credit_transactions(vendor: Dict = Depends(get_current_vendor)):
+    """Get vendor's credit transaction history"""
+    txns = await db.credit_transactions.find(
+        {"vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return txns
 
+
+@router.post("/promotions/credits/create-order")
+async def create_credit_order(data: CreditPurchaseRequest, vendor: Dict = Depends(get_current_vendor)):
+    """Create Razorpay order for credit purchase"""
+    if data.amount < 100:
+        raise HTTPException(status_code=400, detail="Minimum purchase is 100 credits")
+    if data.amount > 100000:
+        raise HTTPException(status_code=400, detail="Maximum purchase is 100,000 credits")
+
+    razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID")
+    razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+
+    if not razorpay_key_id or not razorpay_key_secret:
+        # Mocked flow when keys aren't configured
+        order_id = generate_id("mock_order_")
+        txn = {
+            "transaction_id": generate_id("ctxn_"),
+            "vendor_id": vendor["vendor_id"],
+            "type": "purchase",
+            "amount": data.amount,
+            "razorpay_order_id": order_id,
+            "payment_status": "mocked",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.credit_transactions.insert_one(txn)
+        # Immediately add credits in mocked mode
+        await db.vendor_credits.update_one(
+            {"vendor_id": vendor["vendor_id"]},
+            {"$inc": {"balance": data.amount},
+             "$set": {"vendor_id": vendor["vendor_id"], "updated_at": datetime.now(timezone.utc).isoformat()},
+             "$setOnInsert": {"total_spent": 0, "created_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True
+        )
+        txn.pop("_id", None)
+        return {
+            "order_id": order_id,
+            "amount": data.amount * 100,
+            "currency": "INR",
+            "mocked": True,
+            "message": f"Added {data.amount} credits (Razorpay keys not configured, using mock mode)",
+            "credits_added": data.amount
+        }
+
+    import razorpay
+    client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
+    amount_paise = data.amount * 100
+
+    try:
+        order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": f"credit_{vendor['vendor_id'][:20]}_{generate_id('')[:8]}",
+            "payment_capture": 1
+        })
+    except Exception as e:
+        logger.error(f"Razorpay order creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Payment order creation failed")
+
+    txn = {
+        "transaction_id": generate_id("ctxn_"),
+        "vendor_id": vendor["vendor_id"],
+        "type": "purchase",
+        "amount": data.amount,
+        "razorpay_order_id": order["id"],
+        "payment_status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.credit_transactions.insert_one(txn)
+
+    return {
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "currency": "INR",
+        "key_id": razorpay_key_id,
+        "mocked": False
+    }
+
+
+@router.post("/promotions/credits/verify-payment")
+async def verify_credit_payment(data: CreditVerifyRequest, vendor: Dict = Depends(get_current_vendor)):
+    """Verify Razorpay payment and add credits"""
+    razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID")
+    razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+
+    if not razorpay_key_id or not razorpay_key_secret:
+        raise HTTPException(status_code=400, detail="Razorpay keys not configured")
+
+    import razorpay
+    client = razorpay.Client(auth=(razorpay_key_id, razorpay_key_secret))
+
+    # Verify signature
+    try:
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": data.razorpay_order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_signature": data.razorpay_signature
+        })
+    except Exception:
+        await db.credit_transactions.update_one(
+            {"razorpay_order_id": data.razorpay_order_id, "vendor_id": vendor["vendor_id"]},
+            {"$set": {"payment_status": "failed", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+
+    # Find the pending transaction
+    txn = await db.credit_transactions.find_one(
+        {"razorpay_order_id": data.razorpay_order_id, "vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    )
+    if not txn:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if txn.get("payment_status") == "completed":
+        raise HTTPException(status_code=400, detail="Payment already processed")
+
+    credits_to_add = txn["amount"]
+
+    # Update transaction status
+    await db.credit_transactions.update_one(
+        {"razorpay_order_id": data.razorpay_order_id, "vendor_id": vendor["vendor_id"]},
+        {"$set": {
+            "payment_status": "completed",
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    # Add credits
     await db.vendor_credits.update_one(
         {"vendor_id": vendor["vendor_id"]},
-        {"$inc": {"balance": amount},
+        {"$inc": {"balance": credits_to_add},
          "$set": {"vendor_id": vendor["vendor_id"], "updated_at": datetime.now(timezone.utc).isoformat()},
          "$setOnInsert": {"total_spent": 0, "created_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
     )
-    return {"message": f"Added {amount} credits", "payment_status": "mocked_success"}
+
+    return {"message": f"Payment verified! Added {credits_to_add} credits", "credits_added": credits_to_add}
 
 
 @router.post("/promotions/promote-product")
-async def promote_product(
-    product_id: str,
-    listing_type: str = "top_100",
-    days: int = 7,
-    vendor: Dict = Depends(get_current_vendor)
-):
+async def promote_product(data: PromoteProductRequest, vendor: Dict = Depends(get_current_vendor)):
     """Promote a product to top listings using credits"""
     cost_map = {"top_20": 50, "top_100": 20, "category_top": 30}
-    daily_cost = cost_map.get(listing_type)
+    daily_cost = cost_map.get(data.listing_type)
     if not daily_cost:
         raise HTTPException(status_code=400, detail="Invalid listing type. Use: top_20, top_100, category_top")
 
-    total_cost = daily_cost * days
+    total_cost = daily_cost * data.days
 
     credits = await db.vendor_credits.find_one({"vendor_id": vendor["vendor_id"]}, {"_id": 0})
     balance = credits.get("balance", 0) if credits else 0
@@ -1113,30 +1251,29 @@ async def promote_product(
         raise HTTPException(status_code=400, detail=f"Insufficient credits. Need {total_cost}, have {balance}")
 
     product = await db.vendor_products.find_one(
-        {"product_id": product_id, "vendor_id": vendor["vendor_id"]}, {"_id": 0}
+        {"product_id": data.product_id, "vendor_id": vendor["vendor_id"]}, {"_id": 0}
     )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    from datetime import timedelta
+    expires = datetime.now(timezone.utc) + timedelta(days=data.days)
+
     promotion = {
         "promotion_id": generate_id("promo_"),
         "vendor_id": vendor["vendor_id"],
-        "product_id": product_id,
+        "product_id": data.product_id,
         "product_name": product.get("name", ""),
-        "listing_type": listing_type,
+        "listing_type": data.listing_type,
         "daily_cost": daily_cost,
         "total_cost": total_cost,
-        "days": days,
+        "days": data.days,
         "starts_at": datetime.now(timezone.utc).isoformat(),
-        "expires_at": "",
+        "expires_at": expires.isoformat(),
         "is_active": True,
         "credits_remaining": total_cost,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-
-    from datetime import timedelta
-    expires = datetime.now(timezone.utc) + timedelta(days=days)
-    promotion["expires_at"] = expires.isoformat()
 
     await db.product_promotions.insert_one(promotion)
     await db.vendor_credits.update_one(
@@ -1144,7 +1281,19 @@ async def promote_product(
         {"$inc": {"balance": -total_cost, "total_spent": total_cost}}
     )
 
-    return {"message": f"Product promoted to {listing_type} for {days} days", "promotion": {k: v for k, v in promotion.items() if k != "_id"}}
+    # Log credit deduction transaction
+    await db.credit_transactions.insert_one({
+        "transaction_id": generate_id("ctxn_"),
+        "vendor_id": vendor["vendor_id"],
+        "type": "deduction",
+        "amount": total_cost,
+        "description": f"Promoted '{product.get('name', '')}' to {data.listing_type} for {data.days} days",
+        "promotion_id": promotion["promotion_id"],
+        "payment_status": "completed",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": f"Product promoted to {data.listing_type} for {data.days} days", "promotion": {k: v for k, v in promotion.items() if k != "_id"}}
 
 
 @router.get("/promotions/my")
