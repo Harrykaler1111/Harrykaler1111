@@ -69,6 +69,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
   - Products grid, Customer Reviews with rating distribution bars
   - "Sold by X" on product detail page is clickable, links to vendor store
   - **Top Sellers on Homepage:** `GET /api/vendors/top-sellers` public endpoint, 3-column seller card grid with store avatars, ratings, product counts, and "Visit Store" links
+  - **Best Sellers Carousel (NEW):** `GET /api/products/best-sellers` endpoint aggregates from orders data, fills remaining slots with popular products. Horizontal scrollable carousel on homepage with product cards, "X SOLD" badges, discount percentages, and left/right scroll arrows
 - **Testing:** 100% pass rate across iterations 5 & 6 (32+ backend tests, all frontend flows)
 
 ## MOCKED Integrations

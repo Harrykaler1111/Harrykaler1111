@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Truck, Shield, RefreshCw } from "lucide-react";
+import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import axios from "axios";
@@ -12,19 +12,29 @@ export const HomePage = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
   const [topSellers, setTopSellers] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const carouselRef = useRef(null);
+
+  const scrollCarousel = (dir) => {
+    if (!carouselRef.current) return;
+    const scrollAmount = 320;
+    carouselRef.current.scrollBy({ left: dir === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const [featuredRes, newRes, sellersRes] = await Promise.all([
+        const [featuredRes, newRes, sellersRes, bestRes] = await Promise.all([
           axios.get(`${API}/products/featured?limit=4`),
           axios.get(`${API}/products/new-arrivals?limit=8`),
-          axios.get(`${API}/vendors/top-sellers?limit=6`).catch(() => ({ data: [] }))
+          axios.get(`${API}/vendors/top-sellers?limit=6`).catch(() => ({ data: [] })),
+          axios.get(`${API}/products/best-sellers?limit=10`).catch(() => ({ data: [] }))
         ]);
         setFeaturedProducts(featuredRes.data);
         setNewArrivals(newRes.data);
         setTopSellers(sellersRes.data);
+        setBestSellers(bestRes.data);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -296,6 +306,95 @@ export const HomePage = () => {
                   transition={{ delay: index * 0.05 }}
                 >
                   <ProductCard product={product} />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Best Sellers Carousel */}
+      {bestSellers.length > 0 && (
+        <section className="py-20 md:py-32" data-testid="best-sellers-section">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <div className="flex items-end justify-between mb-12 md:mb-16">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+              >
+                <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4 flex items-center gap-2">
+                  <Flame className="h-3.5 w-3.5" />
+                  Most Popular
+                </p>
+                <h2 className="font-serif text-3xl md:text-5xl font-bold">
+                  Best Sellers
+                </h2>
+              </motion.div>
+              <div className="hidden md:flex gap-2">
+                <button
+                  onClick={() => scrollCarousel("left")}
+                  className="w-10 h-10 border border-neutral-300 flex items-center justify-center hover:border-gold hover:text-gold transition-colors"
+                  data-testid="carousel-prev-btn"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => scrollCarousel("right")}
+                  className="w-10 h-10 border border-neutral-300 flex items-center justify-center hover:border-gold hover:text-gold transition-colors"
+                  data-testid="carousel-next-btn"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              ref={carouselRef}
+              className="flex gap-5 overflow-x-auto scrollbar-hide pb-4 snap-x snap-mandatory -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              data-testid="best-sellers-carousel"
+            >
+              {bestSellers.map((product, index) => (
+                <motion.div
+                  key={product.product_id}
+                  initial={{ opacity: 0, x: 30 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.05 }}
+                  className="snap-start shrink-0 w-[260px] md:w-[280px]"
+                >
+                  <Link
+                    to={`/product/${product.product_id}`}
+                    className="group block"
+                    data-testid={`best-seller-${product.product_id}`}
+                  >
+                    <div className="aspect-[3/4] bg-neutral-100 overflow-hidden mb-3 relative">
+                      <img
+                        src={product.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80"}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {product.total_sold > 0 && (
+                        <div className="absolute top-3 left-3 bg-black/80 text-white text-[10px] font-mono uppercase tracking-wider px-2.5 py-1">
+                          {product.total_sold} sold
+                        </div>
+                      )}
+                      {product.compare_price && product.compare_price > product.price && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-mono uppercase tracking-wider px-2.5 py-1">
+                          -{Math.round(((product.compare_price - product.price) / product.compare_price) * 100)}%
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-500 uppercase tracking-wider">{product.category}</p>
+                    <h3 className="font-medium text-sm mt-1 group-hover:text-gold transition-colors line-clamp-1">{product.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-bold text-sm">${product.price?.toFixed(2)}</span>
+                      {product.compare_price && product.compare_price > product.price && (
+                        <span className="text-xs text-neutral-400 line-through">${product.compare_price.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </Link>
                 </motion.div>
               ))}
             </div>

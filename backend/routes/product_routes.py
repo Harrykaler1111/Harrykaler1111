@@ -60,6 +60,49 @@ async def get_new_arrivals(limit: int = 8):
     return [ProductResponse(**p) for p in products]
 
 
+@router.get("/best-sellers")
+async def get_best_sellers(limit: int = 8):
+    """Returns best-selling products based on order data, with fallback to featured."""
+    # Aggregate from orders to find top-selling product IDs
+    pipeline = [
+        {"$match": {"status": {"$nin": ["cancelled", "refunded"]}}},
+        {"$unwind": "$items"},
+        {"$group": {"_id": "$items.product_id", "total_sold": {"$sum": "$items.quantity"}}},
+        {"$sort": {"total_sold": -1}},
+        {"$limit": limit}
+    ]
+    top_product_ids = await db.orders.aggregate(pipeline).to_list(limit)
+
+    result = []
+    seen_ids = set()
+
+    if top_product_ids:
+        product_ids = [p["_id"] for p in top_product_ids]
+        sold_map = {p["_id"]: p["total_sold"] for p in top_product_ids}
+        products = await db.products.find(
+            {"product_id": {"$in": product_ids}, "is_active": True}, {"_id": 0}
+        ).to_list(limit)
+        for p in products:
+            resp = ProductResponse(**p).model_dump()
+            resp["total_sold"] = sold_map.get(p["product_id"], 0)
+            result.append(resp)
+            seen_ids.add(p["product_id"])
+        result.sort(key=lambda x: x["total_sold"], reverse=True)
+
+    # Fill remaining slots with popular active products
+    if len(result) < limit:
+        remaining = limit - len(result)
+        exclude_ids = list(seen_ids)
+        filler_query = {"is_active": True}
+        if exclude_ids:
+            filler_query["product_id"] = {"$nin": exclude_ids}
+        filler = await db.products.find(filler_query, {"_id": 0}).sort("created_at", -1).limit(remaining).to_list(remaining)
+        for p in filler:
+            result.append({**ProductResponse(**p).model_dump(), "total_sold": 0})
+
+    return result
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(product_id: str):
     product = await db.products.find_one({"product_id": product_id, "is_active": True}, {"_id": 0})
