@@ -8,6 +8,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Backend: FastAPI (Python), 19 route modules
 - Database: MongoDB
 - Auth: JWT (per role), Google OAuth, RBAC (5 admin roles)
+- File Storage: Emergent Object Storage (multi-image/video)
 
 ## Credentials
 - Super Admin: superadmin@pigma.com / superadmin123
@@ -15,7 +16,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Marketing: marketing@pigma.com / marketing123
 - Finance: finance@pigma.com / finance123
 - Support: support@pigma.com / support123
-- Vendor: vendortest3@example.com / vendor123
+- Vendor: testvendor@example.com / vendor123
 - Influencer: testinfluencer@example.com / influencer123
 - User: harpreetkaler750@gmail.com / Harpreet@123
 
@@ -38,34 +39,37 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Forgot Password UI on auth + vendor-login pages
 
 ### Phase 5 - Advanced Marketplace (2026-03-26)
-- **Advanced Offer System:** Time-based (starts_at/expires_at), category-based, offer types. Validation checks time windows + categories. Public active offers endpoint.
-- **Vendor Category Access:** Platform categories + own categories. Create/delete vendor categories via UI.
-- **Credit-based Promotion System:** Buy credits (MOCKED payment), promote products to Top 20 (₹50/day), Top 100 (₹20/day), Category Top (₹30/day). Full vendor Promotions page with balance, buy, promote UI.
-- **Platform Fee Enforcement:** Applied on every sale via order settlement logic.
-- **Referral Code Tracking on Orders:** Orders with collab referral codes update collaboration sales metrics.
-- **Testing:** iterations 7-8: 47/47 backend + all frontend flows passed
+- Advanced Offer System: Time-based, category-based, offer types
+- Vendor Category Access: Platform + own categories
+- Credit-based Promotion System: Buy credits, promote products
+- Platform Fee Enforcement on every sale
+- Referral Code Tracking on Orders
+
+### Phase 6 - Phase 3 Completion & Multi-Media Upload (2026-03-26)
+- **Admin Action History Page:** Filter by user type and action, paginated history list with timestamps
+- **Dedicated Managers Page:** Assign admin managers to vendors/influencers/users, remove assignments
+- **Referral Commission Settings:** Vendor & influencer referral rate controls in Platform Settings
+- **Resellers Management Page:** Full table with approve/reject/suspend/disconnect/reactivate actions, inline history viewer
+- **Suspension History Page:** Filterable log of all admin actions on users
+- **Multi-Image/Video Product Upload:** MediaUploader component with drag-and-drop, progress bar, thumbnail previews. Integrated in both Admin and Vendor product creation forms. Backend uses Emergent Object Storage. ProductDetailPage updated to render video media in gallery.
+- **Testing:** Iteration 9 - 100% pass (17 backend + all frontend flows)
 
 ## MOCKED Integrations
 - Razorpay (payments/payouts/credits) -> needs API keys
 - Instagram OAuth & DM -> needs Meta credentials
 - SMS/Email OTP delivery -> demo OTP returned in response
 
-## Remaining Tasks (from user's 16-item request)
+## Remaining Tasks
 
-### P1 - In Progress
-1. Referral Commission System (vendor 1%, influencer 1%, super admin controls)
-2. Dedicated Manager System (manager per vendor/influencer)
-3. Product multiple image/video upload
-4. Action History full frontend in admin panel
+### P1 - Upcoming
+1. Meta Pixel + Google Ads Pixel integration (global tracking)
+2. ManyChat integration (Instagram auto DM via comment triggers)
+3. Verify Sales Tracking with Collab Referral Codes on frontend checkout
+4. WhatsApp integration (Interakt - needs credentials)
 
-### P2 - Upcoming
-5. Meta Pixel + Google Ads Pixel integration
-6. ManyChat integration (needs API key)
-7. WhatsApp integration (Interakt - needs credentials)
-8. OTP verification for login/registration
-
-### Future/Backlog
-- Return & Dispute Management
-- Auto Creator Recruitment landing page
-- Real AI chatbot, CRM, SEO tools
-- Frontend refactoring (monolithic dashboard files)
+### P2 - Future/Backlog
+- Return & Dispute Management system
+- Auto Creator Recruitment landing page (Module 18)
+- Real AI chatbot integration
+- OTP verification for login/registration (real SMS)
+- Frontend refactoring (AdminDashboard.jsx 2500+ lines, VendorDashboard.jsx 1300+ lines)
