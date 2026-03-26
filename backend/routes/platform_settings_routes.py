@@ -19,6 +19,8 @@ DEFAULT_SETTINGS = {
     "collab_platform_fee": 5.0,
     "min_withdrawal_amount": 1000,
     "auto_settle_on_delivery": True,
+    "vendor_referral_commission": 1.0,
+    "influencer_referral_commission": 1.0,
     "commission_targets": [],
     "commission_rewards": [],
     "updated_at": None,
@@ -34,6 +36,8 @@ class CommissionSettingsUpdate(BaseModel):
     collab_platform_fee: Optional[float] = None
     min_withdrawal_amount: Optional[float] = None
     auto_settle_on_delivery: Optional[bool] = None
+    vendor_referral_commission: Optional[float] = None
+    influencer_referral_commission: Optional[float] = None
 
 
 class CommissionTarget(BaseModel):

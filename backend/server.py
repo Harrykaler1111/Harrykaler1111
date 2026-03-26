@@ -32,6 +32,8 @@ from routes.platform_settings_routes import router as settings_router
 from routes.review_routes import router as review_router
 from routes.collaboration_routes import router as collab_router
 from routes.action_history_routes import router as action_history_router
+from routes.referral_manager_routes import router as referral_manager_router
+from routes.upload_routes import router as upload_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -59,6 +61,8 @@ app.include_router(settings_router, prefix="/api")
 app.include_router(review_router, prefix="/api")
 app.include_router(collab_router, prefix="/api")
 app.include_router(action_history_router, prefix="/api")
+app.include_router(referral_manager_router, prefix="/api")
+app.include_router(upload_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +81,14 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    # Initialize object storage
+    try:
+        from routes.upload_routes import init_storage
+        init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.warning(f"Object storage init failed (uploads will init on first use): {e}")
+
     # Create indexes
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)

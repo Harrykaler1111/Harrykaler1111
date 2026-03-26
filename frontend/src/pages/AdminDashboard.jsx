@@ -2232,9 +2232,175 @@ export const AdminDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Referral Commission Controls */}
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-white">Referral Commissions</h3>
+          <p className="text-sm text-neutral-400">Vendors/Influencers earn commission when they refer new members to the platform.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Vendor Referral Commission (%)</label>
+              <p className="text-xs text-neutral-500 mb-1">Vendor earns this % from referred vendor's monthly sales</p>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.vendor_referral_commission || 1}
+                  onChange={(e) => setSettings(prev => ({ ...prev, vendor_referral_commission: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="vendor-referral-rate" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ vendor_referral_commission: settings.vendor_referral_commission })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">Influencer Referral Commission (%)</label>
+              <p className="text-xs text-neutral-500 mb-1">Influencer earns this % from referred influencer's earnings</p>
+              <div className="flex gap-2">
+                <Input type="number" value={settings.influencer_referral_commission || 1}
+                  onChange={(e) => setSettings(prev => ({ ...prev, influencer_referral_commission: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white" data-testid="influencer-referral-rate" />
+                <Button size="sm" className="bg-gold text-black" onClick={() => updateSettings({ influencer_referral_commission: settings.influencer_referral_commission })} disabled={saving}>Save</Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
+
+  // ====== ACTION HISTORY PAGE ======
+  const ActionHistoryPage = () => {
+    const [history, setHistory] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [filter, setFilter] = useState({ user_type: "", action: "" });
+
+    useEffect(() => {
+      const fetchHistory = async () => {
+        const params = new URLSearchParams();
+        if (filter.user_type) params.set("user_type", filter.user_type);
+        if (filter.action) params.set("action", filter.action);
+        params.set("limit", "50");
+        const res = await axios.get(`${API}/action-history/admin?${params}`, { headers: getAdminHeaders() });
+        setHistory(res.data.history || []);
+        setTotal(res.data.total || 0);
+      };
+      fetchHistory();
+    }, [filter]);
+
+    return (
+      <div className="space-y-6" data-testid="action-history-page">
+        <h2 className="text-2xl font-bold">Action History</h2>
+        <div className="flex gap-3 flex-wrap">
+          <select value={filter.user_type} onChange={(e) => setFilter(f => ({ ...f, user_type: e.target.value }))} className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm" data-testid="history-type-filter">
+            <option value="">All Types</option>
+            <option value="user">Users</option>
+            <option value="vendor">Vendors</option>
+            <option value="influencer">Influencers</option>
+            <option value="admin">Admins</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Search action..."
+            value={filter.action}
+            onChange={(e) => setFilter(f => ({ ...f, action: e.target.value }))}
+            className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2 text-sm"
+            data-testid="history-action-filter"
+          />
+          <span className="text-neutral-400 text-sm self-center">Total: {total}</span>
+        </div>
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg divide-y divide-neutral-700" data-testid="history-list">
+          {history.length === 0 ? (
+            <div className="p-8 text-center text-neutral-500">No actions found</div>
+          ) : history.map((item) => (
+            <div key={item.action_id} className="p-4 flex items-center justify-between" data-testid={`history-${item.action_id}`}>
+              <div>
+                <span className="text-white font-medium">{item.action}</span>
+                <span className="text-neutral-400 text-sm ml-2">— {item.details}</span>
+                <div className="text-xs text-neutral-500 mt-1">
+                  <span className="bg-neutral-700 px-2 py-0.5 rounded mr-2">{item.user_type}</span>
+                  <span>{item.user_id}</span>
+                </div>
+              </div>
+              <span className="text-xs text-neutral-500 whitespace-nowrap">{new Date(item.timestamp).toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ====== MANAGERS PAGE ======
+  const ManagersPage = () => {
+    const [assignments, setAssignments] = useState([]);
+    const [admins, setAdmins] = useState([]);
+    const [form, setForm] = useState({ target_id: "", target_type: "vendor", manager_admin_id: "" });
+
+    useEffect(() => {
+      const fetchData = async () => {
+        const [aRes, mRes] = await Promise.all([
+          axios.get(`${API}/admin/referrals/managers`, { headers: getAdminHeaders() }).catch(() => ({ data: [] })),
+          axios.get(`${API}/admin/users`, { headers: getAdminHeaders() }).catch(() => ({ data: [] }))
+        ]);
+        setAssignments(Array.isArray(aRes.data) ? aRes.data : []);
+        setAdmins(Array.isArray(mRes.data) ? mRes.data : []);
+      };
+      fetchData();
+    }, []);
+
+    const assignManager = async () => {
+      if (!form.target_id || !form.manager_admin_id) { toast.error("Fill all fields"); return; }
+      try {
+        await axios.post(`${API}/admin/referrals/managers/assign`, form, { headers: getAdminHeaders() });
+        toast.success("Manager assigned!");
+        const res = await axios.get(`${API}/admin/referrals/managers`, { headers: getAdminHeaders() });
+        setAssignments(Array.isArray(res.data) ? res.data : []);
+        setForm({ target_id: "", target_type: "vendor", manager_admin_id: "" });
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const removeManager = async (type, id) => {
+      try {
+        await axios.delete(`${API}/admin/referrals/managers/${type}/${id}`, { headers: getAdminHeaders() });
+        toast.success("Manager removed");
+        setAssignments(a => a.filter(x => !(x.target_type === type && x.target_id === id)));
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    return (
+      <div className="space-y-6" data-testid="managers-page">
+        <h2 className="text-2xl font-bold">Dedicated Managers</h2>
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-6">
+          <h3 className="text-lg font-semibold mb-4">Assign Manager</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <select value={form.target_type} onChange={(e) => setForm(f => ({ ...f, target_type: e.target.value }))} className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2" data-testid="manager-target-type">
+              <option value="vendor">Vendor</option>
+              <option value="influencer">Influencer</option>
+              <option value="user">User</option>
+            </select>
+            <input value={form.target_id} onChange={(e) => setForm(f => ({ ...f, target_id: e.target.value }))} placeholder={`${form.target_type} ID`} className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2" data-testid="manager-target-id" />
+            <select value={form.manager_admin_id} onChange={(e) => setForm(f => ({ ...f, manager_admin_id: e.target.value }))} className="bg-neutral-800 border border-neutral-700 text-white rounded px-3 py-2" data-testid="manager-admin-select">
+              <option value="">Select Admin</option>
+              {admins.map(a => <option key={a.admin_id} value={a.admin_id}>{a.name} ({a.role})</option>)}
+            </select>
+            <button onClick={assignManager} className="bg-gold text-black px-4 py-2 rounded font-semibold hover:bg-gold/90" data-testid="assign-manager-btn">Assign</button>
+          </div>
+        </div>
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg divide-y divide-neutral-700">
+          {assignments.length === 0 ? (
+            <div className="p-8 text-center text-neutral-500">No manager assignments yet</div>
+          ) : assignments.map(a => (
+            <div key={a.assignment_id} className="p-4 flex items-center justify-between" data-testid={`assignment-${a.assignment_id}`}>
+              <div>
+                <span className="bg-gold/20 text-gold text-xs px-2 py-0.5 rounded mr-2 uppercase">{a.target_type}</span>
+                <span className="text-white font-medium">{a.target_id}</span>
+                <span className="text-neutral-400 text-sm ml-3">Manager: {a.manager_name} ({a.manager_role})</span>
+              </div>
+              <button onClick={() => removeManager(a.target_type, a.target_id)} className="text-red-400 hover:text-red-300 text-sm" data-testid={`remove-mgr-${a.assignment_id}`}>Remove</button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
 
   const navItems = [
     { path: "/admin", icon: <LayoutDashboard className="h-5 w-5" />, label: "Overview", permission: ["analytics", "view"] },
@@ -2248,7 +2414,8 @@ export const AdminDashboard = () => {
     { path: "/admin/vendors", icon: <Store className="h-5 w-5" />, label: "Vendors", permission: ["vendors", "view"] },
     { path: "/admin/vendor-products", icon: <FileCheck className="h-5 w-5" />, label: "Product Approvals", permission: ["vendor_products", "view"] },
     { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },
-    { path: "/admin/suspension-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
+    { path: "/admin/action-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
+    { path: "/admin/managers", icon: <Shield className="h-5 w-5" />, label: "Managers", permission: ["admin_users", "view"] },
     { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
@@ -2335,6 +2502,8 @@ export const AdminDashboard = () => {
             <Route path="vendor-products" element={<VendorProductApprovals />} />
             <Route path="resellers" element={<ResellersManagement />} />
             <Route path="suspension-history" element={<SuspensionHistoryPage />} />
+            <Route path="action-history" element={<ActionHistoryPage />} />
+            <Route path="managers" element={<ManagersPage />} />
             <Route path="settings" element={<CommissionSettings />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
