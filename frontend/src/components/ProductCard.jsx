@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart, ShoppingBag } from "lucide-react";
+import { Heart, ShoppingBag, Star } from "lucide-react";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
@@ -92,6 +92,16 @@ export const ProductCard = ({ product }) => {
         <p className="text-xs text-neutral-500 uppercase tracking-wider">
           {product.category}
         </p>
+        {product.average_rating > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="flex gap-0.5">
+              {[1,2,3,4,5].map(s => (
+                <Star key={s} className={`h-3 w-3 ${s <= Math.round(product.average_rating) ? "fill-gold text-gold" : "fill-none text-neutral-300"}`} />
+              ))}
+            </div>
+            <span className="text-xs text-neutral-400">({product.review_count || 0})</span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
           <span className="font-semibold text-lg">
             Rs.{product.price.toLocaleString()}

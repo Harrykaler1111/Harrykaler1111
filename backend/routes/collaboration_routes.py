@@ -93,7 +93,6 @@ async def accept_collaboration(request_id: str, user: Dict = Depends(get_current
 
     # Get vendor and influencer contact details
     vendor = await db.vendors.find_one({"vendor_id": req["vendor_id"]}, {"_id": 0})
-    vendor_user = await db.users.find_one({"user_id": vendor["user_id"]}, {"_id": 0}) if vendor else None
 
     # Get platform collab fee
     settings = await db.platform_settings.find_one({"setting_id": "global"}, {"_id": 0})
@@ -101,8 +100,8 @@ async def accept_collaboration(request_id: str, user: Dict = Depends(get_current
 
     vendor_contact = {
         "name": vendor.get("store_name", "") if vendor else "",
-        "email": vendor_user.get("email", "") if vendor_user else "",
-        "phone": vendor_user.get("phone", "") if vendor_user else "",
+        "email": vendor.get("email", "") if vendor else "",
+        "phone": vendor.get("phone", "") if vendor else "",
     }
     influencer_contact = {
         "name": inf.get("name", ""),

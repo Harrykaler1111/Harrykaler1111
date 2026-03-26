@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check } from "lucide-react";
+import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProductReviews } from "@/components/ProductReviews";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
@@ -171,6 +172,18 @@ export const ProductDetailPage = () => {
               <h1 className="font-serif text-3xl md:text-4xl font-bold" data-testid="product-name">
                 {product.name}
               </h1>
+              {product.average_rating > 0 && (
+                <div className="flex items-center gap-2 mt-2" data-testid="product-rating-summary">
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} className={`h-4 w-4 ${s <= Math.round(product.average_rating) ? "fill-gold text-gold" : "fill-none text-neutral-300"}`} />
+                    ))}
+                  </div>
+                  <span className="text-sm text-neutral-500">
+                    {product.average_rating.toFixed(1)} ({product.review_count || 0} review{(product.review_count || 0) !== 1 ? "s" : ""})
+                  </span>
+                </div>
+              )}
               {product.vendor_name && (
                 <p className="text-sm text-gold mt-1" data-testid="product-vendor">
                   Sold by <span className="font-medium">{product.vendor_name}</span>
@@ -344,6 +357,9 @@ export const ProductDetailPage = () => {
             )}
           </div>
         </div>
+
+        {/* Reviews Section */}
+        <ProductReviews productId={product.product_id} vendorId={product.vendor_id} />
       </div>
     </div>
   );
