@@ -292,7 +292,12 @@ class CouponCreate(BaseModel):
     min_order_value: float = 0
     max_uses: int = 100
     expires_at: Optional[str] = None
+    starts_at: Optional[str] = None
     affiliate_id: Optional[str] = None
+    category: Optional[str] = None
+    offer_type: str = "coupon"
+    description: Optional[str] = None
+    vendor_id: Optional[str] = None
 
 
 class CouponResponse(BaseModel):
@@ -304,8 +309,13 @@ class CouponResponse(BaseModel):
     min_order_value: float
     max_uses: int
     used_count: int
-    expires_at: Optional[str]
-    affiliate_id: Optional[str]
+    expires_at: Optional[str] = None
+    starts_at: Optional[str] = None
+    affiliate_id: Optional[str] = None
+    category: Optional[str] = None
+    offer_type: str = "coupon"
+    description: Optional[str] = None
+    vendor_id: Optional[str] = None
     is_active: bool
     created_at: str
 

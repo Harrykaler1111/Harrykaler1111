@@ -148,6 +148,14 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
             affiliate = await db.affiliates.find_one({"referral_code": ref}, {"_id": 0})
             if affiliate:
                 affiliate_id = affiliate["affiliate_id"]
+            else:
+                collab = await db.collaboration_requests.find_one(
+                    {"referral_code": ref, "status": "accepted"}, {"_id": 0}
+                )
+                if collab:
+                    influencer_id = collab.get("influencer_id")
+                    if not vendor_id:
+                        vendor_id = collab.get("vendor_id")
 
     total = subtotal - discount
     order_id = generate_id("order_")
@@ -321,12 +329,24 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
         "vendor_name": order.get("vendor_name"),
         "influencer_id": order.get("influencer_id"),
         "affiliate_id": order.get("affiliate_id"),
+        "referral_code": order.get("referral_code"),
         "platform_commission": round(actual_platform_commission, 2),
         "influencer_commission": round(actual_influencer_commission, 2),
         "vendor_amount": round(actual_vendor_amount, 2),
         "is_vendor_sale": bool(order.get("vendor_id")),
         "created_at": datetime.now(timezone.utc).isoformat()
     })
+
+    # Update collaboration sales tracking if referral code matches a collab
+    if order.get("referral_code"):
+        await db.collaboration_requests.update_one(
+            {"referral_code": order["referral_code"], "status": "accepted"},
+            {"$inc": {"sales_count": 1, "sales_revenue": total, "commission_earned": actual_influencer_commission}}
+        )
+        await db.vendor_influencer_links.update_one(
+            {"referral_code": order["referral_code"]},
+            {"$inc": {"sales_count": 1, "sales_revenue": total, "commission_earned": actual_influencer_commission}}
+        )
 
     return {
         "message": "Payment verified and commissions settled",

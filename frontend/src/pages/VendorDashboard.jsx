@@ -15,7 +15,8 @@ import {
 import {
   LayoutDashboard, Package, ShoppingCart, Wallet, FileText, Tag, Users,
   LogOut, Plus, Trash2, Eye, ArrowUpRight, ArrowDownRight, Store,
-  Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee
+  Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee,
+  Megaphone, FolderOpen, Zap, Key, DollarSign, Check, Copy
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -59,9 +60,11 @@ export const VendorDashboard = () => {
   const navItems = [
     { path: "/vendor", icon: LayoutDashboard, label: "Overview" },
     { path: "/vendor/products", icon: Package, label: "Products" },
+    { path: "/vendor/categories", icon: FolderOpen, label: "Categories" },
     { path: "/vendor/orders", icon: ShoppingCart, label: "Orders" },
     { path: "/vendor/wallet", icon: Wallet, label: "Wallet" },
     { path: "/vendor/offers", icon: Tag, label: "Offers" },
+    { path: "/vendor/promotions", icon: Megaphone, label: "Promotions" },
     { path: "/vendor/influencers", icon: Users, label: "Influencers" },
   ];
 
@@ -122,9 +125,11 @@ export const VendorDashboard = () => {
             <Route index element={<VendorOverview vendor={vendor} />} />
             <Route path="kyc" element={<VendorKYC vendor={vendor} setVendor={setVendor} />} />
             <Route path="products" element={<VendorProducts vendor={vendor} />} />
+            <Route path="categories" element={<VendorCategories vendor={vendor} />} />
             <Route path="orders" element={<VendorOrders vendor={vendor} />} />
             <Route path="wallet" element={<VendorWallet vendor={vendor} />} />
             <Route path="offers" element={<VendorOffers vendor={vendor} />} />
+            <Route path="promotions" element={<VendorPromotions vendor={vendor} />} />
             <Route path="influencers" element={<VendorInfluencers vendor={vendor} />} />
             <Route path="*" element={<VendorOverview vendor={vendor} />} />
           </Routes>
@@ -867,6 +872,214 @@ const VendorOffers = ({ vendor }) => {
     </div>
   );
 };
+
+// =============== CATEGORIES ===============
+const VendorCategories = ({ vendor }) => {
+  const [categories, setCategories] = useState({ platform_categories: [], vendor_categories: [] });
+  const [newCat, setNewCat] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/vendors/categories`, { headers: getVendorHeaders() });
+      setCategories(res.data);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  const createCategory = async () => {
+    if (!newCat.trim()) return;
+    try {
+      await axios.post(`${API}/vendors/categories?name=${encodeURIComponent(newCat)}&description=${encodeURIComponent(newCatDesc)}`, {}, { headers: getVendorHeaders() });
+      toast.success("Category created!");
+      setNewCat(""); setNewCatDesc("");
+      fetchCategories();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const deleteCategory = async (id) => {
+    try {
+      await axios.delete(`${API}/vendors/categories/${id}`, { headers: getVendorHeaders() });
+      toast.success("Category deleted");
+      fetchCategories();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-gold" /></div>;
+
+  return (
+    <div className="space-y-8" data-testid="vendor-categories-page">
+      <h2 className="text-2xl font-bold text-white">Categories</h2>
+
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Create Your Category</h3>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Category name" className="bg-neutral-800 border-neutral-700 text-white flex-1" data-testid="new-category-input" />
+          <Input value={newCatDesc} onChange={(e) => setNewCatDesc(e.target.value)} placeholder="Description (optional)" className="bg-neutral-800 border-neutral-700 text-white flex-1" />
+          <Button onClick={createCategory} className="bg-gold hover:bg-gold/90 text-black" data-testid="create-category-btn">
+            <Plus className="h-4 w-4 mr-1" /> Create
+          </Button>
+        </div>
+      </div>
+
+      {categories.vendor_categories.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-3">Your Categories</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {categories.vendor_categories.map((cat) => (
+              <div key={cat.category_id} className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 flex items-center justify-between" data-testid={`vcat-${cat.category_id}`}>
+                <div>
+                  <p className="text-white font-medium">{cat.name}</p>
+                  {cat.description && <p className="text-neutral-400 text-xs mt-1">{cat.description}</p>}
+                </div>
+                <button onClick={() => deleteCategory(cat.category_id)} className="text-red-400 hover:text-red-300"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-3">Platform Categories</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {categories.platform_categories.map((cat) => (
+            <div key={cat.category_id} className="bg-neutral-800/30 border border-neutral-700/50 rounded-lg p-3" data-testid={`pcat-${cat.category_id}`}>
+              <p className="text-neutral-300 text-sm">{cat.name}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =============== PROMOTIONS ===============
+const VendorPromotions = ({ vendor }) => {
+  const [credits, setCredits] = useState({ balance: 0, total_spent: 0 });
+  const [promotions, setPromotions] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [buyAmount, setBuyAmount] = useState("500");
+  const [promoForm, setPromoForm] = useState({ product_id: "", listing_type: "top_100", days: "7" });
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [credRes, promoRes, prodRes] = await Promise.all([
+        axios.get(`${API}/vendors/promotions/credits`, { headers: getVendorHeaders() }),
+        axios.get(`${API}/vendors/promotions/my`, { headers: getVendorHeaders() }),
+        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
+      ]);
+      setCredits(credRes.data);
+      setPromotions(promoRes.data);
+      setProducts(Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.products || []);
+    } catch { /* ignore */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const buyCredits = async () => {
+    try {
+      await axios.post(`${API}/vendors/promotions/buy-credits?amount=${buyAmount}`, {}, { headers: getVendorHeaders() });
+      toast.success(`Added ${buyAmount} credits!`);
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const promoteProduct = async () => {
+    if (!promoForm.product_id) { toast.error("Select a product"); return; }
+    try {
+      await axios.post(`${API}/vendors/promotions/promote-product?product_id=${promoForm.product_id}&listing_type=${promoForm.listing_type}&days=${promoForm.days}`, {}, { headers: getVendorHeaders() });
+      toast.success("Product promoted!");
+      fetchData();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const costMap = { top_20: 50, top_100: 20, category_top: 30 };
+
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-gold" /></div>;
+
+  return (
+    <div className="space-y-8" data-testid="vendor-promotions-page">
+      <h2 className="text-2xl font-bold text-white">Promotions</h2>
+
+      {/* Credits Balance */}
+      <div className="bg-gradient-to-r from-gold/20 to-gold/5 border border-gold/30 rounded-lg p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-gold text-xs font-mono uppercase tracking-wider mb-1">Credit Balance</p>
+            <p className="text-4xl font-bold text-white" data-testid="credit-balance">{credits.balance || 0}</p>
+            <p className="text-neutral-400 text-xs mt-1">Total spent: {credits.total_spent || 0} credits</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="w-24 bg-neutral-800 border-neutral-700 text-white" min="100" data-testid="buy-credits-amount" />
+            <Button onClick={buyCredits} className="bg-gold hover:bg-gold/90 text-black" data-testid="buy-credits-btn">
+              <Zap className="h-4 w-4 mr-1" /> Buy Credits
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Promote Product */}
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Promote a Product</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <Select value={promoForm.product_id} onValueChange={(v) => setPromoForm(f => ({ ...f, product_id: v }))}>
+            <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-product-select">
+              <SelectValue placeholder="Select product" />
+            </SelectTrigger>
+            <SelectContent>
+              {products.filter(p => p.approval_status === "approved").map((p) => (
+                <SelectItem key={p.product_id} value={p.product_id}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={promoForm.listing_type} onValueChange={(v) => setPromoForm(f => ({ ...f, listing_type: v }))}>
+            <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="promo-type-select">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="top_20">Top 20 (₹50/day)</SelectItem>
+              <SelectItem value="top_100">Top 100 (₹20/day)</SelectItem>
+              <SelectItem value="category_top">Category Top (₹30/day)</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input type="number" value={promoForm.days} onChange={(e) => setPromoForm(f => ({ ...f, days: e.target.value }))} placeholder="Days" className="bg-neutral-800 border-neutral-700 text-white" min="1" data-testid="promo-days-input" />
+          <Button onClick={promoteProduct} className="bg-gold hover:bg-gold/90 text-black" data-testid="promote-btn">
+            <Megaphone className="h-4 w-4 mr-1" /> Promote ({(costMap[promoForm.listing_type] || 20) * (parseInt(promoForm.days) || 1)} credits)
+          </Button>
+        </div>
+      </div>
+
+      {/* Active Promotions */}
+      {promotions.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-4">Your Promotions</h3>
+          <div className="space-y-3">
+            {promotions.map((promo) => (
+              <div key={promo.promotion_id} className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4 flex items-center justify-between" data-testid={`promo-${promo.promotion_id}`}>
+                <div>
+                  <p className="text-white font-medium">{promo.product_name}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-neutral-400">
+                    <Badge variant={promo.is_active ? "default" : "secondary"} className={promo.is_active ? "bg-green-500/20 text-green-400" : ""}>
+                      {promo.is_active ? "Active" : "Expired"}
+                    </Badge>
+                    <span>{promo.listing_type.replace("_", " ").toUpperCase()}</span>
+                    <span>{promo.days} days</span>
+                    <span>{promo.total_cost} credits</span>
+                  </div>
+                </div>
+                <p className="text-xs text-neutral-500">Expires: {new Date(promo.expires_at).toLocaleDateString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 
 // =============== INFLUENCERS ===============
 const VendorInfluencers = ({ vendor }) => {

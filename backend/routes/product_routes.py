@@ -156,3 +156,41 @@ async def delete_product(product_id: str, admin: Dict = Depends(get_admin_user))
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": "Product deleted"}
+
+
+@router.get("/promoted/{listing_type}")
+async def get_promoted_products(listing_type: str, category: Optional[str] = None):
+    """Public: Get promoted products by listing type (top_20, top_100, category_top)"""
+    if listing_type not in ("top_20", "top_100", "category_top"):
+        raise HTTPException(status_code=400, detail="Invalid listing type")
+
+    now = datetime.now(timezone.utc).isoformat()
+    query = {"listing_type": listing_type, "is_active": True}
+
+    promos = await db.product_promotions.find(query, {"_id": 0}).sort("created_at", -1).to_list(100 if listing_type == "top_100" else 20)
+
+    results = []
+    for promo in promos:
+        if promo.get("expires_at", "") < now:
+            await db.product_promotions.update_one(
+                {"promotion_id": promo["promotion_id"]}, {"$set": {"is_active": False}}
+            )
+            continue
+
+        product = await db.vendor_products.find_one(
+            {"product_id": promo["product_id"], "is_active": True}, {"_id": 0}
+        )
+        if not product:
+            product = await db.products.find_one(
+                {"product_id": promo["product_id"], "is_active": True}, {"_id": 0}
+            )
+
+        if product:
+            if category and product.get("category") != category:
+                continue
+            product.pop("_id", None)
+            product["promotion_id"] = promo["promotion_id"]
+            product["listing_type"] = listing_type
+            results.append(product)
+
+    return results

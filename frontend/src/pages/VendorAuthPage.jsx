@@ -14,6 +14,11 @@ export const VendorAuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [resetNewPw, setResetNewPw] = useState("");
+  const [resetStep, setResetStep] = useState(1);
 
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
@@ -78,6 +83,7 @@ export const VendorAuthPage = () => {
           </div>
 
           {isLogin ? (
+            <>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="text-sm text-neutral-400 mb-1 block">Email</label>
@@ -103,7 +109,40 @@ export const VendorAuthPage = () => {
               <Button type="submit" disabled={loading} className="w-full bg-gold text-black hover:bg-gold/90 h-11 font-semibold" data-testid="vendor-login-submit">
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
+              <button type="button" onClick={() => setShowReset(true)} className="w-full text-sm text-gold hover:text-gold/80 transition-colors text-center mt-1" data-testid="vendor-forgot-password">
+                Forgot Password?
+              </button>
             </form>
+            {showReset && (
+              <div className="mt-4 pt-4 border-t border-neutral-700">
+                <h3 className="text-white font-semibold mb-3">Reset Password</h3>
+                {resetStep === 1 ? (
+                  <div className="space-y-3">
+                    <Input type="email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} placeholder="Your email" className="bg-neutral-800 border-neutral-700 text-white" data-testid="vendor-reset-email" />
+                    <Button onClick={async () => {
+                      try {
+                        const res = await axios.post(`${API}/auth/password/reset-request`, { email: resetEmail });
+                        setResetStep(2); toast.success("OTP sent!");
+                        if (res.data.demo_otp) toast.info(`Demo OTP: ${res.data.demo_otp}`);
+                      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+                    }} className="w-full bg-gold hover:bg-gold/90 text-black" data-testid="vendor-send-otp-btn">Send Reset OTP</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Input type="text" value={resetOtp} onChange={(e) => setResetOtp(e.target.value)} placeholder="Enter OTP" className="bg-neutral-800 border-neutral-700 text-white text-center tracking-widest" maxLength={6} data-testid="vendor-reset-otp" />
+                    <Input type="password" value={resetNewPw} onChange={(e) => setResetNewPw(e.target.value)} placeholder="New password (min 6 chars)" className="bg-neutral-800 border-neutral-700 text-white" data-testid="vendor-reset-new-pw" />
+                    <Button onClick={async () => {
+                      try {
+                        await axios.post(`${API}/auth/password/reset-confirm`, { email: resetEmail, otp: resetOtp, new_password: resetNewPw });
+                        toast.success("Password reset!"); setShowReset(false); setResetStep(1);
+                      } catch (err) { toast.error(err.response?.data?.detail || "Reset failed"); }
+                    }} className="w-full bg-gold hover:bg-gold/90 text-black" data-testid="vendor-reset-confirm-btn">Reset Password</Button>
+                  </div>
+                )}
+                <button type="button" onClick={() => { setShowReset(false); setResetStep(1); }} className="w-full text-xs text-neutral-500 mt-2 text-center">Back to Sign In</button>
+              </div>
+            )}
+            </>
           ) : (
             <form onSubmit={handleRegister} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">

@@ -976,3 +976,142 @@ async def get_top_sellers(limit: int = 6):
         })
 
     return results
+
+
+# ============== VENDOR CATEGORIES ==============
+
+@router.get("/categories")
+async def get_vendor_categories(vendor: Dict = Depends(get_current_vendor)):
+    """Get all categories: platform + vendor's own"""
+    platform_cats = await db.categories.find({"is_active": True}, {"_id": 0}).sort("name", 1).to_list(100)
+    vendor_cats = await db.vendor_categories.find(
+        {"vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    ).sort("name", 1).to_list(50)
+    return {
+        "platform_categories": platform_cats,
+        "vendor_categories": vendor_cats
+    }
+
+
+@router.post("/categories")
+async def create_vendor_category(name: str, description: str = "", vendor: Dict = Depends(get_current_vendor)):
+    """Vendor creates their own category"""
+    existing = await db.vendor_categories.find_one({
+        "vendor_id": vendor["vendor_id"], "name": {"$regex": f"^{name}$", "$options": "i"}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Category already exists")
+
+    cat_doc = {
+        "category_id": generate_id("vcat_"),
+        "vendor_id": vendor["vendor_id"],
+        "name": name,
+        "description": description,
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.vendor_categories.insert_one(cat_doc)
+    return {"message": "Category created", "category": {k: v for k, v in cat_doc.items() if k != "_id"}}
+
+
+@router.delete("/categories/{category_id}")
+async def delete_vendor_category(category_id: str, vendor: Dict = Depends(get_current_vendor)):
+    result = await db.vendor_categories.delete_one({
+        "category_id": category_id, "vendor_id": vendor["vendor_id"]
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted"}
+
+
+# ============== CREDIT-BASED PROMOTIONS ==============
+
+@router.get("/promotions/credits")
+async def get_vendor_credits(vendor: Dict = Depends(get_current_vendor)):
+    """Get vendor's promotion credits balance"""
+    credits = await db.vendor_credits.find_one(
+        {"vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    )
+    if not credits:
+        return {"vendor_id": vendor["vendor_id"], "balance": 0, "total_spent": 0}
+    return credits
+
+
+@router.post("/promotions/buy-credits")
+async def buy_promotion_credits(amount: int, vendor: Dict = Depends(get_current_vendor)):
+    """Buy promotion credits (1 credit = ₹1)"""
+    if amount < 100:
+        raise HTTPException(status_code=400, detail="Minimum purchase is 100 credits")
+
+    await db.vendor_credits.update_one(
+        {"vendor_id": vendor["vendor_id"]},
+        {"$inc": {"balance": amount},
+         "$set": {"vendor_id": vendor["vendor_id"], "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$setOnInsert": {"total_spent": 0, "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"message": f"Added {amount} credits", "payment_status": "mocked_success"}
+
+
+@router.post("/promotions/promote-product")
+async def promote_product(
+    product_id: str,
+    listing_type: str = "top_100",
+    days: int = 7,
+    vendor: Dict = Depends(get_current_vendor)
+):
+    """Promote a product to top listings using credits"""
+    cost_map = {"top_20": 50, "top_100": 20, "category_top": 30}
+    daily_cost = cost_map.get(listing_type)
+    if not daily_cost:
+        raise HTTPException(status_code=400, detail="Invalid listing type. Use: top_20, top_100, category_top")
+
+    total_cost = daily_cost * days
+
+    credits = await db.vendor_credits.find_one({"vendor_id": vendor["vendor_id"]}, {"_id": 0})
+    balance = credits.get("balance", 0) if credits else 0
+    if balance < total_cost:
+        raise HTTPException(status_code=400, detail=f"Insufficient credits. Need {total_cost}, have {balance}")
+
+    product = await db.vendor_products.find_one(
+        {"product_id": product_id, "vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    )
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    promotion = {
+        "promotion_id": generate_id("promo_"),
+        "vendor_id": vendor["vendor_id"],
+        "product_id": product_id,
+        "product_name": product.get("name", ""),
+        "listing_type": listing_type,
+        "daily_cost": daily_cost,
+        "total_cost": total_cost,
+        "days": days,
+        "starts_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": "",
+        "is_active": True,
+        "credits_remaining": total_cost,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    from datetime import timedelta
+    expires = datetime.now(timezone.utc) + timedelta(days=days)
+    promotion["expires_at"] = expires.isoformat()
+
+    await db.product_promotions.insert_one(promotion)
+    await db.vendor_credits.update_one(
+        {"vendor_id": vendor["vendor_id"]},
+        {"$inc": {"balance": -total_cost, "total_spent": total_cost}}
+    )
+
+    return {"message": f"Product promoted to {listing_type} for {days} days", "promotion": {k: v for k, v in promotion.items() if k != "_id"}}
+
+
+@router.get("/promotions/my")
+async def get_my_promotions(vendor: Dict = Depends(get_current_vendor)):
+    """Get vendor's active promotions"""
+    promos = await db.product_promotions.find(
+        {"vendor_id": vendor["vendor_id"]}, {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return promos
