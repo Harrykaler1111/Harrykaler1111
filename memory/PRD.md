@@ -68,6 +68,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
   - Store header with black background, gold accents, stats (products, verified badge, member since)
   - Products grid, Customer Reviews with rating distribution bars
   - "Sold by X" on product detail page is clickable, links to vendor store
+  - **Top Sellers on Homepage:** `GET /api/vendors/top-sellers` public endpoint, 3-column seller card grid with store avatars, ratings, product counts, and "Visit Store" links
 - **Testing:** 100% pass rate across iterations 5 & 6 (32+ backend tests, all frontend flows)
 
 ## MOCKED Integrations

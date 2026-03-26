@@ -11,17 +11,20 @@ export const HomePage = () => {
   const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
+  const [topSellers, setTopSellers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const [featuredRes, newRes] = await Promise.all([
+        const [featuredRes, newRes, sellersRes] = await Promise.all([
           axios.get(`${API}/products/featured?limit=4`),
-          axios.get(`${API}/products/new-arrivals?limit=8`)
+          axios.get(`${API}/products/new-arrivals?limit=8`),
+          axios.get(`${API}/vendors/top-sellers?limit=6`).catch(() => ({ data: [] }))
         ]);
         setFeaturedProducts(featuredRes.data);
         setNewArrivals(newRes.data);
+        setTopSellers(sellersRes.data);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -293,6 +296,70 @@ export const HomePage = () => {
                   transition={{ delay: index * 0.05 }}
                 >
                   <ProductCard product={product} />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Top Sellers */}
+      {topSellers.length > 0 && (
+        <section className="py-20 md:py-32 bg-neutral-50" data-testid="top-sellers-section">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mb-12 md:mb-16"
+            >
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4">
+                Trusted By Thousands
+              </p>
+              <h2 className="font-serif text-3xl md:text-5xl font-bold">
+                Top Sellers
+              </h2>
+            </motion.div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+              {topSellers.map((seller, index) => (
+                <motion.div
+                  key={seller.vendor_id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Link
+                    to={`/store/${seller.vendor_id}`}
+                    className="group block bg-white border border-neutral-200 p-6 hover:border-gold hover:shadow-lg transition-all duration-300"
+                    data-testid={`top-seller-${seller.vendor_id}`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="w-12 h-12 bg-black text-gold flex items-center justify-center font-serif text-xl font-bold">
+                        {seller.store_name.charAt(0).toUpperCase()}
+                      </div>
+                      {seller.rating > 0 && (
+                        <div className="flex items-center gap-1.5 bg-neutral-50 px-2.5 py-1 rounded-full">
+                          <Star className="h-3.5 w-3.5 fill-gold text-gold" />
+                          <span className="text-sm font-medium">{seller.rating.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="font-serif text-lg font-bold mb-1 group-hover:text-gold transition-colors">
+                      {seller.store_name}
+                    </h3>
+                    <p className="text-sm text-neutral-500 line-clamp-2 mb-4">
+                      {seller.store_description}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-4 border-t border-neutral-100">
+                      <span>{seller.total_products} product{seller.total_products !== 1 ? "s" : ""}</span>
+                      {seller.review_count > 0 && (
+                        <span>{seller.review_count} review{seller.review_count !== 1 ? "s" : ""}</span>
+                      )}
+                      <span className="text-gold font-medium group-hover:underline">Visit Store</span>
+                    </div>
+                  </Link>
                 </motion.div>
               ))}
             </div>

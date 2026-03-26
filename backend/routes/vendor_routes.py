@@ -928,3 +928,31 @@ async def get_public_vendor_store(vendor_id: str):
         "review_stats": review_stats[0] if review_stats else {"avg_rating": 0, "total": 0, "five": 0, "four": 0, "three": 0, "two": 0, "one": 0},
         "recent_reviews": recent_reviews,
     }
+
+
+@router.get("/top-sellers")
+async def get_top_sellers(limit: int = 6):
+    """Public endpoint - returns top-rated approved vendors."""
+    vendors = await db.vendors.find(
+        {"status": VendorStatus.APPROVED.value},
+        {"_id": 0, "password": 0, "kyc_data": 0, "kyc_documents": 0, "bank_details": 0, "wallet_balance": 0}
+    ).sort("rating", -1).limit(limit).to_list(limit)
+
+    results = []
+    for v in vendors:
+        product_count = await db.vendor_products.count_documents({
+            "vendor_id": v["vendor_id"],
+            "approval_status": VendorProductStatus.APPROVED.value,
+            "is_active": True
+        })
+        results.append({
+            "vendor_id": v["vendor_id"],
+            "store_name": v.get("store_name", ""),
+            "store_description": v.get("store_description", ""),
+            "rating": v.get("rating", 0.0),
+            "review_count": v.get("review_count", 0),
+            "total_products": product_count,
+            "member_since": v.get("created_at", ""),
+        })
+
+    return results
