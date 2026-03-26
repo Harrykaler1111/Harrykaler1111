@@ -56,14 +56,19 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Vendor stock/price update APIs (without triggering re-approval)
 
 ### Phase 3 - Collaboration & Reviews (COMPLETED 2026-03-26)
-- **P0 Bug Fix:** Vendor-Influencer collaboration accept flow - fixed KeyError on vendor document (vendor doesn't have user_id field; now reads contact info directly from vendor doc)
+- **P0 Bug Fix:** Vendor-Influencer collaboration accept flow fixed (KeyError on vendor document)
 - **Ratings & Reviews Frontend UI:**
   - ProductReviews component with star ratings, rating distribution bars, review cards
   - Write Review form (requires delivered order)
   - Helpful button on reviews
   - Average rating display on product cards and product detail page
-  - Empty state for products with no reviews
-- **Testing:** 100% pass rate (14/14 backend, all frontend flows verified)
+- **Vendor Store Pages (NEW):**
+  - Public store page at `/store/{vendorId}` with vendor info, approved products, and reviews
+  - Backend: `GET /api/vendors/store/{vendor_id}` (public, no auth) with security (excludes sensitive fields)
+  - Store header with black background, gold accents, stats (products, verified badge, member since)
+  - Products grid, Customer Reviews with rating distribution bars
+  - "Sold by X" on product detail page is clickable, links to vendor store
+- **Testing:** 100% pass rate across iterations 5 & 6 (32+ backend tests, all frontend flows)
 
 ## MOCKED Integrations
 - Razorpay payments/payouts -> needs API keys
