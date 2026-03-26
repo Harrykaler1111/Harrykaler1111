@@ -144,6 +144,7 @@ export const Header = () => {
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="menu-profile">My Account</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/orders")} data-testid="menu-orders">Orders</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/returns")} data-testid="menu-returns">Returns</DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/support")} data-testid="menu-support">
                       <span className="flex items-center gap-2">
                         Support

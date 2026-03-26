@@ -36,6 +36,7 @@ from routes.referral_manager_routes import router as referral_manager_router
 from routes.upload_routes import router as upload_router
 from routes.support_ticket_routes import router as ticket_router
 from routes.reward_routes import router as reward_router
+from routes.return_routes import router as return_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -67,6 +68,7 @@ app.include_router(referral_manager_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
 app.include_router(ticket_router, prefix="/api")
 app.include_router(reward_router, prefix="/api")
+app.include_router(return_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -127,6 +129,9 @@ async def startup_event():
     await db.tickets.create_index("status")
     await db.kb_articles.create_index("article_id", unique=True)
     await db.reward_campaigns.create_index("campaign_id", unique=True)
+    await db.returns.create_index("return_id", unique=True)
+    await db.returns.create_index("user_id")
+    await db.returns.create_index("vendor_id")
 
     # Seed platform settings
     settings = await db.platform_settings.find_one({"setting_id": "global"})

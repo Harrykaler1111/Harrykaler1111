@@ -20,6 +20,10 @@ export const CheckoutPage = () => {
   const couponCode = location.state?.coupon;
   const discount = location.state?.discount || 0;
 
+  // Capture referral code from URL params or localStorage
+  const searchParams = new URLSearchParams(location.search);
+  const refCode = searchParams.get("ref") || localStorage.getItem("pigma_ref") || "";
+
   const [formData, setFormData] = useState({
     fullName: user?.name || "",
     email: user?.email || "",
@@ -67,8 +71,9 @@ export const CheckoutPage = () => {
 
     setPlacing(true);
     try {
+      const refParam = refCode ? `?ref=${encodeURIComponent(refCode)}` : "";
       const response = await axios.post(
-        `${API}/orders`,
+        `${API}/orders${refParam}`,
         {
           shipping_address: {
             name: formData.fullName,

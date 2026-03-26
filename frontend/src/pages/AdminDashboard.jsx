@@ -2263,6 +2263,9 @@ export const AdminDashboard = () => {
 
         {/* Featured Vendors / Top Listing Control */}
         <FeaturedVendorsControl />
+
+        {/* Marketing Pixel Settings */}
+        <PixelSettings />
       </div>
     );
   };
@@ -2481,6 +2484,59 @@ export const AdminDashboard = () => {
     );
   };
 
+
+  // ====== MARKETING PIXEL SETTINGS ======
+  const PixelSettings = () => {
+    const [metaPixelId, setMetaPixelId] = useState("");
+    const [googleAdsId, setGoogleAdsId] = useState("");
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+      axios.get(`${API}/admin/settings/commission`, { headers: getAdminHeaders() })
+        .then(r => {
+          const s = r.data;
+          setMetaPixelId(s?.meta_pixel_id || "");
+          setGoogleAdsId(s?.google_ads_id || "");
+        }).catch(() => {});
+    }, []);
+
+    const savePixels = async () => {
+      setSaving(true);
+      try {
+        await axios.put(`${API}/admin/settings/commission`, {
+          meta_pixel_id: metaPixelId || null,
+          google_ads_id: googleAdsId || null,
+        }, { headers: getAdminHeaders() });
+        toast.success("Pixel settings saved!");
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+      finally { setSaving(false); }
+    };
+
+    return (
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 space-y-4" data-testid="pixel-settings-section">
+        <h3 className="text-lg font-semibold text-white">Marketing Pixels</h3>
+        <p className="text-xs text-neutral-400">Configure tracking pixels for Meta (Facebook) and Google Ads. These will be injected into all pages when set.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-neutral-400 mb-1 block">Meta (Facebook) Pixel ID</label>
+            <Input value={metaPixelId} onChange={(e) => setMetaPixelId(e.target.value)}
+              placeholder="e.g. 1234567890" className="bg-neutral-900 border-neutral-700 text-white" data-testid="meta-pixel-input" />
+          </div>
+          <div>
+            <label className="text-sm text-neutral-400 mb-1 block">Google Ads Conversion ID</label>
+            <Input value={googleAdsId} onChange={(e) => setGoogleAdsId(e.target.value)}
+              placeholder="e.g. AW-1234567890" className="bg-neutral-900 border-neutral-700 text-white" data-testid="google-ads-input" />
+          </div>
+        </div>
+        <Button onClick={savePixels} disabled={saving} className="bg-gold text-black" data-testid="save-pixels-btn">
+          {saving ? "Saving..." : "Save Pixel Settings"}
+        </Button>
+        <p className="text-xs text-neutral-600">Pixels will auto-activate on all customer-facing pages once IDs are configured.</p>
+      </div>
+    );
+  };
+
+
   // ====== ACTION HISTORY PAGE ======
   const ActionHistoryPage = () => {
     const [history, setHistory] = useState([]);
@@ -2617,6 +2673,187 @@ export const AdminDashboard = () => {
       </div>
     );
   };
+
+
+  // ====== RETURNS & DISPUTES MANAGEMENT ======
+  const ReturnsManagement = () => {
+    const [returns, setReturns] = useState([]);
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [filterStatus, setFilterStatus] = useState("");
+    const [selected, setSelected] = useState(null);
+    const [reply, setReply] = useState("");
+    const [sending, setSending] = useState(false);
+
+    const fetchReturns = async () => {
+      setLoading(true);
+      const params = filterStatus ? `?status=${filterStatus}` : "";
+      try {
+        const res = await axios.get(`${API}/admin/returns${params}`, { headers: getAdminHeaders() });
+        setReturns(res.data.returns || []);
+        setStats(res.data.stats || null);
+      } catch { toast.error("Failed to load returns"); }
+      finally { setLoading(false); }
+    };
+
+    useEffect(() => { fetchReturns(); }, [filterStatus]);
+
+    const overrideStatus = async (returnId, status, refundAmount) => {
+      try {
+        const params = new URLSearchParams({ status });
+        if (refundAmount) params.set("refund_amount", refundAmount);
+        await axios.put(`${API}/admin/returns/${returnId}/override?${params}`, {}, { headers: getAdminHeaders() });
+        toast.success(`Status changed to ${status}`);
+        fetchReturns();
+        if (selected?.return_id === returnId) {
+          const res = await axios.get(`${API}/admin/returns?status=${status}`, { headers: getAdminHeaders() });
+          const updated = (res.data.returns || []).find(r => r.return_id === returnId);
+          if (updated) setSelected(updated);
+        }
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const sendReply = async () => {
+      if (!reply.trim() || !selected) return;
+      setSending(true);
+      try {
+        await axios.post(`${API}/admin/returns/${selected.return_id}/message`, { message: reply, attachments: [] }, { headers: getAdminHeaders() });
+        toast.success("Message sent");
+        setReply("");
+        fetchReturns();
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+      finally { setSending(false); }
+    };
+
+    const sBadge = (s) => {
+      const m = { requested: "bg-blue-500/20 text-blue-400", vendor_approved: "bg-green-500/20 text-green-400", vendor_rejected: "bg-red-500/20 text-red-400", disputed: "bg-orange-500/20 text-orange-400", refunded: "bg-emerald-500/20 text-emerald-400", closed: "bg-neutral-500/20 text-neutral-400", refund_processing: "bg-yellow-500/20 text-yellow-400", item_shipped_back: "bg-purple-500/20 text-purple-400", item_received: "bg-teal-500/20 text-teal-400" };
+      return m[s] || "bg-neutral-500/20 text-neutral-400";
+    };
+
+    if (selected) {
+      return (
+        <div className="space-y-4" data-testid="admin-return-detail">
+          <button onClick={() => setSelected(null)} className="text-gold text-sm hover:underline">&larr; Back</button>
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <span className="font-mono text-xs text-neutral-500">{selected.return_id}</span>
+                <h3 className="text-lg font-bold text-white mt-1">Order: {selected.order_id}</h3>
+                <p className="text-sm text-neutral-400">{selected.user_name} ({selected.user_email}) → Vendor: {selected.vendor_name || "N/A"}</p>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full uppercase ${sBadge(selected.status)}`}>{selected.status.replace(/_/g, " ")}</span>
+            </div>
+            <p className="text-sm text-neutral-300 mb-2">{selected.description}</p>
+            <div className="flex gap-4 text-xs text-neutral-500">
+              <span>Reason: {selected.reason}</span>
+              <span>Amount: Rs. {selected.refund_amount?.toLocaleString()}</span>
+              <span>Created: {new Date(selected.created_at).toLocaleString()}</span>
+            </div>
+            {selected.dispute && <div className="mt-2 p-2 rounded bg-orange-500/10 text-orange-400 text-xs">Disputed: {selected.dispute.reason}</div>}
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {["vendor_approved", "refund_processing", "refunded", "closed"].map(s => (
+              <Button key={s} size="sm" variant="ghost" className="text-neutral-300 text-xs border border-neutral-700"
+                onClick={() => overrideStatus(selected.return_id, s, s === "refunded" ? selected.refund_amount : null)}
+                data-testid={`override-${s}`}>{s.replace(/_/g, " ")}</Button>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            {selected.messages?.map((m, i) => (
+              <div key={i} className={`p-3 rounded-lg border ${m.sender_type === "admin" ? "bg-gold/5 border-gold/20 ml-6" : m.sender_type === "vendor" ? "bg-blue-500/5 border-blue-500/20 ml-3" : "bg-neutral-800/50 border-neutral-700 mr-6"}`}>
+                <div className="flex justify-between mb-1">
+                  <span className="text-sm font-medium text-white">{m.sender_name} ({m.sender_type})</span>
+                  <span className="text-xs text-neutral-500">{new Date(m.created_at).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-neutral-300">{m.message}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2 items-end">
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply to user..."
+              rows={2} className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm resize-none" data-testid="admin-return-reply" />
+            <Button onClick={sendReply} disabled={sending} className="bg-gold text-black" data-testid="admin-return-send">
+              <Send className="h-4 w-4 mr-1" /> Send
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6" data-testid="returns-management-page">
+        <h2 className="font-serif text-2xl font-bold text-white">Returns & Disputes</h2>
+
+        {stats && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label: "Total", val: stats.total, color: "border-neutral-700" },
+              { label: "Pending", val: stats.requested, color: "border-blue-500/30" },
+              { label: "Approved", val: stats.approved, color: "border-green-500/30" },
+              { label: "Rejected", val: stats.rejected, color: "border-red-500/30" },
+              { label: "Disputed", val: stats.disputed, color: "border-orange-500/30" },
+              { label: "Refunded", val: stats.refunded, color: "border-emerald-500/30" },
+            ].map(s => (
+              <div key={s.label} className={`bg-neutral-800/50 border ${s.color} rounded-lg p-3 text-center`}>
+                <p className="text-2xl font-bold text-white">{s.val || 0}</p>
+                <p className="text-xs text-neutral-400">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 flex-wrap">
+          {["", "requested", "vendor_approved", "vendor_rejected", "disputed", "refunded", "closed"].map(s => (
+            <button key={s} onClick={() => setFilterStatus(s)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus === s ? "bg-gold text-black border-gold" : "border-neutral-700 text-neutral-400"}`}>
+              {s ? s.replace(/_/g, " ") : "All"}
+            </button>
+          ))}
+        </div>
+
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-neutral-700">
+                <TableHead className="text-neutral-400">ID</TableHead>
+                <TableHead className="text-neutral-400">Order</TableHead>
+                <TableHead className="text-neutral-400">User</TableHead>
+                <TableHead className="text-neutral-400">Reason</TableHead>
+                <TableHead className="text-neutral-400">Amount</TableHead>
+                <TableHead className="text-neutral-400">Status</TableHead>
+                <TableHead className="text-neutral-400">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {returns.map(r => (
+                <TableRow key={r.return_id} className={`border-neutral-700 ${r.status === "disputed" ? "bg-orange-500/5" : ""}`}>
+                  <TableCell className="font-mono text-xs text-neutral-400">{r.return_id.slice(0, 12)}</TableCell>
+                  <TableCell className="text-neutral-300 text-sm">{r.order_id.slice(0, 12)}</TableCell>
+                  <TableCell>
+                    <p className="text-neutral-300 text-sm">{r.user_name}</p>
+                    <span className="text-xs text-neutral-500">{r.vendor_name || "N/A"}</span>
+                  </TableCell>
+                  <TableCell className="text-neutral-400 text-sm">{r.reason.replace(/_/g, " ")}</TableCell>
+                  <TableCell className="text-neutral-300 text-sm">Rs. {r.refund_amount?.toLocaleString()}</TableCell>
+                  <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${sBadge(r.status)}`}>{r.status.replace(/_/g, " ")}</span></TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" className="text-gold text-xs" onClick={() => setSelected(r)}
+                      data-testid={`view-return-${r.return_id}`}><Eye className="h-3 w-3 mr-1" /> View</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+          {!loading && returns.length === 0 && <div className="text-center py-12 text-neutral-500">No returns found</div>}
+        </div>
+      </div>
+    );
+  };
+
 
   // ====== SUPPORT TICKETS MANAGEMENT ======
   const SupportTicketsManagement = () => {
@@ -2963,6 +3200,7 @@ export const AdminDashboard = () => {
     { path: "/admin/action-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
     { path: "/admin/managers", icon: <Shield className="h-5 w-5" />, label: "Managers", permission: ["admin_users", "view"] },
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
+    { path: "/admin/returns", icon: <Package className="h-5 w-5" />, label: "Returns & Disputes", permission: ["orders", "view"] },
     { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
@@ -3052,6 +3290,7 @@ export const AdminDashboard = () => {
             <Route path="action-history" element={<ActionHistoryPage />} />
             <Route path="managers" element={<ManagersPage />} />
             <Route path="tickets" element={<SupportTicketsManagement />} />
+            <Route path="returns" element={<ReturnsManagement />} />
             <Route path="settings" element={<CommissionSettings />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />

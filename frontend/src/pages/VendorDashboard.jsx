@@ -68,6 +68,7 @@ export const VendorDashboard = () => {
     { path: "/vendor/promotions", icon: Megaphone, label: "Promotions" },
     { path: "/vendor/influencers", icon: Users, label: "Influencers" },
     { path: "/vendor/support", icon: LifeBuoy, label: "Support" },
+    { path: "/vendor/returns", icon: Package, label: "Returns" },
   ];
 
   if (vendor.kyc_status !== "approved") {
@@ -134,6 +135,7 @@ export const VendorDashboard = () => {
             <Route path="promotions" element={<VendorPromotions vendor={vendor} />} />
             <Route path="influencers" element={<VendorInfluencers vendor={vendor} />} />
             <Route path="support" element={<VendorSupport vendor={vendor} />} />
+            <Route path="returns" element={<VendorReturns vendor={vendor} />} />
             <Route path="*" element={<VendorOverview vendor={vendor} />} />
           </Routes>
         </main>
@@ -1667,3 +1669,158 @@ const VendorSupport = ({ vendor }) => {
     </div>
   );
 };
+
+// ===== VENDOR RETURNS =====
+const VendorReturns = ({ vendor }) => {
+  const [returns, setReturns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const headers = getVendorHeaders();
+
+  const fetchReturns = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = filterStatus ? `?status=${filterStatus}` : "";
+      const res = await axios.get(`${API}/vendors/returns${params}`, { headers });
+      setReturns(res.data || []);
+    } catch { toast.error("Failed to load returns"); }
+    finally { setLoading(false); }
+  }, [filterStatus]);
+
+  useEffect(() => { fetchReturns(); }, [fetchReturns]);
+
+  const approveReturn = async (returnId) => {
+    try {
+      await axios.put(`${API}/vendors/returns/${returnId}/approve`, {}, { headers });
+      toast.success("Return approved");
+      fetchReturns();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const rejectReturn = async (returnId) => {
+    try {
+      await axios.put(`${API}/vendors/returns/${returnId}/reject`, {}, { headers });
+      toast.success("Return rejected");
+      fetchReturns();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  };
+
+  const sendMessage = async (returnId) => {
+    if (!reply.trim()) return;
+    setSending(true);
+    try {
+      await axios.post(`${API}/vendors/returns/${returnId}/message`, { message: reply, attachments: [] }, { headers });
+      toast.success("Message sent");
+      setReply("");
+      fetchReturns();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setSending(false); }
+  };
+
+  const sBadge = (s) => {
+    const m = { requested: "bg-blue-500/20 text-blue-400", vendor_approved: "bg-green-500/20 text-green-400", vendor_rejected: "bg-red-500/20 text-red-400", disputed: "bg-orange-500/20 text-orange-400", refunded: "bg-emerald-500/20 text-emerald-400", closed: "bg-neutral-500/20 text-neutral-400" };
+    return m[s] || "bg-neutral-500/20 text-neutral-400";
+  };
+
+  if (selected) {
+    return (
+      <div className="space-y-4" data-testid="vendor-return-detail">
+        <button onClick={() => setSelected(null)} className="text-gold text-sm hover:underline flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+          <div className="flex justify-between items-start">
+            <div>
+              <span className="font-mono text-xs text-neutral-500">{selected.return_id}</span>
+              <h3 className="text-lg font-bold text-white mt-1">Order: {selected.order_id}</h3>
+              <p className="text-sm text-neutral-400">Customer: {selected.user_name}</p>
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full uppercase ${sBadge(selected.status)}`}>{selected.status.replace(/_/g, " ")}</span>
+          </div>
+          <p className="text-sm text-neutral-300 mt-3">{selected.description}</p>
+          <p className="text-xs text-neutral-500 mt-1">Reason: {selected.reason?.replace(/_/g, " ")} | Amount: Rs. {selected.refund_amount?.toLocaleString()}</p>
+        </div>
+
+        {selected.status === "requested" && (
+          <div className="flex gap-3">
+            <Button className="bg-green-600 text-white" onClick={() => approveReturn(selected.return_id)} data-testid="vendor-approve-return">
+              <CheckCircle className="h-4 w-4 mr-1" /> Approve Return
+            </Button>
+            <Button variant="outline" className="text-red-400 border-red-500/30" onClick={() => rejectReturn(selected.return_id)} data-testid="vendor-reject-return">
+              <XCircle className="h-4 w-4 mr-1" /> Reject
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {selected.messages?.map((m, i) => (
+            <div key={i} className={`p-3 rounded-lg border ${m.sender_type === "vendor" ? "bg-gold/5 border-gold/20 ml-6" : "bg-neutral-800/50 border-neutral-700 mr-6"}`}>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium text-white">{m.sender_name} ({m.sender_type})</span>
+                <span className="text-xs text-neutral-500">{new Date(m.created_at).toLocaleString()}</span>
+              </div>
+              <p className="text-sm text-neutral-300">{m.message}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 items-end">
+          <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Message customer..."
+            rows={2} className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm resize-none" data-testid="vendor-return-reply" />
+          <Button onClick={() => sendMessage(selected.return_id)} disabled={sending} className="bg-gold text-black" data-testid="vendor-return-send">
+            <Send className="h-4 w-4 mr-1" /> Send
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="vendor-returns-page">
+      <h2 className="font-serif text-xl font-bold text-white">Return Requests</h2>
+
+      <div className="flex gap-2 flex-wrap">
+        {["", "requested", "vendor_approved", "vendor_rejected", "disputed"].map(s => (
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filterStatus === s ? "bg-gold text-black border-gold" : "border-neutral-700 text-neutral-400"}`}>
+            {s ? s.replace(/_/g, " ") : "All"}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold mx-auto" /></div>
+      ) : returns.length === 0 ? (
+        <div className="text-center py-16 border border-dashed border-neutral-700 rounded-xl">
+          <Package className="h-12 w-12 text-neutral-600 mx-auto mb-3" />
+          <p className="text-neutral-400">No return requests</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {returns.map(r => (
+            <div key={r.return_id} onClick={() => setSelected(r)}
+              className={`border border-neutral-700 rounded-xl p-4 hover:border-neutral-500 cursor-pointer transition-colors ${r.status === "disputed" ? "border-orange-500/30" : ""}`}
+              data-testid={`vendor-return-${r.return_id}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="font-mono text-xs text-neutral-500">{r.return_id}</span>
+                  <p className="text-white font-medium mt-0.5">Order: {r.order_id}</p>
+                  <p className="text-xs text-neutral-500">{r.user_name} - {r.reason?.replace(/_/g, " ")}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${sBadge(r.status)}`}>{r.status.replace(/_/g, " ")}</span>
+                  <span className="text-xs text-neutral-500">Rs. {r.refund_amount?.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+

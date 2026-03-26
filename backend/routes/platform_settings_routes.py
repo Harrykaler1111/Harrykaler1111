@@ -38,6 +38,8 @@ class CommissionSettingsUpdate(BaseModel):
     auto_settle_on_delivery: Optional[bool] = None
     vendor_referral_commission: Optional[float] = None
     influencer_referral_commission: Optional[float] = None
+    meta_pixel_id: Optional[str] = None
+    google_ads_id: Optional[str] = None
 
 
 class CommissionTarget(BaseModel):

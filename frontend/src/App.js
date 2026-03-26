@@ -25,6 +25,8 @@ import { ResellerRegisterPage } from "@/pages/ResellerRegisterPage";
 import { ResellerDashboard } from "@/pages/ResellerDashboard";
 import { VendorStorePage } from "@/pages/VendorStorePage";
 import { SupportPage } from "@/pages/SupportPage";
+import { ReturnsPage } from "@/pages/ReturnsPage";
+import { CreatorRecruitmentPage } from "@/pages/CreatorRecruitmentPage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -141,6 +143,15 @@ const LayoutWrapper = ({ children }) => {
   const isResellerDash = location.pathname.startsWith("/reseller/");
   const hideChrome = isAdminPage || isVendorPage || isResellerDash;
 
+  // Capture referral code from URL and store in localStorage
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      localStorage.setItem("pigma_ref", ref);
+    }
+  }, [location.search]);
+
   return (
     <div className="App min-h-screen flex flex-col">
       {!hideChrome && <Header />}
@@ -218,6 +229,15 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/returns"
+        element={
+          <ProtectedRoute>
+            <ReturnsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/creators" element={<CreatorRecruitmentPage />} />
       <Route
         path="/influencer"
         element={
