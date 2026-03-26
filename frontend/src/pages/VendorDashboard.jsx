@@ -50,7 +50,7 @@ export const VendorDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("pigma_vendor_token");
     localStorage.removeItem("pigma_vendor");
-    navigate("/vendor-login");
+    navigate("/");
   };
 
   if (loading) return <div className="min-h-screen bg-neutral-900 flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold" /></div>;
@@ -1040,20 +1040,59 @@ const VendorInfluencers = ({ vendor }) => {
                 {req.responded_at && <span>Responded: {new Date(req.responded_at).toLocaleDateString()}</span>}
               </div>
               {req.status === "accepted" && req.influencer_contact && (
-                <div className="bg-neutral-900/80 border border-green-500/20 rounded-lg p-4 space-y-2">
-                  <p className="text-green-400 font-medium text-sm flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" /> Influencer Contact Details
+                <div className="bg-neutral-900/80 border border-green-500/20 rounded-lg p-4 space-y-3 mt-3">
+                  <p className="text-green-400 font-semibold text-sm flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" /> Collaboration Accepted — Influencer Contact
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div><span className="text-neutral-500">Name:</span> <span className="text-white">{req.influencer_contact.name}</span></div>
-                    <div><span className="text-neutral-500">Email:</span> <span className="text-white">{req.influencer_contact.email}</span></div>
-                    <div><span className="text-neutral-500">Phone:</span> <span className="text-white">{req.influencer_contact.phone || "N/A"}</span></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+                      <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center flex-shrink-0">
+                        <Users className="h-4 w-4 text-gold" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500">Name</p>
+                        <p className="text-white text-sm font-medium">{req.influencer_contact.name}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500">Email</p>
+                        <a href={`mailto:${req.influencer_contact.email}`} className="text-blue-400 text-sm hover:underline">{req.influencer_contact.email}</a>
+                      </div>
+                    </div>
+                    {req.influencer_contact.phone && (
+                      <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+                        <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                          <IndianRupee className="h-4 w-4 text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-neutral-500">Phone</p>
+                          <a href={`tel:${req.influencer_contact.phone}`} className="text-green-400 text-sm hover:underline">{req.influencer_contact.phone}</a>
+                        </div>
+                      </div>
+                    )}
                     {req.influencer_contact.instagram && (
-                      <div><span className="text-neutral-500">Instagram:</span> <span className="text-white">@{req.influencer_contact.instagram}</span></div>
+                      <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+                        <div className="w-8 h-8 rounded-full bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+                          <Eye className="h-4 w-4 text-pink-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-neutral-500">Instagram</p>
+                          <a href={`https://instagram.com/${req.influencer_contact.instagram}`} target="_blank" rel="noreferrer" className="text-pink-400 text-sm hover:underline">@{req.influencer_contact.instagram}</a>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-1">Platform collab fee: {req.platform_collab_fee || 5}% on every collab sale goes to Pigma</p>
+                  <p className="text-xs text-neutral-500 border-t border-neutral-700 pt-2 mt-1">
+                    Pigma platform takes {req.platform_collab_fee || 5}% on every sale from this collaboration.
+                  </p>
                 </div>
+              )}
+              {req.status === "accepted" && !req.influencer_contact && (
+                <p className="text-xs text-green-400 mt-2">Accepted on {new Date(req.responded_at).toLocaleDateString()}</p>
               )}
             </div>
           ))}
