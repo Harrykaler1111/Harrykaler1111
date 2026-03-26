@@ -5,8 +5,9 @@ import {
   LayoutDashboard, Package, ShoppingCart, Users, UserCheck, 
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
-  Shield, Instagram, Settings, User, Lock, Store, FileCheck
+  Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload
 } from "lucide-react";
+import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -816,8 +817,9 @@ const ProductsManagement = () => {
   const [newCatDesc, setNewCatDesc] = useState("");
   const [newProduct, setNewProduct] = useState({
     name: "", description: "", price: "", compare_price: "", category: "",
-    sizes: "", colors: "", stock: "", images: "", is_limited_edition: false, tags: ""
+    sizes: "", colors: "", stock: "", is_limited_edition: false, tags: ""
   });
+  const [uploadedMedia, setUploadedMedia] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -857,14 +859,16 @@ const ProductsManagement = () => {
         sizes: newProduct.sizes ? newProduct.sizes.split(",").map(s => s.trim()) : [],
         colors: newProduct.colors ? newProduct.colors.split(",").map(s => s.trim()) : [],
         stock: parseInt(newProduct.stock) || 0,
-        images: newProduct.images ? newProduct.images.split(",").map(s => s.trim()).filter(Boolean) : [],
+        images: uploadedMedia.filter(m => m.type !== "video").map(m => m.url),
+        videos: uploadedMedia.filter(m => m.type === "video").map(m => m.url),
         is_limited_edition: newProduct.is_limited_edition,
         tags: newProduct.tags ? newProduct.tags.split(",").map(s => s.trim()) : [],
       };
       await axios.post(`${API}/admin/products`, payload, { headers: getAdminHeaders() });
       toast.success("Product created!");
       setShowAddProduct(false);
-      setNewProduct({ name: "", description: "", price: "", compare_price: "", category: "", sizes: "", colors: "", stock: "", images: "", is_limited_edition: false, tags: "" });
+      setNewProduct({ name: "", description: "", price: "", compare_price: "", category: "", sizes: "", colors: "", stock: "", is_limited_edition: false, tags: "" });
+      setUploadedMedia([]);
       fetchData();
     } catch (err) { toast.error(err.response?.data?.detail || "Failed to create product"); }
     finally { setSubmitting(false); }
@@ -1020,10 +1024,9 @@ const ProductsManagement = () => {
               <Input value={newProduct.colors} onChange={(e) => setNewProduct(p => ({ ...p, colors: e.target.value }))}
                 placeholder="Black, Gold, Silver" className="bg-neutral-900 border-neutral-700 text-white" />
             </div>
-            <div>
-              <label className="text-sm text-neutral-400 block mb-1">Image URLs (comma-separated)</label>
-              <Input value={newProduct.images} onChange={(e) => setNewProduct(p => ({ ...p, images: e.target.value }))}
-                placeholder="https://example.com/img1.jpg, ..." className="bg-neutral-900 border-neutral-700 text-white" />
+            <div className="md:col-span-2">
+              <label className="text-sm text-neutral-400 block mb-1">Product Images & Videos</label>
+              <MediaUploader value={uploadedMedia} onChange={setUploadedMedia} maxFiles={8} userId="admin" />
             </div>
             <div className="md:col-span-2">
               <label className="text-sm text-neutral-400 block mb-1">Description</label>

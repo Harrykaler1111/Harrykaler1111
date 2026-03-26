@@ -18,6 +18,7 @@ import {
   Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee,
   Megaphone, FolderOpen, Zap, Key, DollarSign, Check, Copy
 } from "lucide-react";
+import { MediaUploader } from "@/components/MediaUploader";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -317,8 +318,9 @@ const VendorProducts = ({ vendor }) => {
   const [newPriceVal, setNewPriceVal] = useState("");
   const [form, setForm] = useState({
     name: "", description: "", price: "", compare_price: "", category: "",
-    sizes: "", colors: "", images: "", stock: "", tags: "", is_limited_edition: false
+    sizes: "", colors: "", stock: "", tags: "", is_limited_edition: false
   });
+  const [uploadedMedia, setUploadedMedia] = useState([]);
   const [creating, setCreating] = useState(false);
 
   const categories = ["Platform Boots", "Stiletto Heels", "Ankle Boots", "Wedge Heels", "Sneakers", "Sandals", "Loafers", "Other"];
@@ -344,13 +346,15 @@ const VendorProducts = ({ vendor }) => {
         stock: parseInt(form.stock) || 0,
         sizes: form.sizes ? form.sizes.split(",").map(s => s.trim()) : [],
         colors: form.colors ? form.colors.split(",").map(s => s.trim()) : [],
-        images: form.images ? form.images.split(",").map(s => s.trim()) : [],
+        images: uploadedMedia.filter(m => m.type !== "video").map(m => m.url),
+        videos: uploadedMedia.filter(m => m.type === "video").map(m => m.url),
         tags: form.tags ? form.tags.split(",").map(s => s.trim()) : [],
       };
       await axios.post(`${API}/vendors/products`, payload, { headers: getVendorHeaders() });
       toast.success("Product submitted for approval!");
       setShowForm(false);
-      setForm({ name: "", description: "", price: "", compare_price: "", category: "", sizes: "", colors: "", images: "", stock: "", tags: "", is_limited_edition: false });
+      setForm({ name: "", description: "", price: "", compare_price: "", category: "", sizes: "", colors: "", stock: "", tags: "", is_limited_edition: false });
+      setUploadedMedia([]);
       fetchProducts();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to create product");
@@ -452,10 +456,9 @@ const VendorProducts = ({ vendor }) => {
               <Input value={form.colors} onChange={(e) => setForm({...form, colors: e.target.value})}
                 className="bg-neutral-900 border-neutral-700 text-white" placeholder="Black, Gold, Silver" />
             </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Image URLs (comma separated)</label>
-              <Input value={form.images} onChange={(e) => setForm({...form, images: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" placeholder="https://..." />
+            <div className="md:col-span-2">
+              <label className="text-sm text-neutral-400 mb-1 block">Product Images & Videos</label>
+              <MediaUploader value={uploadedMedia} onChange={setUploadedMedia} maxFiles={8} userId={vendor.vendor_id} />
             </div>
             <div className="md:col-span-2">
               <label className="text-sm text-neutral-400 mb-1 block">Description *</label>

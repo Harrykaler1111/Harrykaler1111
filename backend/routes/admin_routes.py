@@ -683,6 +683,7 @@ async def admin_create_product(product: Dict, admin: Dict = Depends(get_admin_us
         "sizes": product.get("sizes", []),
         "colors": product.get("colors", []),
         "images": product.get("images", []),
+        "videos": product.get("videos", []),
         "stock": int(product.get("stock", 0)),
         "is_limited_edition": product.get("is_limited_edition", False),
         "drop_date": product.get("drop_date"),
@@ -707,7 +708,7 @@ async def admin_update_product(product_id: str, updates: Dict, admin: Dict = Dep
     if not existing:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    allowed_fields = ["name", "description", "price", "compare_price", "category", "sizes", "colors", "images", "stock", "is_limited_edition", "drop_date", "tags", "is_active"]
+    allowed_fields = ["name", "description", "price", "compare_price", "category", "sizes", "colors", "images", "videos", "stock", "is_limited_edition", "drop_date", "tags", "is_active"]
     update_dict = {k: v for k, v in updates.items() if k in allowed_fields}
     update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
 

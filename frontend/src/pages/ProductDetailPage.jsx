@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check, Star } from "lucide-react";
+import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check, Star, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
 import { useAuth, API } from "@/App";
@@ -114,38 +114,45 @@ export const ProductDetailPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Images Section */}
           <div className="space-y-4">
-            {/* Main Image */}
-            <motion.div
-              key={activeImage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="aspect-[3/4] bg-neutral-100 overflow-hidden"
-            >
-              <img
-                src={product.images?.[activeImage] || "https://via.placeholder.com/800x1000"}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                data-testid="product-main-image"
-              />
-            </motion.div>
-
-            {/* Thumbnail Images */}
-            {product.images?.length > 1 && (
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {product.images.map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveImage(idx)}
-                    className={`flex-shrink-0 w-20 h-24 overflow-hidden border-2 transition-colors ${
-                      activeImage === idx ? "border-black" : "border-transparent"
-                    }`}
-                    data-testid={`product-thumbnail-${idx}`}
-                  >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Combine images + videos into media array */}
+            {(() => {
+              const allMedia = [
+                ...(product.images || []).map(u => ({ url: u, type: "image" })),
+                ...(product.videos || []).map(u => ({ url: u, type: "video" })),
+              ];
+              if (allMedia.length === 0) allMedia.push({ url: "https://via.placeholder.com/800x1000", type: "image" });
+              const current = allMedia[activeImage] || allMedia[0];
+              return (
+                <>
+                  <motion.div key={activeImage} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="aspect-[3/4] bg-neutral-100 overflow-hidden">
+                    {current.type === "video" ? (
+                      <video src={current.url} controls className="w-full h-full object-contain bg-black" data-testid="product-main-video" />
+                    ) : (
+                      <img src={current.url} alt={product.name} className="w-full h-full object-cover" data-testid="product-main-image" />
+                    )}
+                  </motion.div>
+                  {allMedia.length > 1 && (
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {allMedia.map((m, idx) => (
+                        <button key={idx} onClick={() => setActiveImage(idx)}
+                          className={`flex-shrink-0 w-20 h-24 overflow-hidden border-2 transition-colors relative ${
+                            activeImage === idx ? "border-black" : "border-transparent"
+                          }`} data-testid={`product-thumbnail-${idx}`}>
+                          {m.type === "video" ? (
+                            <div className="w-full h-full bg-neutral-900 flex items-center justify-center">
+                              <Play className="h-5 w-5 text-neutral-400" />
+                            </div>
+                          ) : (
+                            <img src={m.url} alt="" className="w-full h-full object-cover" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Product Info */}

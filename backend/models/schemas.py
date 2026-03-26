@@ -79,6 +79,7 @@ class ProductCreate(BaseModel):
     sizes: List[str] = []
     colors: List[str] = []
     images: List[str] = []
+    videos: List[str] = []
     stock: int = 0
     is_limited_edition: bool = False
     drop_date: Optional[str] = None
@@ -94,6 +95,7 @@ class ProductUpdate(BaseModel):
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     images: Optional[List[str]] = None
+    videos: Optional[List[str]] = None
     stock: Optional[int] = None
     is_limited_edition: Optional[bool] = None
     drop_date: Optional[str] = None
@@ -112,6 +114,7 @@ class ProductResponse(BaseModel):
     sizes: List[str]
     colors: List[str]
     images: List[str]
+    videos: List[str] = []
     stock: int
     is_limited_edition: bool
     drop_date: Optional[str] = None
@@ -392,6 +395,7 @@ class VendorProductCreate(BaseModel):
     sizes: List[str] = []
     colors: List[str] = []
     images: List[str] = []
+    videos: List[str] = []
     stock: int = 0
     tags: List[str] = []
     is_limited_edition: bool = False
@@ -406,6 +410,7 @@ class VendorProductUpdate(BaseModel):
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     images: Optional[List[str]] = None
+    videos: Optional[List[str]] = None
     stock: Optional[int] = None
     tags: Optional[List[str]] = None
     is_limited_edition: Optional[bool] = None
@@ -423,6 +428,7 @@ class VendorProductResponse(BaseModel):
     sizes: List[str]
     colors: List[str]
     images: List[str]
+    videos: List[str] = []
     stock: int
     tags: List[str]
     is_limited_edition: bool
