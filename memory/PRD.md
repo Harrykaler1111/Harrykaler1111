@@ -5,10 +5,11 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Tech Stack
 - Frontend: React, Tailwind CSS, Shadcn/UI, Framer Motion
-- Backend: FastAPI (Python), 23 route modules
+- Backend: FastAPI (Python), 23+ route modules
 - Database: MongoDB
 - Auth: JWT (per role), Google OAuth, RBAC (6 admin roles)
 - File Storage: Emergent Object Storage (multi-image/video)
+- Payments: Razorpay (mocked until API keys configured)
 
 ## Credentials
 - Super Admin: superadmin@pigma.com / superadmin123
@@ -40,28 +41,32 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Reward campaigns, Sales Manager role, Featured vendors control
 
 ### Phase 9 - Returns, Creator Recruitment, Pixel Settings (2026-03-26)
-- **Return & Dispute Management:** Full system - user requests return (8 reasons), vendor approves/rejects, user can escalate dispute to admin. Admin override controls. Status: Requested → Vendor Approved/Rejected → Disputed → Refund Processing → Refunded → Closed
-- **Referral Code Tracking Fix:** Checkout now passes `ref` param from URL/localStorage to order API. LayoutWrapper captures referral codes from any page URL
-- **Creator Recruitment Landing Page:** Public `/creators` route with hero, benefits (6 cards), how-it-works (3 steps), testimonials (3 stories), CTA sections
-- **Sales Manager Account:** Created with RBAC permissions (offers, coupons, analytics, settings)
-- **Marketing Pixel Settings:** Admin can configure Meta Pixel ID and Google Ads Conversion ID from Settings panel, ready to activate when credentials provided
-- **Testing:** Iteration 12 - 100% pass (17 backend + all frontend verified)
+- Return & Dispute Management (full lifecycle)
+- Referral Code Tracking Fix, Creator Recruitment Landing Page
+- Sales Manager Account, Marketing Pixel Settings UI
+
+### Phase 10 - Credit System, ChatWidget, Marketing Hub, UI Update (2026-03-26)
+- **Real-Money Credit System:** Razorpay-integrated credit purchase with order creation, payment verification, and transaction history. Auto-mocks when keys not configured. Credits only deducted on successful product promotion.
+- **ChatWidget + Ticket Integration:** Rebuilt ChatWidget with dual-mode: "Create Support Ticket" (structured form → POST /api/tickets with category/priority/description) and "Quick Chat with AI". Globally accessible on all customer-facing pages. Login required for ticket creation.
+- **Admin Marketing Hub:** Renamed Coupons tab to "Marketing" in sidebar. Contains Coupons & Offers, Sales Targets, and Rewards tabs. RBAC restricted to Super Admin and Marketing Manager only.
+- **Zomato-style Top Vendors:** Moved Top Sellers from lower page section to immediately below Hero. Redesigned as circular avatars with store initials, horizontal scroll, hover effects. Clickable → navigates to vendor store.
+- **Testing:** Iteration 13 - 100% pass (20 backend + all frontend verified)
 
 ## MOCKED Integrations
-- Razorpay (payments/payouts/wallet/refunds) -> needs API keys
+- Razorpay (payments/payouts/wallet/refunds/credits) -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
 - Instagram OAuth & DM -> needs Meta credentials
 - SMS/Email/WhatsApp notifications -> demo OTP
 
 ## Remaining Tasks
 
 ### P1 - Upcoming
-1. Meta Pixel & Google Ads Pixel frontend injection (when IDs configured)
-2. Custom Instagram Auto DM system (requires Meta API credentials)
-3. WhatsApp Cart Reminder (requires API key)
-4. WhatsApp integration via Interakt
+1. Custom Instagram Auto DM system (requires Meta API credentials, NOT ManyChat)
+2. Advanced Referral Commission logic (Tiered: 1% for 1, 1.5% for 10+)
+3. WhatsApp Cart Reminder System (requires API key)
+4. Meta Pixel & Google Ads Pixel frontend injection (when IDs configured)
 
 ### P2 - Future/Backlog
 - Real payment gateway integration (Razorpay live keys)
 - OTP verification for login/registration (real SMS)
-- AI chatbot integration
-- Frontend refactoring (AdminDashboard 3200+ lines, VendorDashboard 1800+ lines)
+- AI chatbot integration enhancement
+- Frontend refactoring (AdminDashboard 3300+ lines, VendorDashboard 1800+ lines)
