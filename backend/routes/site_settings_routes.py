@@ -210,17 +210,18 @@ class InstagramDMRule(BaseModel):
 @router.get("/instagram/config")
 async def get_instagram_config(admin: Dict = Depends(get_admin_user)):
     """Get Instagram auto-DM configuration"""
+    defaults = {
+        "setting_id": "instagram_dm",
+        "is_connected": False,
+        "instagram_handle": "",
+        "rules": [],
+        "dm_history": [],
+        "stats": {"total_dms_sent": 0, "total_comments_tracked": 0}
+    }
     config = await db.site_settings.find_one({"setting_id": "instagram_dm"}, {"_id": 0})
     if not config:
-        return {
-            "setting_id": "instagram_dm",
-            "is_connected": False,
-            "instagram_handle": "",
-            "rules": [],
-            "dm_history": [],
-            "stats": {"total_dms_sent": 0, "total_comments_tracked": 0}
-        }
-    return config
+        return defaults
+    return {**defaults, **config}
 
 
 @router.put("/instagram/config")
@@ -319,19 +320,20 @@ class WhatsAppConfig(BaseModel):
 @router.get("/whatsapp/config")
 async def get_whatsapp_config(admin: Dict = Depends(get_admin_user)):
     """Get WhatsApp cart reminder configuration"""
+    defaults = {
+        "setting_id": "whatsapp_reminders",
+        "is_enabled": False,
+        "is_connected": False,
+        "phone_number": "",
+        "reminder_delay_hours": 24,
+        "message_template": "Hi {name}! You left items in your Pigma cart. Complete your purchase now: {cart_link}",
+        "reminders_sent": 0,
+        "recent_reminders": []
+    }
     config = await db.site_settings.find_one({"setting_id": "whatsapp_reminders"}, {"_id": 0})
     if not config:
-        return {
-            "setting_id": "whatsapp_reminders",
-            "is_enabled": False,
-            "is_connected": False,
-            "phone_number": "",
-            "reminder_delay_hours": 24,
-            "message_template": "Hi {name}! You left items in your Pigma cart. Complete your purchase now: {cart_link}",
-            "reminders_sent": 0,
-            "recent_reminders": []
-        }
-    return config
+        return defaults
+    return {**defaults, **config}
 
 
 @router.put("/whatsapp/config")
