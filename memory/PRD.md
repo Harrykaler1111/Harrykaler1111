@@ -75,6 +75,16 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Header Dark Theme:** Solid black header on all pages (no white-on-scroll), seamless with booster bar
 - **Testing:** Iteration 20 (100% - 24 features) + Iteration 21 (zoom 100%, video controls code verified)
 
+### Phase 17 - Image Crop Tool + Customer Reviews with Images (2026-03-27)
+- **Image Crop Modal:** Full-screen cropping tool using react-easy-crop (4:5 aspect ratio), zoom slider (1-3x), rotation, crop preview, Apply/Skip buttons
+- **MediaUploader Integration:** On image selection, shows crop modal before upload. Supports crop queue for multiple images. Videos bypass crop.
+- **Customer Reviews with Images:** Star rating (1-5), title, comment, up to 5 photo uploads per review. Reviews require verified purchase (delivered order)
+- **Review Moderation:** All reviews start as "pending". Only admin-approved reviews show on product pages
+- **Admin Reviews Panel (/admin/reviews):** Filter tabs (Pending/Approved/Rejected/All), expand review details, Approve/Reject/Delete actions, remove specific images, admin notes
+- **Lightbox Gallery:** Click review image thumbnails to open fullscreen lightbox with prev/next navigation and keyboard support (Esc/Arrow keys)
+- **Rating Stats:** Product page shows average rating with 5-star breakdown bar chart
+- **Testing:** Iteration 22 - 100% (18/18 backend + all frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
 - Instagram Graph API -> needs Meta credentials
@@ -84,8 +94,6 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ## Remaining Tasks
 
 ### P1 - Upcoming
-- Image cropping tool on product upload (zoom, drag, 4:5 aspect ratio preview)
-- Customer reviews with image upload + admin approve/reject + lightbox gallery
 - Real Instagram Graph API (when credentials provided)
 - Real WhatsApp Business API (when credentials provided)
 
