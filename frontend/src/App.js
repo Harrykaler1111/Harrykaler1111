@@ -31,6 +31,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
 import { TrackingPixels } from "@/components/TrackingPixels";
+import { CartProvider } from "@/context/CartContext";
+import { BoosterBar } from "@/components/BoosterBar";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -156,6 +158,7 @@ const LayoutWrapper = ({ children }) => {
   return (
     <div className="App min-h-screen flex flex-col">
       {!hideChrome && <Header />}
+      {!hideChrome && <BoosterBar />}
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <ChatWidget />}
@@ -297,9 +300,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <LayoutWrapper>
-          <AppRouter />
-        </LayoutWrapper>
+        <CartProvider>
+          <LayoutWrapper>
+            <AppRouter />
+          </LayoutWrapper>
+        </CartProvider>
       </AuthProvider>
     </BrowserRouter>
   );

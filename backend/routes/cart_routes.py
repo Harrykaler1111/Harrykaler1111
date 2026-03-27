@@ -125,20 +125,54 @@ async def clear_cart(user: Dict = Depends(get_current_user)):
 
 @router.get("/upsell-suggestions")
 async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_current_user)):
-    """Get product suggestions under max_price for cart upsell"""
+    """Get product suggestions under max_price for cart upsell — prioritizes boots accessories"""
     cart = await db.carts.find_one({"user_id": user["user_id"]}, {"_id": 0})
     cart_product_ids = [i["product_id"] for i in (cart.get("items", []) if cart else [])]
 
-    products = await db.products.find(
-        {"is_active": True, "price": {"$lte": max_price}, "stock": {"$gt": 0}, "product_id": {"$nin": cart_product_ids}},
+    base_filter = {
+        "is_active": True, "stock": {"$gt": 0},
+        "product_id": {"$nin": cart_product_ids}
+    }
+
+    # Priority 1: Boots-specific accessories under max_price
+    boots_keywords = [
+        "heel protector", "shoe care", "boot care", "shoe polish",
+        "shoe brush", "socks", "insole", "waterproof spray",
+        "boot bag", "shoe tree", "leather conditioner", "shoe horn",
+        "ankle support", "boot lace", "shoe cleaner", "foot cream"
+    ]
+    keyword_regex = "|".join(boots_keywords)
+    priority_products = await db.products.find(
+        {**base_filter, "price": {"$lte": max_price},
+         "$or": [
+             {"name": {"$regex": keyword_regex, "$options": "i"}},
+             {"description": {"$regex": keyword_regex, "$options": "i"}},
+             {"category": {"$regex": "accessor|care|sock|protect", "$options": "i"}}
+         ]},
         {"_id": 0}
-    ).sort("created_at", -1).limit(8).to_list(8)
+    ).sort("price", 1).limit(8).to_list(8)
 
-    if len(products) < 4:
-        extra = await db.products.find(
-            {"is_active": True, "price": {"$lte": 500}, "stock": {"$gt": 0}, "product_id": {"$nin": cart_product_ids + [p["product_id"] for p in products]}},
+    seen_ids = [p["product_id"] for p in priority_products]
+
+    # Priority 2: Any products under max_price (fill remaining slots)
+    remaining = 8 - len(priority_products)
+    if remaining > 0:
+        general = await db.products.find(
+            {**base_filter, "price": {"$lte": max_price},
+             "product_id": {"$nin": cart_product_ids + seen_ids}},
             {"_id": 0}
-        ).limit(8 - len(products)).to_list(8 - len(products))
-        products.extend(extra)
+        ).sort("created_at", -1).limit(remaining).to_list(remaining)
+        priority_products.extend(general)
+        seen_ids.extend([p["product_id"] for p in general])
 
-    return products
+    # Priority 3: Slightly pricier items up to ₹500 if still short
+    remaining = 8 - len(priority_products)
+    if remaining > 0:
+        extra = await db.products.find(
+            {**base_filter, "price": {"$lte": 500},
+             "product_id": {"$nin": cart_product_ids + seen_ids}},
+            {"_id": 0}
+        ).limit(remaining).to_list(remaining)
+        priority_products.extend(extra)
+
+    return priority_products
