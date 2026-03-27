@@ -63,6 +63,16 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **URL Redirect:** /cart route auto-opens drawer and redirects to homepage
 - **Testing:** Iteration 18 - 100% (13/13 backend + 17/17 frontend verified)
 
+### Phase 16 - Product Page UX & Video System (2026-03-27)
+- **Scroll Position Fix:** ScrollToTop component ensures page loads at top on every route change
+- **Typography Overhaul:** Title reduced to text-2xl/28px, price text-2xl, description text-sm, labels text-xs uppercase tracking-wider
+- **Image Display:** 4:5 aspect ratio with object-contain (full image visible, no cropping), discount/limited badges as overlays, image counter, prev/next arrows on hover
+- **Video Autoplay:** ProductVideo component with autoPlay, muted, loop, playsInline + hover mute/unmute toggle
+- **Video Upload Validation:** MediaUploader validates video duration client-side (max 10 seconds) before upload
+- **Premium Minimal Layout:** Compact feature icons in 3-col grid, rounded tag pills, clean size/color selectors with rounded buttons
+- **Header Dark Theme:** Solid black header on all pages (no white-on-scroll), seamless with booster bar
+- **Testing:** Iteration 20 - 100% (all 24 features verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
 - Instagram Graph API -> needs Meta credentials
@@ -72,6 +82,8 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ## Remaining Tasks
 
 ### P1 - Upcoming
+- Image cropping tool on product upload (zoom, drag, 4:5 aspect ratio preview)
+- Customer reviews with image upload + admin approve/reject + lightbox gallery
 - Real Instagram Graph API (when credentials provided)
 - Real WhatsApp Business API (when credentials provided)
 
