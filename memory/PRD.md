@@ -67,11 +67,13 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Scroll Position Fix:** ScrollToTop component ensures page loads at top on every route change
 - **Typography Overhaul:** Title reduced to text-2xl/28px, price text-2xl, description text-sm, labels text-xs uppercase tracking-wider
 - **Image Display:** 4:5 aspect ratio with object-contain (full image visible, no cropping), discount/limited badges as overlays, image counter, prev/next arrows on hover
+- **Zoom on Hover:** 2.2x magnification on image hover, transform-origin follows cursor position, crosshair cursor, "Hover to zoom" hint
 - **Video Autoplay:** ProductVideo component with autoPlay, muted, loop, playsInline + hover mute/unmute toggle
+- **Video Controls:** Play/pause button, gold seekable progress bar, center play/pause indicator animation, click-to-seek, gradient control overlay on hover
 - **Video Upload Validation:** MediaUploader validates video duration client-side (max 10 seconds) before upload
 - **Premium Minimal Layout:** Compact feature icons in 3-col grid, rounded tag pills, clean size/color selectors with rounded buttons
 - **Header Dark Theme:** Solid black header on all pages (no white-on-scroll), seamless with booster bar
-- **Testing:** Iteration 20 - 100% (all 24 features verified)
+- **Testing:** Iteration 20 (100% - 24 features) + Iteration 21 (zoom 100%, video controls code verified)
 
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
