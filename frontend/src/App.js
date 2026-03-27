@@ -178,6 +178,12 @@ const CartRedirect = () => {
 };
 
 // App Router with session_id detection
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+};
+
 const AppRouter = () => {
   const location = useLocation();
   
@@ -188,10 +194,10 @@ const AppRouter = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/products" element={<ProductsPage />} />
-      <Route path="/products/:category" element={<ProductsPage />} />
-      <Route path="/product/:productId" element={<ProductDetailPage />} />
+      <Route path="/" element={<><ScrollToTop /><HomePage /></>} />
+      <Route path="/products" element={<><ScrollToTop /><ProductsPage /></>} />
+      <Route path="/products/:category" element={<><ScrollToTop /><ProductsPage /></>} />
+      <Route path="/product/:productId" element={<><ScrollToTop /><ProductDetailPage /></>} />
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

@@ -11,17 +11,44 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
+  // Validate video duration (max 10 seconds)
+  const validateVideoDuration = (file) => {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith("video/")) { resolve(true); return; }
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        if (video.duration > 10) {
+          toast.error(`${file.name}: Video must be 10 seconds or less (${Math.round(video.duration)}s)`);
+          resolve(false);
+        } else { resolve(true); }
+      };
+      video.onerror = () => resolve(true); // let server handle if client can't read
+      video.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFiles = useCallback(async (files) => {
     if (!files?.length) return;
     const remaining = maxFiles - value.length;
     if (remaining <= 0) { toast.error(`Max ${maxFiles} files allowed`); return; }
 
-    const toUpload = Array.from(files).slice(0, remaining);
+    const candidates = Array.from(files).slice(0, remaining);
+
+    // Validate video durations
+    const validFiles = [];
+    for (const f of candidates) {
+      const ok = await validateVideoDuration(f);
+      if (ok) validFiles.push(f);
+    }
+    if (validFiles.length === 0) return;
+
     setUploading(true);
     setProgress(0);
 
     const formData = new FormData();
-    toUpload.forEach(f => formData.append("files", f));
+    validFiles.forEach(f => formData.append("files", f));
 
     try {
       const res = await axios.post(`${API}/uploads/multiple?user_id=${userId}`, formData, {
@@ -109,7 +136,7 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
               Drop images/videos here or <span className="text-gold">browse</span>
             </p>
             <p className="text-xs text-neutral-600 mt-1">
-              JPG, PNG, WebP, MP4 - Max 10MB images, 100MB videos ({value.length}/{maxFiles})
+              JPG, PNG, WebP, MP4 - Max 10MB images, 100MB videos (10s max) ({value.length}/{maxFiles})
             </p>
           </>
         )}
