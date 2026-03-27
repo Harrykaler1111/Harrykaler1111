@@ -13,6 +13,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
+async def log_order_event(order_id: str, event_type: str, title: str, description: str = "",
+                          actor_type: str = "system", actor_id: str = None, actor_name: str = None, meta: dict = None):
+    """Log an event to the order timeline."""
+    event = {
+        "event_id": generate_id("evt_"),
+        "order_id": order_id,
+        "event_type": event_type,
+        "title": title,
+        "description": description,
+        "actor_type": actor_type,
+        "actor_id": actor_id,
+        "actor_name": actor_name,
+        "meta": meta or {},
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.order_events.insert_one(event)
+    return event
+
+
 async def credit_influencer_commission(influencer_id: str, order_id: str, order_total: float, commission_rate: float):
     commission_amount = order_total * (commission_rate / 100)
 
@@ -217,6 +236,13 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         {"$set": {"items": [], "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
 
+    # Log order placed event
+    await log_order_event(
+        order_id, "order_placed", "Order Placed",
+        f"Order #{order_id[-6:]} placed for ₹{total:,.0f} with {len(items)} item(s)",
+        actor_type="customer", actor_id=user["user_id"], actor_name=user.get("name", "Customer")
+    )
+
     return OrderResponse(**order_doc)
 
 
@@ -348,6 +374,18 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
             {"$inc": {"sales_count": 1, "sales_revenue": total, "commission_earned": actual_influencer_commission}}
         )
 
+    # Log payment and confirmation events
+    await log_order_event(
+        order_id, "payment_verified", "Payment Confirmed",
+        f"Payment of ₹{total:,.0f} verified successfully",
+        actor_type="system"
+    )
+    await log_order_event(
+        order_id, "status_change", "Order Confirmed",
+        "Your order has been confirmed and is being prepared",
+        actor_type="system", meta={"old_status": "pending", "new_status": "confirmed"}
+    )
+
     return {
         "message": "Payment verified and commissions settled",
         "status": "paid",
@@ -358,6 +396,29 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
             "vendor_amount": round(actual_vendor_amount, 2)
         }
     }
+
+
+# ============== ORDER TIMELINE ==============
+
+@router.get("/{order_id}/timeline")
+async def get_order_timeline(order_id: str, user: Dict = Depends(get_current_user)):
+    """Get order timeline events for customer view (generic, no admin names)"""
+    order = await db.orders.find_one({"order_id": order_id, "user_id": user["user_id"]}, {"_id": 0, "order_id": 1})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    events = await db.order_events.find(
+        {"order_id": order_id},
+        {"_id": 0, "actor_id": 0, "actor_name": 0}
+    ).sort("created_at", 1).to_list(100)
+
+    # Sanitize: customer sees generic actor_type only
+    for e in events:
+        if e.get("actor_type") == "admin":
+            e["actor_type"] = "system"
+        e.pop("meta", None)
+
+    return events
 
 
 # ============== MARKETPLACE ANALYTICS ==============

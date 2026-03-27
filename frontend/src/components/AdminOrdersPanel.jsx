@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API } from "@/App";
+import { OrderTimeline } from "@/components/OrderTimeline";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -253,6 +254,12 @@ const OrderRow = ({ order, token, onRefresh }) => {
                   )}
                 </div>
               )}
+
+              {/* Timeline */}
+              <div className="bg-neutral-50 rounded-lg p-3">
+                <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium mb-2">Activity Log</p>
+                <OrderTimeline orderId={order.order_id} token={token} isAdmin={true} />
+              </div>
 
               {/* Status Actions */}
               <div className="flex gap-2 flex-wrap">

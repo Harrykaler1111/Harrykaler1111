@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Package, Clock, CheckCircle, Truck, XCircle, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Package, Clock, CheckCircle, Truck, XCircle, ChevronRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth, API } from "@/App";
+import { OrderTimeline } from "@/components/OrderTimeline";
 import axios from "axios";
 
 export const OrdersPage = () => {
@@ -12,6 +13,7 @@ export const OrdersPage = () => {
   const { token } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [expandedOrder, setExpandedOrder] = useState(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -180,13 +182,32 @@ export const OrdersPage = () => {
                   <Button
                     variant="ghost"
                     className="text-sm"
-                    onClick={() => {/* View order details */}}
+                    onClick={() => setExpandedOrder(expandedOrder === order.order_id ? null : order.order_id)}
                     data-testid={`view-order-${order.order_id}`}
                   >
-                    View Details
-                    <ChevronRight className="ml-1 h-4 w-4" />
+                    {expandedOrder === order.order_id ? "Hide Timeline" : "View Timeline"}
+                    {expandedOrder === order.order_id
+                      ? <ChevronDown className="ml-1 h-4 w-4" />
+                      : <ChevronRight className="ml-1 h-4 w-4" />}
                   </Button>
                 </div>
+
+                {/* Timeline expansion */}
+                <AnimatePresence>
+                  {expandedOrder === order.order_id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-4 mt-2 border-t border-dashed border-neutral-200">
+                        <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium mb-3">Order Timeline</p>
+                        <OrderTimeline orderId={order.order_id} token={token} isAdmin={false} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             ))}
           </div>

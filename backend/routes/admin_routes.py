@@ -330,6 +330,30 @@ async def update_order_status(order_id: str, status: str, admin: Dict = Depends(
         {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
 
+    # Log timeline event
+    from routes.order_routes import log_order_event
+    status_labels = {
+        "confirmed": "Order Confirmed",
+        "processing": "Order Processing",
+        "shipped": "Order Shipped",
+        "delivered": "Order Delivered",
+        "cancelled": "Order Cancelled",
+    }
+    status_descriptions = {
+        "confirmed": "Order has been reviewed and confirmed",
+        "processing": "Order is being prepared for shipment",
+        "shipped": "Order has been shipped",
+        "delivered": "Order has been delivered successfully",
+        "cancelled": "Order has been cancelled",
+    }
+    await log_order_event(
+        order_id, "status_change",
+        status_labels.get(status, f"Status changed to {status}"),
+        status_descriptions.get(status, f"Order status updated to {status}"),
+        actor_type="admin", actor_id=admin["admin_id"], actor_name=admin.get("name", "Admin"),
+        meta={"old_status": order.get("status"), "new_status": status}
+    )
+
     settlement_info = None
 
     # Auto-settle commissions when order is delivered
@@ -437,6 +461,21 @@ async def update_order_tracking(order_id: str, data: TrackingUpdate, admin: Dict
         }}
     )
 
+    # Log timeline events
+    from routes.order_routes import log_order_event
+    await log_order_event(
+        order_id, "tracking_added", "Tracking ID Added",
+        f"Tracking ID: {data.tracking_id} via {data.courier_name}",
+        actor_type="admin", actor_id=admin["admin_id"], actor_name=admin.get("name", "Admin"),
+        meta={"tracking_id": data.tracking_id, "courier_name": data.courier_name}
+    )
+    await log_order_event(
+        order_id, "status_change", "Order Shipped",
+        f"Your order has been shipped via {data.courier_name}",
+        actor_type="admin", actor_id=admin["admin_id"], actor_name=admin.get("name", "Admin"),
+        meta={"old_status": order.get("status", "processing"), "new_status": "shipped"}
+    )
+
     return {"message": "Tracking updated, order marked as shipped"}
 
 
@@ -454,6 +493,26 @@ async def get_order_detail(order_id: str, admin: Dict = Depends(get_admin_user))
     order["customer"] = user or {}
 
     return order
+
+
+# ============== ADMIN ORDER TIMELINE ==============
+
+@router.get("/orders/{order_id}/timeline")
+async def get_admin_order_timeline(order_id: str, admin: Dict = Depends(get_admin_user)):
+    """Get full order timeline with admin actor details"""
+    if not check_permission(admin, "orders", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    order = await db.orders.find_one({"order_id": order_id}, {"_id": 0, "order_id": 1})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    events = await db.order_events.find(
+        {"order_id": order_id},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(100)
+
+    return events
 
 
 # ============== NEW ORDER NOTIFICATIONS ==============
