@@ -121,3 +121,24 @@ async def clear_cart(user: Dict = Depends(get_current_user)):
         {"$set": {"items": [], "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": "Cart cleared"}
+
+
+@router.get("/upsell-suggestions")
+async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_current_user)):
+    """Get product suggestions under max_price for cart upsell"""
+    cart = await db.carts.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    cart_product_ids = [i["product_id"] for i in (cart.get("items", []) if cart else [])]
+
+    products = await db.products.find(
+        {"is_active": True, "price": {"$lte": max_price}, "stock": {"$gt": 0}, "product_id": {"$nin": cart_product_ids}},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(8).to_list(8)
+
+    if len(products) < 4:
+        extra = await db.products.find(
+            {"is_active": True, "price": {"$lte": 500}, "stock": {"$gt": 0}, "product_id": {"$nin": cart_product_ids + [p["product_id"] for p in products]}},
+            {"_id": 0}
+        ).limit(8 - len(products)).to_list(8 - len(products))
+        products.extend(extra)
+
+    return products
