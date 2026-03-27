@@ -55,12 +55,19 @@ export const HomePage = () => {
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=1920&q=80"
-            alt="Hero"
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
             className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/80" />
+            poster="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=1920&q=80"
+            data-testid="hero-video"
+          >
+            <source src="https://assets.mixkit.co/videos/52278/52278-720.mp4" type="video/mp4" />
+            <source src="/pigma_fashion_model.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
         </div>
         
         <div className="relative z-10 text-center text-white px-4 max-w-4xl mx-auto">

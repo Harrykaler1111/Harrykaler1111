@@ -37,44 +37,43 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - User/Vendor/Admin dashboards with full lifecycle, SLA, Knowledge Base
 
 ### Phase 8 - Payment Enforcement, Rewards, Sales Manager (2026-03-26)
-- Unread ticket badge, Vendor wallet top-up, Collab payment enforcement (3-strike suspend)
+- Unread ticket badge, Vendor wallet top-up, Collab payment enforcement
 - Reward campaigns, Sales Manager role, Featured vendors control
 
 ### Phase 9 - Returns, Creator Recruitment, Pixel Settings (2026-03-26)
-- Return & Dispute Management (full lifecycle)
-- Referral Code Tracking Fix, Creator Recruitment Landing Page
-- Sales Manager Account, Marketing Pixel Settings UI
+- Return & Dispute Management, Creator Recruitment Landing Page
 
-### Phase 10 - Credit System, ChatWidget, Marketing Hub, UI Update (2026-03-26)
-- Real-Money Credit System with Razorpay integration (mocked without keys)
+### Phase 10 - Credit System, ChatWidget, Marketing Hub (2026-03-26)
+- Real-Money Credit System with Razorpay (mocked w/o keys)
 - ChatWidget + Ticket Integration (dual-mode: ticket creation + AI chat)
-- Admin Marketing Hub (RBAC restricted to Super Admin & Marketing Manager)
-- Zomato-style Top Vendors in Hero Section (circular avatars, horizontal scroll)
-- Testing: Iteration 13 - 100% pass
+- Admin Marketing Hub (RBAC: Super Admin & Marketing Manager)
+- Zomato-style Top Vendors in Hero Section
 
 ### Phase 10.5 - Vendor Analytics Dashboard (2026-03-26)
-- **Summary Cards:** Total Revenue, Orders, Avg Order Value, Promotion ROI, Credit Balance, Credits Spent, Active Promotions, Promoted Revenue
-- **Sales Trend Chart:** 30-day bar chart with hover tooltips showing daily revenue & orders
-- **Top Products Table:** Ranked by revenue with orders and units sold
-- **Credit Analytics:** Credit usage breakdown by promotion type (horizontal bars), recent credit transactions table
-- **Backend:** GET /api/vendors/analytics/overview aggregating orders, promotions, credits data
-- **Testing:** Iteration 14 - 100% pass (16 backend + all frontend verified)
+- Summary Cards, 30-day Sales Trend Chart, Top Products Table
+- Credit Analytics (usage breakdown by type + transactions)
+
+### Phase 11 - Hero Section Video Background (2026-03-27)
+- **Full-screen video hero:** Replaced static image with autoplay looping video of fashion model wearing boots/products
+- **Video source:** Mixkit CDN (52278 - model in white dress with red boots) with local fallback
+- **Video attributes:** autoPlay, muted, loop, playsInline for seamless playback
+- **Public asset serving:** Added `/api/uploads/assets/{path}` endpoint for static asset delivery
+- **Poster fallback:** Unsplash fashion photo shows while video loads
 
 ## MOCKED Integrations
-- Razorpay (payments/payouts/wallet/refunds/credits) -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
+- Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
 - Instagram OAuth & DM -> needs Meta credentials
 - SMS/Email/WhatsApp notifications -> demo OTP
 
 ## Remaining Tasks
 
 ### P1 - Upcoming
-1. Custom Instagram Auto DM system (requires Meta API credentials, NOT ManyChat)
+1. Custom Instagram Auto DM system (requires Meta API credentials)
 2. Advanced Referral Commission logic (Tiered: 1% for 1, 1.5% for 10+)
-3. WhatsApp Cart Reminder System (requires API key)
-4. Meta Pixel & Google Ads Pixel frontend injection (when IDs configured)
+3. WhatsApp Cart Reminder System
+4. Meta Pixel & Google Ads Pixel frontend injection
 
 ### P2 - Future/Backlog
 - Real payment gateway integration (Razorpay live keys)
-- OTP verification for login/registration (real SMS)
-- AI chatbot integration enhancement
-- Frontend refactoring (AdminDashboard 3300+ lines, VendorDashboard 2100+ lines)
+- OTP verification (real SMS)
+- Frontend refactoring (AdminDashboard 3300+ lines)
