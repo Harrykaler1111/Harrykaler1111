@@ -161,7 +161,7 @@ export const BoosterBar = () => {
       <UpsellModal open={showUpsell} onClose={() => setShowUpsell(false)} />
 
       {/* Desktop Bar */}
-      <div className="hidden lg:block fixed top-[72px] left-0 right-0 z-40" data-testid="booster-bar-desktop">
+      <div className="hidden lg:block fixed top-[80px] left-0 right-0 z-40 will-change-transform" style={{ transform: 'translateZ(0)' }} data-testid="booster-bar-desktop">
         <div className="relative bg-black border-b border-gold/20 overflow-hidden">
           {/* Animated glow when slab unlocked */}
           {active && (
@@ -270,7 +270,7 @@ export const BoosterBar = () => {
         </div>
       </div>
       {/* Spacer to push content below the fixed desktop booster bar */}
-      <div className="hidden lg:block h-[52px]" />
+      <div className="hidden lg:block h-[52px] bg-black" />
 
       {/* Mobile Sticky Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[60]" data-testid="booster-bar-mobile">

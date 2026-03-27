@@ -46,13 +46,14 @@ export const Header = () => {
 
   const isHomePage = location.pathname === "/";
   const headerBg = isScrolled || !isHomePage
-    ? "bg-white/95 backdrop-blur-md border-b border-neutral-200"
-    : "bg-transparent";
-  const textColor = isScrolled || !isHomePage ? "text-black" : "text-white";
+    ? "bg-black backdrop-blur-md"
+    : "bg-black/70 backdrop-blur-sm";
+  const textColor = "text-white";
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${headerBg}`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 will-change-transform ${headerBg}`}
+      style={{ transform: 'translateZ(0)' }}
       data-testid="header"
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8">

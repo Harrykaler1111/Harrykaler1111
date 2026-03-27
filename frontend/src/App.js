@@ -156,7 +156,7 @@ const LayoutWrapper = ({ children }) => {
   }, [location.search]);
 
   return (
-    <div className="App min-h-screen flex flex-col">
+    <div className="App min-h-screen flex flex-col bg-neutral-50">
       {!hideChrome && <Header />}
       {!hideChrome && <BoosterBar />}
       <main className="flex-1">{children}</main>
