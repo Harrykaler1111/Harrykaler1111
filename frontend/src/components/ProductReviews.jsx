@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Star, ThumbsUp, MessageSquare, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Star, ThumbsUp, MessageSquare, ChevronDown, Camera, X, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
 
+// ====== Star Rating ======
 const StarRating = ({ rating, size = "sm", interactive = false, onChange }) => {
   const [hover, setHover] = useState(0);
   const sizeClass = size === "lg" ? "h-6 w-6" : size === "md" ? "h-5 w-5" : "h-4 w-4";
@@ -37,6 +39,7 @@ const StarRating = ({ rating, size = "sm", interactive = false, onChange }) => {
   );
 };
 
+// ====== Rating Bar ======
 const RatingBar = ({ label, count, total }) => {
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
@@ -44,18 +47,157 @@ const RatingBar = ({ label, count, total }) => {
       <span className="w-8 text-right text-neutral-500">{label}</span>
       <Star className="h-3 w-3 fill-gold text-gold" />
       <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gold rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
       <span className="w-8 text-neutral-400 text-xs">{count}</span>
     </div>
   );
 };
 
+// ====== Lightbox ======
+const ImageLightbox = ({ images, initialIndex, onClose }) => {
+  const [index, setIndex] = useState(initialIndex);
+
+  const go = useCallback((dir) => {
+    setIndex((i) => (i + dir + images.length) % images.length);
+  }, [images.length]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") go(1);
+      if (e.key === "ArrowLeft") go(-1);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [go, onClose]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[150] flex items-center justify-center"
+      onClick={onClose}
+      data-testid="image-lightbox"
+    >
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white z-10" data-testid="lightbox-close">
+        <X className="h-6 w-6" />
+      </button>
+
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); go(-1); }}
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full p-2 text-white z-10"
+            data-testid="lightbox-prev">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); go(1); }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 rounded-full p-2 text-white z-10"
+            data-testid="lightbox-next">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
+
+      <motion.img
+        key={index}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        src={images[index]}
+        alt=""
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()}
+        data-testid="lightbox-image"
+      />
+
+      {images.length > 1 && (
+        <span className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-sm">
+          {index + 1} / {images.length}
+        </span>
+      )}
+    </motion.div>
+  );
+};
+
+// ====== Review Image Upload ======
+const ReviewImageUpload = ({ images, onChange, maxImages = 5 }) => {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFiles = async (files) => {
+    if (!files?.length) return;
+    const remaining = maxImages - images.length;
+    if (remaining <= 0) { toast.error(`Max ${maxImages} images`); return; }
+
+    const toUpload = Array.from(files).slice(0, remaining);
+    setUploading(true);
+
+    const formData = new FormData();
+    toUpload.forEach(f => formData.append("files", f));
+
+    try {
+      const res = await axios.post(`${API}/uploads/multiple?user_id=review`, formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      const uploaded = (res.data.uploaded || []).map(u => `${process.env.REACT_APP_BACKEND_URL}${u.url}`);
+      onChange([...images, ...uploaded]);
+    } catch {
+      toast.error("Image upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="text-sm font-medium mb-2 block">Add Photos (optional)</label>
+      <div className="flex gap-2 flex-wrap">
+        {images.map((img, i) => (
+          <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-neutral-200 group">
+            <img src={img} alt="" className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={() => onChange(images.filter((_, idx) => idx !== i))}
+              className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X className="h-2.5 w-2.5 text-white" />
+            </button>
+          </div>
+        ))}
+        {images.length < maxImages && (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="w-16 h-16 border-2 border-dashed border-neutral-300 rounded-lg flex items-center justify-center text-neutral-400 hover:border-gold hover:text-gold transition-colors"
+            data-testid="review-add-photo-btn"
+          >
+            {uploading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold" />
+            ) : (
+              <Camera className="h-5 w-5" />
+            )}
+          </button>
+        )}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+        data-testid="review-image-input"
+      />
+    </div>
+  );
+};
+
+// ====== Review Card ======
 const ReviewCard = ({ review, token }) => {
   const [helpfulClicked, setHelpfulClicked] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(null);
 
   const markHelpful = async () => {
     if (helpfulClicked) return;
@@ -73,35 +215,57 @@ const ReviewCard = ({ review, token }) => {
     year: "numeric", month: "short", day: "numeric"
   });
 
+  const images = review.images || [];
+
   return (
-    <div className="py-6 border-b border-neutral-100 last:border-0" data-testid={`review-${review.review_id}`}>
-      <div className="flex items-start justify-between mb-2">
+    <div className="py-5 border-b border-neutral-100 last:border-0" data-testid={`review-${review.review_id}`}>
+      <div className="flex items-start justify-between mb-1.5">
         <div>
           <div className="flex items-center gap-3">
             <StarRating rating={review.rating} />
-            {review.title && (
-              <span className="font-medium text-sm">{review.title}</span>
-            )}
+            {review.title && <span className="font-medium text-sm">{review.title}</span>}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm font-medium text-neutral-700">{review.user_name}</span>
             {review.is_verified_purchase && (
-              <span className="text-[10px] font-mono uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5">
-                Verified Purchase
+              <span className="text-[10px] font-mono uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5 rounded-sm">
+                Verified
               </span>
             )}
             <span className="text-xs text-neutral-400">{date}</span>
           </div>
         </div>
       </div>
-      <p className="text-neutral-600 text-sm leading-relaxed mt-3">{review.comment}</p>
-      {review.images?.length > 0 && (
-        <div className="flex gap-2 mt-3">
-          {review.images.map((img, i) => (
-            <img key={i} src={img} alt="" className="w-16 h-16 object-cover rounded border" />
+
+      <p className="text-neutral-600 text-sm leading-relaxed mt-2">{review.comment}</p>
+
+      {/* Review Images Grid */}
+      {images.length > 0 && (
+        <div className="flex gap-2 mt-3" data-testid={`review-images-${review.review_id}`}>
+          {images.map((img, i) => (
+            <button
+              key={i}
+              onClick={() => setLightboxIdx(i)}
+              className="w-16 h-16 rounded-lg overflow-hidden border border-neutral-200 hover:border-gold hover:ring-1 hover:ring-gold/30 transition-all flex-shrink-0"
+              data-testid={`review-image-${review.review_id}-${i}`}
+            >
+              <img src={img} alt="" className="w-full h-full object-cover" />
+            </button>
           ))}
         </div>
       )}
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxIdx !== null && (
+          <ImageLightbox
+            images={images}
+            initialIndex={lightboxIdx}
+            onClose={() => setLightboxIdx(null)}
+          />
+        )}
+      </AnimatePresence>
+
       <button
         onClick={markHelpful}
         className={`flex items-center gap-1.5 mt-3 text-xs transition-colors ${
@@ -116,10 +280,12 @@ const ReviewCard = ({ review, token }) => {
   );
 };
 
+// ====== Write Review Form ======
 const WriteReviewForm = ({ productId, vendorId, token, onSubmitted }) => {
   const [rating, setRating] = useState(0);
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
+  const [images, setImages] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -135,9 +301,10 @@ const WriteReviewForm = ({ productId, vendorId, token, onSubmitted }) => {
         rating,
         title: title.trim() || null,
         comment: comment.trim(),
+        images,
       }, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success("Review submitted!");
-      setRating(0); setTitle(""); setComment("");
+      toast.success("Review submitted! It will appear after approval.");
+      setRating(0); setTitle(""); setComment(""); setImages([]);
       onSubmitted?.();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to submit review");
@@ -168,23 +335,28 @@ const WriteReviewForm = ({ productId, vendorId, token, onSubmitted }) => {
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="What did you like or dislike?"
-          rows={4}
+          rows={3}
           className="border-neutral-200 focus:border-gold focus:ring-gold/20 resize-none"
           data-testid="review-comment-input"
         />
       </div>
-      <Button
-        type="submit"
-        disabled={submitting}
-        className="btn-gold"
-        data-testid="submit-review-btn"
-      >
-        {submitting ? "Submitting..." : "Submit Review"}
-      </Button>
+
+      {/* Image Upload */}
+      <ReviewImageUpload images={images} onChange={setImages} />
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={submitting} className="btn-gold" data-testid="submit-review-btn">
+          {submitting ? "Submitting..." : "Submit Review"}
+        </Button>
+        <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+          <Clock className="h-3 w-3" /> Reviews are moderated
+        </span>
+      </div>
     </form>
   );
 };
 
+// ====== Main Component ======
 export const ProductReviews = ({ productId, vendorId }) => {
   const { user, token } = useAuth();
   const [reviews, setReviews] = useState([]);
@@ -205,9 +377,9 @@ export const ProductReviews = ({ productId, vendorId }) => {
   const displayedReviews = showAll ? reviews : reviews.slice(0, 3);
 
   return (
-    <div className="mt-16 pt-12 border-t" data-testid="product-reviews-section">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="font-serif text-2xl font-bold" data-testid="reviews-heading">
+    <div className="mt-12 pt-10 border-t" data-testid="product-reviews-section">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-serif text-xl font-bold" data-testid="reviews-heading">
           Customer Reviews
         </h2>
         {user && (
@@ -215,10 +387,10 @@ export const ProductReviews = ({ productId, vendorId }) => {
             variant="outline"
             size="sm"
             onClick={() => setShowForm(!showForm)}
-            className="border-neutral-300 hover:border-gold hover:text-gold"
+            className="border-neutral-300 hover:border-gold hover:text-gold text-xs"
             data-testid="toggle-review-form-btn"
           >
-            <MessageSquare className="h-4 w-4 mr-2" />
+            <Camera className="h-3.5 w-3.5 mr-1.5" />
             Write a Review
           </Button>
         )}
@@ -226,13 +398,13 @@ export const ProductReviews = ({ productId, vendorId }) => {
 
       {/* Stats Summary */}
       {stats && stats.total > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-8 mb-8 p-6 bg-neutral-50 rounded-lg" data-testid="review-stats">
-          <div className="text-center md:border-r md:pr-8">
-            <div className="text-5xl font-bold text-black">{(stats.avg_rating || 0).toFixed(1)}</div>
+        <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-6 mb-6 p-5 bg-neutral-50 rounded-lg" data-testid="review-stats">
+          <div className="text-center md:border-r md:pr-6">
+            <div className="text-4xl font-bold text-black">{(stats.avg_rating || 0).toFixed(1)}</div>
             <StarRating rating={Math.round(stats.avg_rating || 0)} size="md" />
-            <p className="text-sm text-neutral-500 mt-1">{stats.total} review{stats.total !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-neutral-500 mt-1">{stats.total} review{stats.total !== 1 ? "s" : ""}</p>
           </div>
-          <div className="space-y-2 flex flex-col justify-center">
+          <div className="space-y-1.5 flex flex-col justify-center">
             <RatingBar label="5" count={stats.five || 0} total={stats.total} />
             <RatingBar label="4" count={stats.four || 0} total={stats.total} />
             <RatingBar label="3" count={stats.three || 0} total={stats.total} />
@@ -241,24 +413,33 @@ export const ProductReviews = ({ productId, vendorId }) => {
           </div>
         </div>
       ) : (
-        <div className="text-center py-8 bg-neutral-50 rounded-lg mb-8" data-testid="no-reviews">
-          <Star className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
-          <p className="text-neutral-500">No reviews yet. Be the first to review this product!</p>
+        <div className="text-center py-6 bg-neutral-50 rounded-lg mb-6" data-testid="no-reviews">
+          <Star className="h-7 w-7 text-neutral-300 mx-auto mb-2" />
+          <p className="text-neutral-500 text-sm">No reviews yet. Be the first to review!</p>
         </div>
       )}
 
       {/* Write Review Form */}
-      {showForm && user && (
-        <div className="mb-8 p-6 border border-neutral-200 rounded-lg bg-white" data-testid="review-form-container">
-          <h3 className="font-serif text-lg font-semibold mb-4">Write Your Review</h3>
-          <WriteReviewForm
-            productId={productId}
-            vendorId={vendorId}
-            token={token}
-            onSubmitted={() => { setShowForm(false); fetchReviews(); }}
-          />
-        </div>
-      )}
+      <AnimatePresence>
+        {showForm && user && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="mb-6 p-5 border border-neutral-200 rounded-lg bg-white" data-testid="review-form-container">
+              <h3 className="font-serif text-base font-semibold mb-4">Write Your Review</h3>
+              <WriteReviewForm
+                productId={productId}
+                vendorId={vendorId}
+                token={token}
+                onSubmitted={() => { setShowForm(false); fetchReviews(); }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Review List */}
       {reviews.length > 0 && (

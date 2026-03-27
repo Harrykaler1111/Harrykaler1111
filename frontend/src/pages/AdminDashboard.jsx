@@ -6,7 +6,7 @@ import {
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
   Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
-  LifeBuoy, Send, BookOpen, Clock, MessageSquare
+  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { HeroVideoManagement, ReferralTiersManagement, InstagramDMManagement, WhatsAppRemindersManagement } from "@/components/AdminSiteSettings";
 import { AdminBoosterPanel } from "@/components/AdminBoosterPanel";
+import { AdminReviewsPanel } from "@/components/AdminReviewsPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3223,6 +3224,7 @@ export const AdminDashboard = () => {
     { path: "/admin/instagram", icon: <Instagram className="h-5 w-5" />, label: "Instagram DM", permission: ["platform_settings", "edit"] },
     { path: "/admin/whatsapp", icon: <MessageSquare className="h-5 w-5" />, label: "WhatsApp", permission: ["platform_settings", "edit"] },
     { path: "/admin/cart-booster", icon: <TrendingUp className="h-5 w-5" />, label: "Cart Booster", permission: ["platform_settings", "edit"] },
+    { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
 
@@ -3318,6 +3320,7 @@ export const AdminDashboard = () => {
             <Route path="instagram" element={<InstagramDMManagement />} />
             <Route path="whatsapp" element={<WhatsAppRemindersManagement />} />
             <Route path="cart-booster" element={<AdminBoosterPanel />} />
+            <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>
