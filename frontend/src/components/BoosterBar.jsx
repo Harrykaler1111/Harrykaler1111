@@ -138,7 +138,7 @@ const UpsellModal = ({ open, onClose }) => {
 // ============== MAIN STICKY BOOSTER BAR ==============
 export const BoosterBar = () => {
   const navigate = useNavigate();
-  const { cartTotal, cartCount, slabs, messages, getActiveSlab, lastAddedAmount, newSlabUnlocked } = useCart();
+  const { cartTotal, cartCount, slabs, messages, getActiveSlab, lastAddedAmount, newSlabUnlocked, openCart } = useCart();
   const [showUpsell, setShowUpsell] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -161,7 +161,7 @@ export const BoosterBar = () => {
       <UpsellModal open={showUpsell} onClose={() => setShowUpsell(false)} />
 
       {/* Desktop Bar */}
-      <div className="hidden lg:block sticky top-[72px] z-40" data-testid="booster-bar-desktop">
+      <div className="hidden lg:block fixed top-[72px] left-0 right-0 z-40" data-testid="booster-bar-desktop">
         <div className="relative bg-black border-b border-gold/20 overflow-hidden">
           {/* Animated glow when slab unlocked */}
           {active && (
@@ -269,6 +269,8 @@ export const BoosterBar = () => {
           </div>
         </div>
       </div>
+      {/* Spacer to push content below the fixed desktop booster bar */}
+      <div className="hidden lg:block h-[52px]" />
 
       {/* Mobile Sticky Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[60]" data-testid="booster-bar-mobile">
@@ -327,7 +329,7 @@ export const BoosterBar = () => {
               </div>
             </div>
             {/* Cart icon */}
-            <button onClick={(e) => { e.stopPropagation(); navigate("/cart"); }}
+            <button onClick={(e) => { e.stopPropagation(); openCart(); }}
               className="relative bg-gold text-black p-2 rounded-full" data-testid="mobile-cart-btn">
               <ShoppingBag className="h-4 w-4" />
               {cartCount > 0 && (

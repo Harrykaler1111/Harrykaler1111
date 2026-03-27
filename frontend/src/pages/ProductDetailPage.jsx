@@ -5,6 +5,7 @@ import { Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus, Check, Star,
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
 import { useAuth, API } from "@/App";
+import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -12,6 +13,7 @@ export const ProductDetailPage = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
   const { user, token } = useAuth();
+  const { addToCart, openCart } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,17 +59,11 @@ export const ProductDetailPage = () => {
 
     setAddingToCart(true);
     try {
-      await axios.post(
-        `${API}/cart/add`,
-        {
-          product_id: product.product_id,
-          quantity,
-          size: selectedSize,
-          color: selectedColor
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success("Added to cart!");
+      const ok = await addToCart(product.product_id, quantity, selectedSize, selectedColor);
+      if (ok) {
+        toast.success("Added to cart!");
+        openCart();
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to add to cart");
     } finally {
