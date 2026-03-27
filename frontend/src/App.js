@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { HomePage } from "@/pages/HomePage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
-import { CartPage } from "@/pages/CartPage";
 import { CheckoutPage } from "@/pages/CheckoutPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { AuthCallback } from "@/pages/AuthCallback";
@@ -31,8 +30,9 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
 import { TrackingPixels } from "@/components/TrackingPixels";
-import { CartProvider } from "@/context/CartContext";
+import { CartProvider, useCart } from "@/context/CartContext";
 import { BoosterBar } from "@/components/BoosterBar";
+import { CartDrawer } from "@/components/CartDrawer";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -162,10 +162,19 @@ const LayoutWrapper = ({ children }) => {
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <ChatWidget />}
+      {!hideChrome && <CartDrawer />}
       <TrackingPixels />
       <Toaster position="top-right" richColors />
     </div>
   );
+};
+
+// Cart route opens the drawer and redirects home
+const CartRedirect = () => {
+  const { openCart } = useCart();
+  const navigate = useNavigate();
+  useEffect(() => { openCart(); navigate("/", { replace: true }); }, []);
+  return null;
 };
 
 // App Router with session_id detection
@@ -190,7 +199,7 @@ const AppRouter = () => {
         path="/cart"
         element={
           <ProtectedRoute>
-            <CartPage />
+            <CartRedirect />
           </ProtectedRoute>
         }
       />

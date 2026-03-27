@@ -6,7 +6,7 @@ const CartContext = createContext(null);
 
 export const useCart = () => {
   const ctx = useContext(CartContext);
-  if (!ctx) return { cart: null, cartTotal: 0, cartCount: 0, refreshCart: () => {}, slabs: [], messages: {}, boosterConfig: null, lastAddedAmount: 0 };
+  if (!ctx) return { cart: null, cartTotal: 0, cartCount: 0, refreshCart: () => {}, slabs: [], messages: {}, boosterConfig: null, lastAddedAmount: 0, isCartOpen: false, openCart: () => {}, closeCart: () => {} };
   return ctx;
 };
 
@@ -16,7 +16,11 @@ export const CartProvider = ({ children }) => {
   const [lastAddedAmount, setLastAddedAmount] = useState(0);
   const [prevUnlockedSlab, setPrevUnlockedSlab] = useState(null);
   const [newSlabUnlocked, setNewSlabUnlocked] = useState(null);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const prevTotalRef = useRef(0);
+
+  const openCart = useCallback(() => setIsCartOpen(true), []);
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
 
   const token = localStorage.getItem("pigma_token");
   const cartTotal = cart?.total || 0;
@@ -119,7 +123,8 @@ export const CartProvider = ({ children }) => {
     <CartContext.Provider value={{
       cart, cartTotal, cartCount, refreshCart, addToCart,
       slabs, messages, boosterConfig, getActiveSlab,
-      lastAddedAmount, newSlabUnlocked, prevTotal: prevTotalRef.current
+      lastAddedAmount, newSlabUnlocked, prevTotal: prevTotalRef.current,
+      isCartOpen, openCart, closeCart
     }}>
       {children}
     </CartContext.Provider>

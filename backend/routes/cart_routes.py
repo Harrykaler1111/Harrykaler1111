@@ -165,14 +165,14 @@ async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_
         priority_products.extend(general)
         seen_ids.extend([p["product_id"] for p in general])
 
-    # Priority 3: Slightly pricier items up to ₹500 if still short
+    # Priority 3: Broader range items if still short (for premium catalogs)
     remaining = 8 - len(priority_products)
     if remaining > 0:
         extra = await db.products.find(
-            {**base_filter, "price": {"$lte": 500},
+            {**base_filter,
              "product_id": {"$nin": cart_product_ids + seen_ids}},
             {"_id": 0}
-        ).limit(remaining).to_list(remaining)
+        ).sort("price", 1).limit(remaining).to_list(remaining)
         priority_products.extend(extra)
 
     return priority_products

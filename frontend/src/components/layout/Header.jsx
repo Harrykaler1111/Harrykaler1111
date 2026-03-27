@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth, API } from "@/App";
+import { useCart } from "@/context/CartContext";
 import axios from "axios";
 import { 
   ShoppingBag, Heart, User, Menu, Search, ChevronDown, LifeBuoy
@@ -14,6 +15,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export const Header = () => {
   const { user, token, logout } = useAuth();
+  const { cartCount, openCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -123,9 +125,14 @@ export const Header = () => {
             )}
 
             {user && (
-              <Button variant="ghost" size="icon" className={`${textColor} hover:text-gold`}
-                onClick={() => navigate("/cart")} data-testid="cart-btn">
+              <Button variant="ghost" size="icon" className={`${textColor} hover:text-gold relative`}
+                onClick={openCart} data-testid="cart-btn">
                 <ShoppingBag className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-gold text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
               </Button>
             )}
 
