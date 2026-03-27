@@ -37,6 +37,7 @@ from routes.upload_routes import router as upload_router
 from routes.support_ticket_routes import router as ticket_router
 from routes.reward_routes import router as reward_router
 from routes.return_routes import router as return_router
+from routes.site_settings_routes import router as site_settings_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -69,6 +70,7 @@ app.include_router(upload_router, prefix="/api")
 app.include_router(ticket_router, prefix="/api")
 app.include_router(reward_router, prefix="/api")
 app.include_router(return_router, prefix="/api")
+app.include_router(site_settings_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import axios from "axios";
+import { HeroVideoManagement, ReferralTiersManagement, InstagramDMManagement, WhatsAppRemindersManagement } from "@/components/AdminSiteSettings";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3216,6 +3217,10 @@ export const AdminDashboard = () => {
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/returns", icon: <Package className="h-5 w-5" />, label: "Returns & Disputes", permission: ["orders", "view"] },
     { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
+    { path: "/admin/hero-video", icon: <Eye className="h-5 w-5" />, label: "Hero Video", permission: ["platform_settings", "edit"] },
+    { path: "/admin/referral-tiers", icon: <TrendingUp className="h-5 w-5" />, label: "Referral Tiers", permission: ["platform_settings", "view"] },
+    { path: "/admin/instagram", icon: <Instagram className="h-5 w-5" />, label: "Instagram DM", permission: ["platform_settings", "edit"] },
+    { path: "/admin/whatsapp", icon: <MessageSquare className="h-5 w-5" />, label: "WhatsApp", permission: ["platform_settings", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
   ];
 
@@ -3306,6 +3311,10 @@ export const AdminDashboard = () => {
             <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="returns" element={<ReturnsManagement />} />
             <Route path="settings" element={<CommissionSettings />} />
+            <Route path="hero-video" element={<HeroVideoManagement />} />
+            <Route path="referral-tiers" element={<ReferralTiersManagement />} />
+            <Route path="instagram" element={<InstagramDMManagement />} />
+            <Route path="whatsapp" element={<WhatsAppRemindersManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>

@@ -1,0 +1,81 @@
+{
+  "iteration": 15,
+  "timestamp": "2026-03-27T14:17:00Z",
+  "overall_status": "PASSED",
+  "summary": "All 5 new site settings features fully tested and working. Backend: 22/22 tests passed. Frontend: All admin pages load correctly with proper UI elements. Hero Video Management, Tiered Referral Commission, Instagram Auto DM (MOCKED), WhatsApp Cart Reminders (MOCKED), and Meta/Google Tracking Pixels all functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/admin/site/instagram/config",
+        "issue": "When config exists from partial updates, some fields like is_connected may be missing. Default values not merged with stored config.",
+        "priority": "LOW"
+      },
+      {
+        "endpoint": "GET /api/admin/site/whatsapp/config",
+        "issue": "Same as Instagram - partial updates don't preserve all default fields",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration15_site_settings.py",
+    "/app/test_reports/pytest/iteration15_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration15_site_settings.py"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 passed)",
+    "frontend": "100% (all UI elements verified)"
+  },
+  "test_credentials": {
+    "superadmin": "superadmin@pigma.com / superadmin123",
+    "marketing_manager": "marketing@pigma.com / marketing123"
+  },
+  "seed_data_creation": "None - used existing platform_settings with test pixel IDs",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 15 Site Settings features all working. Instagram and WhatsApp APIs are MOCKED - they log actions to DB but don't make real API calls. Tracking pixels use test IDs: TEST_META_PIXEL_123456 and TEST_GOOGLE_ADS_789012. All admin sidebar nav items present and routes working.",
+  "features_tested": {
+    "backend": [
+      {"endpoint": "GET /api/health", "status": "PASSED", "notes": "API accessible"},
+      {"endpoint": "POST /api/admin/auth/login", "status": "PASSED", "notes": "Super admin login works"},
+      {"endpoint": "GET /api/admin/site/hero-video", "status": "PASSED", "notes": "Public endpoint returns video config"},
+      {"endpoint": "PUT /api/admin/site/hero-video", "status": "PASSED", "notes": "Updates video_url and poster_url, requires super_admin"},
+      {"endpoint": "GET /api/admin/site/referral-tiers", "status": "PASSED", "notes": "Returns 3 default tiers (0.5%/1%/2.5%)"},
+      {"endpoint": "PUT /api/admin/site/referral-tiers", "status": "PASSED", "notes": "Saves custom tiers, requires super_admin"},
+      {"endpoint": "GET /api/admin/site/referral-tiers/report", "status": "PASSED", "notes": "Returns referral tracking report"},
+      {"endpoint": "GET /api/admin/site/instagram/config", "status": "PASSED", "notes": "Returns IG DM config with rules"},
+      {"endpoint": "POST /api/admin/site/instagram/rules", "status": "PASSED", "notes": "Adds DM rule with rule_id"},
+      {"endpoint": "DELETE /api/admin/site/instagram/rules/{rule_id}", "status": "PASSED", "notes": "Removes rule"},
+      {"endpoint": "POST /api/admin/site/instagram/test-dm", "status": "PASSED", "notes": "MOCKED - logs DM to dm_history"},
+      {"endpoint": "GET /api/admin/site/whatsapp/config", "status": "PASSED", "notes": "Returns WA config"},
+      {"endpoint": "PUT /api/admin/site/whatsapp/config", "status": "PASSED", "notes": "Saves settings"},
+      {"endpoint": "POST /api/admin/site/whatsapp/connect", "status": "PASSED", "notes": "MOCKED - sets is_connected"},
+      {"endpoint": "POST /api/admin/site/whatsapp/test-reminder", "status": "PASSED", "notes": "MOCKED - logs reminder"},
+      {"endpoint": "GET /api/admin/site/tracking-pixels", "status": "PASSED", "notes": "Returns meta_pixel_id and google_ads_id"}
+    ],
+    "frontend": [
+      {"component": "Admin Sidebar", "status": "PASSED", "notes": "All 4 new nav items present: Hero Video, Referral Tiers, Instagram DM, WhatsApp"},
+      {"component": "Hero Video Management", "status": "PASSED", "notes": "Video preview, upload area, URL inputs, save button all present"},
+      {"component": "Referral Tiers Management", "status": "PASSED", "notes": "Configuration/Report tabs, tier table with 3 rows, add/remove tier, toggle, save button"},
+      {"component": "Instagram DM Management", "status": "PASSED", "notes": "Connection form, DM rules list, add rule form, test DM section, DM history"},
+      {"component": "WhatsApp Reminders Management", "status": "PASSED", "notes": "Connection form, enable toggle, delay hours, message template, test reminder, stats"},
+      {"component": "TrackingPixels", "status": "PASSED", "notes": "Meta Pixel and Google Ads scripts injected in DOM, fbq and gtag functions available"},
+      {"component": "HomePage Hero Video", "status": "PASSED", "notes": "Video element present with dynamic URL from API"}
+    ]
+  },
+  "mocked_apis": {
+    "Instagram Graph API": "DM rules and sending - logs to dm_history with status 'sent_mock'",
+    "WhatsApp Business API": "Cart reminders - logs to recent_reminders with status 'sent_mock'",
+    "Razorpay": "Credit purchase (from previous iteration)"
+  }
+}

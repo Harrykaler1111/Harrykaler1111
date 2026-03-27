@@ -14,6 +14,10 @@ export const HomePage = () => {
   const [topSellers, setTopSellers] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [heroVideo, setHeroVideo] = useState({
+    video_url: "https://assets.mixkit.co/videos/52278/52278-720.mp4",
+    poster_url: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=1920&q=80"
+  });
   const carouselRef = useRef(null);
 
   const scrollCarousel = (dir) => {
@@ -25,16 +29,18 @@ export const HomePage = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const [featuredRes, newRes, sellersRes, bestRes] = await Promise.all([
+        const [featuredRes, newRes, sellersRes, bestRes, heroRes] = await Promise.all([
           axios.get(`${API}/products/featured?limit=4`),
           axios.get(`${API}/products/new-arrivals?limit=8`),
           axios.get(`${API}/vendors/top-sellers?limit=6`).catch(() => ({ data: [] })),
-          axios.get(`${API}/products/best-sellers?limit=10`).catch(() => ({ data: [] }))
+          axios.get(`${API}/products/best-sellers?limit=10`).catch(() => ({ data: [] })),
+          axios.get(`${API}/admin/site/hero-video`).catch(() => ({ data: null }))
         ]);
         setFeaturedProducts(featuredRes.data);
         setNewArrivals(newRes.data);
         setTopSellers(sellersRes.data);
         setBestSellers(bestRes.data);
+        if (heroRes.data?.video_url) setHeroVideo(heroRes.data);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -61,11 +67,10 @@ export const HomePage = () => {
             loop
             playsInline
             className="w-full h-full object-cover"
-            poster="https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=1920&q=80"
+            poster={heroVideo.poster_url}
             data-testid="hero-video"
           >
-            <source src="https://assets.mixkit.co/videos/52278/52278-720.mp4" type="video/mp4" />
-            <source src="/pigma_fashion_model.mp4" type="video/mp4" />
+            <source src={heroVideo.video_url?.startsWith("/") ? `${process.env.REACT_APP_BACKEND_URL}${heroVideo.video_url}` : heroVideo.video_url} type="video/mp4" />
           </video>
           <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
         </div>

@@ -30,6 +30,7 @@ import { CreatorRecruitmentPage } from "@/pages/CreatorRecruitmentPage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
+import { TrackingPixels } from "@/components/TrackingPixels";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -158,6 +159,7 @@ const LayoutWrapper = ({ children }) => {
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <ChatWidget />}
+      <TrackingPixels />
       <Toaster position="top-right" richColors />
     </div>
   );
