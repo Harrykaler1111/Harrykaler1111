@@ -85,8 +85,19 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Rating Stats:** Product page shows average rating with 5-star breakdown bar chart
 - **Testing:** Iteration 22 - 100% (18/18 backend + all frontend verified)
 
+### Phase 18 - E-Commerce Order Flow & Admin Notifications (2026-03-27)
+- **Order Success Page:** Animated checkmark, order ID, items summary, subtotal/discount/total, shipping address, "Order is being processed" indicator, View My Orders / Home buttons
+- **Admin Orders Panel (AdminOrdersPanel.jsx):** Real-time polling (every 10s) via GET /api/admin/orders/new-count, popup notifications with orange gradient card, Web Audio API "ding" alert (880Hz + 1100Hz dual tone), sound on/off toggle
+- **Order Filter Tabs:** All/Pending/Confirmed/Shipped/Delivered with count badges
+- **Order Row Expansion:** Customer info (name, phone, email), shipping address, item list with images, status actions
+- **Admin Order Status Flow:** pending → confirmed → processing → shipped → delivered (+ cancel), each with dedicated button
+- **Tracking Management:** Input tracking ID + courier name → auto-sets status to shipped, displayed to customer on OrdersPage
+- **New Order Badge:** Pulsing orange badge showing pending order count
+- **Backend Endpoints:** GET /api/admin/orders/new-count, PUT /api/admin/orders/{id}/tracking, GET /api/admin/orders/{id}/detail
+- **Testing:** Iteration 23 - PASS (17/18 backend + 100% frontend verified)
+
 ## MOCKED Integrations
-- Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
+- Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
 - WhatsApp Business API -> needs API key
 - Tracking Pixels -> test IDs configured
@@ -94,12 +105,13 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ## Remaining Tasks
 
 ### P1 - Upcoming
+- "Testing Mode" for Orders: Add a dev/test flow to place dummy orders and verify notifications fire correctly
 - Real Instagram Graph API (when credentials provided)
 - Real WhatsApp Business API (when credentials provided)
 
 ### P2 - Future/Backlog
 - Real Razorpay live keys
 - Real Meta Pixel / Google Ads pixel IDs
-- Frontend refactoring (AdminDashboard 3300+ lines)
+- Frontend refactoring (AdminDashboard 3300+ lines → smaller components)
 - Vendor email digest notifications
 - A/B testing for hero videos
