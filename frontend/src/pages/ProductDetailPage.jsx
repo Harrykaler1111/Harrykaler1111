@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus,
-  Check, Star, Volume2, VolumeX, ChevronLeft, ChevronRight
+  Check, Star, Volume2, VolumeX, ChevronLeft, ChevronRight,
+  Play, Pause, ZoomIn
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
@@ -12,10 +13,91 @@ import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
 
-// Video Player with autoplay/mute/loop
+// ====== Image with Zoom on Hover ======
+const ZoomableImage = ({ src, alt }) => {
+  const containerRef = useRef(null);
+  const [zooming, setZooming] = useState(false);
+  const [origin, setOrigin] = useState("50% 50%");
+
+  const handleMouseMove = useCallback((e) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setOrigin(`${x}% ${y}%`);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-full cursor-crosshair overflow-hidden group"
+      onMouseEnter={() => setZooming(true)}
+      onMouseLeave={() => setZooming(false)}
+      onMouseMove={handleMouseMove}
+      data-testid="zoomable-image"
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="w-full h-full object-contain transition-transform duration-150 ease-out"
+        style={{
+          transform: zooming ? "scale(2.2)" : "scale(1)",
+          transformOrigin: origin,
+        }}
+        draggable={false}
+        data-testid="product-main-image"
+      />
+      {/* Zoom hint - shows on hover before zoom activates */}
+      {!zooming && (
+        <span className="absolute bottom-3 right-3 bg-black/50 text-white text-[9px] px-2 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 pointer-events-none opacity-0 group-hover:opacity-70 transition-opacity">
+          <ZoomIn className="h-3 w-3" /> Hover to zoom
+        </span>
+      )}
+    </div>
+  );
+};
+
+// ====== Video Player with Play/Pause + Mute + Progress ======
 const ProductVideo = ({ src }) => {
   const videoRef = useRef(null);
   const [muted, setMuted] = useState(true);
+  const [playing, setPlaying] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [showCenter, setShowCenter] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onTime = () => {
+      if (video.duration) setProgress((video.currentTime / video.duration) * 100);
+    };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    video.addEventListener("timeupdate", onTime);
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+    return () => {
+      video.removeEventListener("timeupdate", onTime);
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+    };
+  }, []);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) { v.play(); } else { v.pause(); }
+    setShowCenter(true);
+    setTimeout(() => setShowCenter(false), 600);
+  };
+
+  const handleProgressClick = (e) => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    v.currentTime = pct * v.duration;
+  };
 
   return (
     <div className="relative w-full h-full bg-black group">
@@ -26,16 +108,62 @@ const ProductVideo = ({ src }) => {
         muted={muted}
         loop
         playsInline
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain cursor-pointer"
+        onClick={togglePlay}
         data-testid="product-main-video"
       />
-      <button
-        onClick={() => setMuted(!muted)}
-        className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80"
-        data-testid="video-mute-toggle"
-      >
-        {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-      </button>
+
+      {/* Center play/pause indicator (briefly shows on toggle) */}
+      <AnimatePresence>
+        {showCenter && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          >
+            <div className="bg-black/50 backdrop-blur-sm rounded-full p-4">
+              {playing
+                ? <Play className="h-8 w-8 text-white fill-white" />
+                : <Pause className="h-8 w-8 text-white fill-white" />}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom controls bar */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity px-3 pb-2.5 pt-8">
+        {/* Progress bar */}
+        <div
+          className="w-full h-1 bg-white/20 rounded-full mb-2 cursor-pointer"
+          onClick={handleProgressClick}
+          data-testid="video-progress-bar"
+        >
+          <div
+            className="h-full bg-gold rounded-full transition-all duration-100"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        {/* Buttons */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={togglePlay}
+            className="text-white hover:text-gold transition-colors p-1"
+            data-testid="video-play-pause"
+          >
+            {playing
+              ? <Pause className="h-4 w-4 fill-current" />
+              : <Play className="h-4 w-4 fill-current" />}
+          </button>
+          <button
+            onClick={() => setMuted(!muted)}
+            className="text-white hover:text-gold transition-colors p-1"
+            data-testid="video-mute-toggle"
+          >
+            {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -141,12 +269,7 @@ export const ProductDetailPage = () => {
                   {current.type === "video" ? (
                     <ProductVideo src={current.url} />
                   ) : (
-                    <img
-                      src={current.url}
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                      data-testid="product-main-image"
-                    />
+                    <ZoomableImage src={current.url} alt={product.name} />
                   )}
                 </motion.div>
               </AnimatePresence>
