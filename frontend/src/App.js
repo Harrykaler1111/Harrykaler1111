@@ -14,6 +14,7 @@ import { AuthCallback } from "@/pages/AuthCallback";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { WishlistPage } from "@/pages/WishlistPage";
 import { OrdersPage } from "@/pages/OrdersPage";
+import { OrderSuccessPage } from "@/pages/OrderSuccessPage";
 import { InfluencerDashboard } from "@/pages/InfluencerDashboard";
 import { AffiliateDashboard } from "@/pages/AffiliateDashboard";
 import { AdminDashboard } from "@/pages/AdminDashboard";
@@ -238,6 +239,14 @@ const AppRouter = () => {
         element={
           <ProtectedRoute>
             <OrdersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/order-success"
+        element={
+          <ProtectedRoute>
+            <><ScrollToTop /><OrderSuccessPage /></>
           </ProtectedRoute>
         }
       />

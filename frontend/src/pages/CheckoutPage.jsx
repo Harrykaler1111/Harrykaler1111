@@ -99,7 +99,7 @@ export const CheckoutPage = () => {
       );
 
       toast.success("Order placed successfully!");
-      navigate("/orders");
+      navigate(`/order-success?id=${response.data.order_id}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to place order");
     } finally {

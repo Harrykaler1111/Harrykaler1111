@@ -25,6 +25,7 @@ import axios from "axios";
 import { HeroVideoManagement, ReferralTiersManagement, InstagramDMManagement, WhatsAppRemindersManagement } from "@/components/AdminSiteSettings";
 import { AdminBoosterPanel } from "@/components/AdminBoosterPanel";
 import { AdminReviewsPanel } from "@/components/AdminReviewsPanel";
+import { AdminOrdersPanel } from "@/components/AdminOrdersPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3299,7 +3300,7 @@ export const AdminDashboard = () => {
         <main className="flex-1 md:ml-64 p-4 md:p-8">
           <Routes>
             <Route index element={<DashboardOverview />} />
-            <Route path="orders" element={<OrdersManagement />} />
+            <Route path="orders" element={<AdminOrdersPanel />} />
             <Route path="influencers" element={<InfluencerManagement />} />
             <Route path="affiliates" element={<AffiliatesManagement />} />
             <Route path="withdrawals" element={<WithdrawalManagement />} />

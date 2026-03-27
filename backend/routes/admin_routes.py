@@ -411,6 +411,69 @@ async def update_order_status(order_id: str, status: str, admin: Dict = Depends(
     return {"message": f"Order status updated to {status}", "settlement": settlement_info}
 
 
+# ============== ORDER TRACKING ==============
+
+class TrackingUpdate(BaseModel):
+    tracking_id: str
+    courier_name: str = "Standard Shipping"
+
+@router.put("/orders/{order_id}/tracking")
+async def update_order_tracking(order_id: str, data: TrackingUpdate, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "orders", "update"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    order = await db.orders.find_one({"order_id": order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    await db.orders.update_one(
+        {"order_id": order_id},
+        {"$set": {
+            "tracking_id": data.tracking_id,
+            "courier_name": data.courier_name,
+            "status": "shipped",
+            "shipped_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    return {"message": "Tracking updated, order marked as shipped"}
+
+
+@router.get("/orders/{order_id}/detail")
+async def get_order_detail(order_id: str, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "orders", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    order = await db.orders.find_one({"order_id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Enrich with user info
+    user = await db.users.find_one({"user_id": order.get("user_id")}, {"_id": 0, "name": 1, "email": 1, "phone": 1})
+    order["customer"] = user or {}
+
+    return order
+
+
+# ============== NEW ORDER NOTIFICATIONS ==============
+
+@router.get("/orders/new-count")
+async def get_new_order_count(since: str = None, admin: Dict = Depends(get_admin_user)):
+    """Get count of new orders since a given timestamp for polling"""
+    if not check_permission(admin, "orders", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    query = {}
+    if since:
+        query["created_at"] = {"$gt": since}
+
+    count = await db.orders.count_documents(query)
+    latest = await db.orders.find(query, {"_id": 0, "order_id": 1, "total": 1, "created_at": 1}).sort("created_at", -1).limit(3).to_list(3)
+
+    return {"count": count, "latest": latest}
+
+
 # ============== ADMIN CUSTOMER MANAGEMENT ==============
 
 @router.get("/customers")

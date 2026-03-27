@@ -155,6 +155,17 @@ export const OrdersPage = () => {
                   )}
                 </div>
 
+                {/* Tracking Info */}
+                {order.tracking_id && (
+                  <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center gap-3">
+                    <Truck className="h-5 w-5 text-indigo-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-indigo-700 font-medium">Tracking ID: <span className="font-mono font-bold">{order.tracking_id}</span></p>
+                      {order.courier_name && <p className="text-xs text-indigo-500">Courier: {order.courier_name}</p>}
+                    </div>
+                  </div>
+                )}
+
                 {/* Order Footer */}
                 <div className="pt-4 border-t flex justify-between items-center">
                   <div>
