@@ -22,7 +22,18 @@ export const CartProvider = ({ children }) => {
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
 
-  const token = localStorage.getItem("pigma_token");
+  const [tokenState, setTokenState] = useState(localStorage.getItem("pigma_token"));
+
+  // Sync token when localStorage changes (e.g., after login)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const current = localStorage.getItem("pigma_token");
+      if (current !== tokenState) setTokenState(current);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [tokenState]);
+
+  const token = tokenState;
   const cartTotal = cart?.total || 0;
   const cartCount = cart?.items?.reduce((sum, i) => sum + i.quantity, 0) || 0;
   const slabs = boosterConfig?.slabs || [];

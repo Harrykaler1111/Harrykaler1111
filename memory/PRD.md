@@ -50,6 +50,19 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Upsell Prioritization:** /api/cart/upsell-suggestions now prioritizes boots-specific accessories (heel protectors, shoe care, socks, insoles) via keyword regex matching
 - **Testing:** Iteration 17 - 100% (10/10 backend + all frontend verified)
 
+### Phase 15 - Cart Drawer Popup System (2026-03-27)
+- **Slide-in Cart Drawer:** Replaces full-page cart with animated right-side slide-in popup (framer-motion spring animation)
+- **Cart Items:** Compact cards with thumbnail, name, variant (size|color), price, quantity +/- controls, remove button
+- **Coupon Code Input:** Inline coupon input with Apply button inside drawer
+- **Green Savings Bar:** Animated gradient bar showing "₹X Saved so far!" when discounts are active
+- **Collapsible Bill Breakdown:** Click "Estimated Total" to expand/collapse detailed bill (Subtotal, Cart Booster, Cart Subtotal, Shipping, Total Savings, Estimated Total)
+- **UPI Payment Logos:** Checkout button with amber gradient + Paytm, PhonePe, Google Pay logos + "Extra Discount On UPI" text
+- **"You May Also Like":** Horizontal scrollable product recommendations with "+ ADD" buttons, sourced from /api/cart/upsell-suggestions
+- **Cart Count Badge:** Gold badge on header cart icon showing item count
+- **Body Scroll Lock:** Prevents background scroll when drawer is open
+- **URL Redirect:** /cart route auto-opens drawer and redirects to homepage
+- **Testing:** Iteration 18 - 100% (13/13 backend + 17/17 frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
 - Instagram Graph API -> needs Meta credentials
