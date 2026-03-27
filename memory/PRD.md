@@ -96,6 +96,18 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Backend Endpoints:** GET /api/admin/orders/new-count, PUT /api/admin/orders/{id}/tracking, GET /api/admin/orders/{id}/detail
 - **Testing:** Iteration 23 - PASS (17/18 backend + 100% frontend verified)
 
+### Phase 19 - Order Timeline / Activity Log (2026-03-27)
+- **order_events Collection:** Every order status change, payment, and tracking update logged with event_id, order_id, event_type, title, description, actor_type, actor_id, actor_name, meta, created_at
+- **log_order_event() Helper:** Reusable async function in order_routes.py that creates timeline entries
+- **Events Logged:** order_placed (on order creation), payment_verified (on payment), status_change (on confirm/process/ship/deliver/cancel), tracking_added (on tracking ID)
+- **Customer Timeline:** GET /api/orders/{id}/timeline - generic view, admin names stripped, actor_type forced to "system"
+- **Admin Timeline:** GET /api/admin/orders/{id}/timeline - full details with actor_name ("by Super Admin")
+- **Frontend OrderTimeline.jsx:** Reusable component with animated colored icon dots, chronological display, staggered entrance animation
+- **Customer OrdersPage:** "View Timeline" / "Hide Timeline" expandable section per order card
+- **Admin OrdersPanel:** "Activity Log" section in expanded order row showing full audit trail
+- **Backfill Migration:** All 16 existing orders backfilled with synthetic timeline events based on current status
+- **Testing:** Iteration 24 - PASS (11/11 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
