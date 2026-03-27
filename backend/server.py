@@ -38,6 +38,7 @@ from routes.support_ticket_routes import router as ticket_router
 from routes.reward_routes import router as reward_router
 from routes.return_routes import router as return_router
 from routes.site_settings_routes import router as site_settings_router
+from routes.booster_routes import router as booster_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -71,6 +72,7 @@ app.include_router(ticket_router, prefix="/api")
 app.include_router(reward_router, prefix="/api")
 app.include_router(return_router, prefix="/api")
 app.include_router(site_settings_router, prefix="/api")
+app.include_router(booster_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -134,6 +136,10 @@ async def startup_event():
     await db.returns.create_index("return_id", unique=True)
     await db.returns.create_index("user_id")
     await db.returns.create_index("vendor_id")
+
+    # Seed booster slabs
+    from routes.booster_routes import seed_default_slabs
+    await seed_default_slabs()
 
     # Seed platform settings
     settings = await db.platform_settings.find_one({"setting_id": "global"})
