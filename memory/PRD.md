@@ -173,6 +173,15 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Admin Controls:** Flash Sale Timer section in bundle form with on/off toggle, quick-start presets (2h/6h/12h/24h/48h), datetime pickers, extra discount type & value. Bundle list shows "FLASH SALE LIVE" pulsing badge
 - **Testing:** Iteration 30 - PASS (14/14 backend + 100% frontend verified)
 
+### Phase 27 - Push Notifications & Flash Sale Toast (2026-03-28)
+- **Backend Push System:** VAPID key-based Web Push using `pywebpush`. `POST /api/notifications/subscribe` stores browser push subscriptions, `POST /api/notifications/unsubscribe` deactivates them, `GET /api/notifications/admin/stats` shows subscriber counts + recent logs
+- **Admin Manual Send:** `POST /api/notifications/admin/send` sends custom push to all active subscribers with title, body, URL
+- **Flash Sale Auto-Trigger:** When admin activates a flash sale on a bundle, push notification is automatically sent to all subscribers: "Flash Sale LIVE: [Bundle Name] — Save Rs.X"
+- **Notification Bell:** Bell icon in header between search and user menu. Registers service worker, requests browser permission, subscribes to push with VAPID public key. Gold dot when subscribed
+- **Service Worker:** `sw-push.js` handles push events, shows notification with "Shop Now" action, navigates to bundle page on click
+- **In-App Flash Toast:** Red animated slide-in banner "Flash Sale is LIVE! [Bundle] — Save Rs.X" with Shop button and dismiss. Progress bar for urgency. Uses sessionStorage to only show once per session. Hidden on admin pages
+- **Testing:** Iteration 31 - PASS (15/15 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
