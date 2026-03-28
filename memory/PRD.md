@@ -125,6 +125,15 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Add Product Form:** Category dropdown populates sub-category dropdown dynamically
 - **Testing:** Verified via screenshots (All Products table, Categories panel, Edit form with all fields pre-populated)
 
+### Phase 22 - Cart Booster Upsell Popup & Admin Curation (2026-03-28)
+- **Admin Upsell Products Tab:** New "Upsell Products" tab in Cart Booster admin panel with product picker (search + add), priority list, remove buttons
+- **Backend CRUD:** POST/GET/PUT/DELETE `/api/cart/admin/upsell-products` for admin curation. Separate `upsell_products` collection with priority ordering
+- **Customer Upsell Popup:** Modal triggered by "Add more to unlock" button on BoosterBar. Shows 2-column grid of product cards with images, prices, discount badges
+- **Quick Add in Popup:** Blinkit-style +/- quantity controllers directly inside the upsell popup. Cart syncs in real-time
+- **Smart Prioritization:** `/api/cart/upsell-suggestions` prioritizes admin-curated picks first, then fills remaining slots with recent/affordable products. Excludes items already in cart
+- **Fallback Images:** Added SVG placeholder for products without images
+- **Testing:** Iteration 26 - PASS (15/15 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
