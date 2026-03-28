@@ -148,6 +148,13 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Order Success Page:** Updated to show COD/prepaid breakdown, advance paid, remaining on delivery
 - **Testing:** Iteration 27 - PASS (21/21 backend + 100% frontend verified)
 
+### Phase 24 - Frequently Bought Together (2026-03-28)
+- **Backend API:** `GET /api/products/frequently-bought-together/{product_id}` with 3-step fallback: co-purchase analysis from orders → same-category products → popular by sold_count
+- **Product Detail Page (Amazon-style):** "Frequently Bought Together" section with source product ("This Item" badge), up to 3 recommended products with toggle checkboxes, plus separators, bundle price summary with savings, "Add X to Cart" button
+- **Cart Drawer (Compact):** "Frequently Bought Together" mini section with product thumbnails and "+ Add" quick-add buttons. Filters out items already in cart
+- **Fallback Images:** SVG placeholder for products missing images
+- **Testing:** Iteration 28 - PASS (14/14 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
