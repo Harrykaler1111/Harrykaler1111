@@ -108,6 +108,23 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Backfill Migration:** All 16 existing orders backfilled with synthetic timeline events based on current status
 - **Testing:** Iteration 24 - PASS (11/11 backend + 100% frontend verified)
 
+### Phase 20 - Category System, Quick Add, Policies, Conversion Optimization (2026-03-28)
+- **Category CRUD System:** Backend `/api/categories` with full admin CRUD (create/edit/delete categories and sub-categories). Categories stored in DB with name, slug, description, position, show_in_nav, is_active. Sub-categories linked to parent category.
+- **Admin Categories Panel:** `/admin/categories` - Add/edit/delete categories, manage sub-categories, toggle nav visibility (eye icon), product count per category.
+- **Dynamic Header Navigation:** Category nav links fetched from API, showing top 4 active categories with show_in_nav=true.
+- **Product Filtering by Category:** `/products?category=Platform+Boots` reads from URL params. Filter dropdown updated to use structured categories.
+- **Admin-Editable Policy Pages:** Backend `/api/policies` with DB-stored policies. Admin can create/edit/delete/publish/unpublish policies anytime via `/admin/policies`. Markdown-style content (## headings, ** bold, - bullets).
+- **Default Policies Seeded:** Return Policy, Shipping Policy, Privacy Policy, Terms & Conditions - all with comprehensive content.
+- **Policy Frontend:** `/policy/{slug}` renders formatted policy with breadcrumb, date, and links to other policies.
+- **Contact Page:** `/contact` with WhatsApp, Email, Instagram, Phone cards + trust signals (Secure Payments, COD, Easy Returns, Fast Delivery) + business hours.
+- **Footer Rebuild:** Trust signals bar, Shop links, Policy links (dynamic from API), Contact section with WhatsApp/email/social icons.
+- **Quick Add to Cart (Blinkit-style):** Product cards show `+ Add` button on hover. After adding, shows `[-] qty [+]` quantity controller. Instant cart sync, no page reload.
+- **Cart Context Enhanced:** Added `updateCartItem()` and `removeFromCart()` to CartContext for quantity controller.
+- **Scarcity System:** "Only X pieces left" (when stock < 10), "Limited drop - no restock" (limited editions), "Selling Fast" (high sold_count).
+- **Conversion Triggers:** "Delivery in 3-5 days" and "COD Available" badges on product detail page. "Product Details" bullet description section.
+- **Out of Stock Handling:** Disabled purchase button and "Out of Stock" badge on product cards when stock=0.
+- **Testing:** Iteration 25 - PASS (19/19 backend + 100% frontend)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
