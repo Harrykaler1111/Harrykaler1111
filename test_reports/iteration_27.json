@@ -1,0 +1,118 @@
+{
+  "iteration": 27,
+  "timestamp": "2026-03-28T15:35:00Z",
+  "overall_status": "PASS",
+  "summary": "Tested advanced ecommerce checkout and order system with COD partial payment, fraud prevention, delivery optimization, and prepaid incentive strategy. All 21 backend tests passed. Frontend UI verified for checkout page (PIN code auto-fill, payment method selection, COD advance breakdown, prepaid discount), admin checkout settings panel (6 settings cards, high-risk orders tab), and order success page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_checkout_cod_features.py",
+    "/app/test_reports/pytest/checkout_cod_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "checkout_settings_routes.py: PIN code validation uses local mapping (PIN_STATE_MAP, PIN_CITY_MAP) - covers major Indian cities",
+    "checkout_settings_routes.py: COD eligibility checks pending orders count and cancelled orders for fraud prevention",
+    "order_routes.py: Risk scoring correctly flags COD orders above high_risk_threshold as 'high' risk",
+    "order_routes.py: COD advance calculation (Rs.500 for orders >= Rs.1000) working correctly",
+    "CheckoutPage.jsx: PIN code auto-fill working with data-testid='input-pincode'",
+    "CheckoutPage.jsx: Payment method cards show SAVE badge for prepaid and +Rs.49 fee for COD",
+    "CheckoutPage.jsx: COD advance breakdown shows 'Pay Now' and 'Pay on Delivery' amounts",
+    "CheckoutPage.jsx: 'Switch to online payment & save' nudge (data-testid='switch-to-prepaid-nudge') appears when COD selected",
+    "AdminCheckoutSettingsPanel.jsx: 6 settings cards (COD, COD Advance, Prepaid, Fraud, Shipping, Messages)",
+    "AdminCheckoutSettingsPanel.jsx: High-Risk Orders tab shows flagged orders with approve/hold/cancel buttons",
+    "OrderSuccessPage.jsx: Correctly displays prepaid discount and COD fee in order breakdown"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_checkout_cod_features.py"
+  ],
+  "success_rate": {
+    "backend": "100% (21/21 tests passed)",
+    "frontend": "100% (All UI elements verified)"
+  },
+  "test_credentials": {
+    "admin": "superadmin@pigma.com / superadmin123 (login at /admin-login, API at /api/admin/auth/login)",
+    "customer": "upselltest@pigma.com / test123 (API at /api/auth/login)"
+  },
+  "seed_data_creation": "Test orders created during testing with product prod_2636c2324d48 (Rs.2999)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Checkout & COD features fully tested. Customer checkout at /checkout requires login and cart items. Admin checkout settings at /admin/checkout with Configuration and High-Risk Orders tabs. PIN code auto-fill uses local mapping for Indian cities. COD advance (Rs.500) required for orders >= Rs.1000. Prepaid discount (Rs.100) applied for online payments. Risk scoring flags COD orders above Rs.3000 as high risk.",
+  "features_tested": {
+    "backend_checkout_settings_api": [
+      {"test": "GET /api/checkout/settings returns public config", "status": "PASSED"},
+      {"test": "GET /api/checkout/admin/settings requires admin auth", "status": "PASSED"},
+      {"test": "GET /api/checkout/admin/settings returns full settings with auth", "status": "PASSED"},
+      {"test": "PUT /api/checkout/admin/settings requires admin auth", "status": "PASSED"},
+      {"test": "PUT /api/checkout/admin/settings updates settings", "status": "PASSED"}
+    ],
+    "backend_pincode_validation": [
+      {"test": "GET /api/checkout/validate-pincode/110001 returns New Delhi, Delhi", "status": "PASSED"},
+      {"test": "GET /api/checkout/validate-pincode/302001 returns Jaipur, Rajasthan", "status": "PASSED"},
+      {"test": "GET /api/checkout/validate-pincode/400001 returns Mumbai, Maharashtra", "status": "PASSED"},
+      {"test": "GET /api/checkout/validate-pincode/000001 returns 400 error", "status": "PASSED"},
+      {"test": "GET /api/checkout/validate-pincode/abc123 returns 400 error", "status": "PASSED"},
+      {"test": "GET /api/checkout/validate-pincode/12345 returns 400 error (too short)", "status": "PASSED"}
+    ],
+    "backend_cod_eligibility": [
+      {"test": "GET /api/checkout/cod-eligibility requires customer auth", "status": "PASSED"},
+      {"test": "GET /api/checkout/cod-eligibility returns eligibility status", "status": "PASSED"}
+    ],
+    "backend_order_creation": [
+      {"test": "POST /api/orders with payment_method='prepaid' applies prepaid discount", "status": "PASSED"},
+      {"test": "POST /api/orders with payment_method='cod' adds cod_charge and calculates advance", "status": "PASSED"}
+    ],
+    "backend_risk_scoring": [
+      {"test": "GET /api/checkout/admin/high-risk-orders returns flagged orders", "status": "PASSED"},
+      {"test": "GET /api/checkout/admin/high-risk-orders requires admin auth", "status": "PASSED"},
+      {"test": "PUT /api/checkout/admin/orders/{id}/risk-action with invalid action returns 400", "status": "PASSED"},
+      {"test": "PUT /api/checkout/admin/orders/{id}/risk-action with non-existent order returns 404", "status": "PASSED"},
+      {"test": "PUT /api/checkout/admin/orders/{id}/risk-action requires admin auth", "status": "PASSED"}
+    ],
+    "backend_cod_max_value": [
+      {"test": "cod_max_order_value present in public settings", "status": "PASSED"}
+    ],
+    "frontend_checkout_page": [
+      {"test": "Checkout page loads with data-testid='checkout-page'", "status": "PASSED"},
+      {"test": "Shipping section with data-testid='shipping-section'", "status": "PASSED"},
+      {"test": "PIN code input (data-testid='input-pincode') auto-fills city/state", "status": "PASSED"},
+      {"test": "PIN 110001 auto-fills New Delhi, Delhi", "status": "PASSED"},
+      {"test": "Prepaid option (data-testid='payment-method-prepaid') shows SAVE Rs.100 badge", "status": "PASSED"},
+      {"test": "COD option (data-testid='payment-method-cod') shows +Rs.49 fee badge", "status": "PASSED"},
+      {"test": "Selecting COD shows switch-to-prepaid nudge (data-testid='switch-to-prepaid-nudge')", "status": "PASSED"},
+      {"test": "COD advance breakdown shows Pay Now Rs.500 and Pay on Delivery amounts", "status": "PASSED"},
+      {"test": "Order summary shows COD charge line (data-testid='cod-charge-line')", "status": "PASSED"},
+      {"test": "Order summary shows prepaid discount line (data-testid='prepaid-discount-line')", "status": "PASSED"},
+      {"test": "Place order button shows 'Pay Rs.X' for prepaid", "status": "PASSED"}
+    ],
+    "frontend_admin_checkout_panel": [
+      {"test": "Admin Checkout Settings panel loads (data-testid='admin-checkout-settings')", "status": "PASSED"},
+      {"test": "Configuration tab (data-testid='checkout-tab-settings') clickable", "status": "PASSED"},
+      {"test": "6 settings cards displayed: COD, COD Advance, Prepaid, Fraud, Shipping, Messages", "status": "PASSED"},
+      {"test": "Save Settings button (data-testid='save-checkout-settings') visible", "status": "PASSED"},
+      {"test": "High-Risk Orders tab (data-testid='checkout-tab-risk') clickable", "status": "PASSED"},
+      {"test": "High-Risk Orders section (data-testid='high-risk-orders') loads", "status": "PASSED"}
+    ],
+    "frontend_order_success_page": [
+      {"test": "Order Success page loads (data-testid='order-success-page')", "status": "PASSED"},
+      {"test": "Success heading shows 'Order Placed Successfully!'", "status": "PASSED"},
+      {"test": "Order ID displayed (data-testid='success-order-id')", "status": "PASSED"},
+      {"test": "Total displayed (data-testid='success-total')", "status": "PASSED"},
+      {"test": "Prepaid Discount shown in order breakdown", "status": "PASSED"},
+      {"test": "View My Orders button (data-testid='view-orders-btn') visible", "status": "PASSED"},
+      {"test": "Home button (data-testid='continue-shopping-btn') visible", "status": "PASSED"}
+    ]
+  },
+  "mocked_apis": {
+    "Razorpay Payment": "Payment verification is mocked (demo_* payment IDs)",
+    "Instagram Auto-DM": "Mocked",
+    "WhatsApp reminders": "Mocked"
+  }
+}

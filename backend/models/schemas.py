@@ -144,7 +144,7 @@ class CartResponse(BaseModel):
 
 class OrderCreate(BaseModel):
     shipping_address: Dict
-    payment_method: str = "razorpay"
+    payment_method: str = "prepaid"  # "prepaid" or "cod"
     coupon_code: Optional[str] = None
 
 
@@ -158,6 +158,7 @@ class OrderResponse(BaseModel):
     total: float
     status: str
     shipping_address: Dict
+    payment_method: str = "prepaid"
     payment_status: str
     razorpay_order_id: Optional[str] = None
     vendor_id: Optional[str] = None
@@ -165,6 +166,13 @@ class OrderResponse(BaseModel):
     platform_commission: float = 0.0
     influencer_commission: float = 0.0
     vendor_amount: float = 0.0
+    # COD/Prepaid fields
+    cod_charge: float = 0.0
+    prepaid_discount: float = 0.0
+    cod_advance_amount: float = 0.0
+    cod_remaining: float = 0.0
+    shipping_charge: float = 0.0
+    risk_level: Optional[str] = None
     created_at: str
 
 

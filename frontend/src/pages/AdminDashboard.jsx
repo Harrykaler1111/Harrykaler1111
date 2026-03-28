@@ -29,6 +29,7 @@ import { AdminOrdersPanel } from "@/components/AdminOrdersPanel";
 import { AdminCategoriesPanel } from "@/components/AdminCategoriesPanel";
 import { AdminPoliciesPanel } from "@/components/AdminPoliciesPanel";
 import { AdminProductsHub } from "@/components/AdminProductsHub";
+import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3228,6 +3229,7 @@ export const AdminDashboard = () => {
     { path: "/admin/instagram", icon: <Instagram className="h-5 w-5" />, label: "Instagram DM", permission: ["platform_settings", "edit"] },
     { path: "/admin/whatsapp", icon: <MessageSquare className="h-5 w-5" />, label: "WhatsApp", permission: ["platform_settings", "edit"] },
     { path: "/admin/cart-booster", icon: <TrendingUp className="h-5 w-5" />, label: "Cart Booster", permission: ["platform_settings", "edit"] },
+    { path: "/admin/checkout", icon: <CreditCard className="h-5 w-5" />, label: "Checkout & COD", permission: ["platform_settings", "edit"] },
     { path: "/admin/policies", icon: <BookOpen className="h-5 w-5" />, label: "Policies", permission: ["platform_settings", "edit"] },
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
@@ -3325,6 +3327,7 @@ export const AdminDashboard = () => {
             <Route path="instagram" element={<InstagramDMManagement />} />
             <Route path="whatsapp" element={<WhatsAppRemindersManagement />} />
             <Route path="cart-booster" element={<AdminBoosterPanel />} />
+            <Route path="checkout" element={<AdminCheckoutSettingsPanel />} />
             <Route path="policies" element={<AdminPoliciesPanel token={localStorage.getItem("pigma_admin_token")} />} />
             <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="users" element={<AdminUsersManagement />} />

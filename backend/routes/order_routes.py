@@ -8,6 +8,7 @@ from config import db, DEFAULT_COMMISSION_RATE, PLATFORM_COMMISSION_RATE
 from models.schemas import OrderCreate, OrderResponse
 from models.enums import TransactionType
 from auth import get_current_user, generate_id
+from routes.checkout_settings_routes import get_checkout_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -112,6 +113,10 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
     if not cart or not cart["items"]:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    # Load checkout settings
+    checkout_cfg = await get_checkout_settings()
+    payment_method = order.payment_method if order.payment_method in ("prepaid", "cod") else "prepaid"
+
     items = []
     subtotal = 0
     vendor_id = None
@@ -145,6 +150,51 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
             "is_vendor_product": product.get("is_vendor_product", False)
         })
 
+    # ============== COD VALIDATION ==============
+    cod_charge = 0.0
+    prepaid_discount_amount = 0.0
+    cod_advance = 0.0
+    cod_remaining = 0.0
+
+    if payment_method == "cod":
+        if not checkout_cfg.get("cod_enabled"):
+            raise HTTPException(status_code=400, detail="Cash on Delivery is currently disabled")
+
+        cod_max = checkout_cfg.get("cod_max_order_value", 10000)
+        if subtotal > cod_max:
+            raise HTTPException(status_code=400, detail=f"COD is not available for orders above Rs.{cod_max}")
+
+        # Check COD limits per user
+        pending_cod = await db.orders.count_documents({
+            "user_id": user["user_id"],
+            "payment_method": "cod",
+            "status": {"$in": ["pending", "confirmed", "processing", "shipped", "cod_confirmed"]}
+        })
+        max_cod = checkout_cfg.get("max_cod_per_user", 3)
+        if pending_cod >= max_cod:
+            raise HTTPException(status_code=400, detail=f"Maximum {max_cod} pending COD orders allowed")
+
+        # Check blocked users
+        if checkout_cfg.get("block_repeat_fake_users"):
+            cancelled_cod = await db.orders.count_documents({
+                "user_id": user["user_id"],
+                "payment_method": "cod",
+                "status": "cancelled"
+            })
+            if cancelled_cod >= 3:
+                raise HTTPException(status_code=400, detail="COD is not available for your account")
+
+        cod_charge = float(checkout_cfg.get("cod_charge", 0))
+
+        # Calculate COD advance
+        if checkout_cfg.get("cod_advance_enabled") and subtotal >= checkout_cfg.get("cod_advance_threshold", 1000):
+            cod_advance = float(checkout_cfg.get("cod_advance_amount", 500))
+
+    elif payment_method == "prepaid":
+        if checkout_cfg.get("prepaid_discount_enabled"):
+            prepaid_discount_amount = float(checkout_cfg.get("prepaid_discount", 0))
+
+    # ============== DISCOUNT & AFFILIATE ==============
     discount = 0
     affiliate_id = None
     influencer_id = None
@@ -176,9 +226,43 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
                     if not vendor_id:
                         vendor_id = collab.get("vendor_id")
 
-    total = subtotal - discount
+    # ============== SHIPPING ==============
+    free_threshold = checkout_cfg.get("free_shipping_threshold", 2999)
+    shipping_charge = 0 if subtotal >= free_threshold else float(checkout_cfg.get("shipping_charge", 199))
+
+    # ============== TOTAL CALCULATION ==============
+    total = subtotal - discount - prepaid_discount_amount + cod_charge + shipping_charge
+    cod_remaining = max(0, total - cod_advance) if payment_method == "cod" and cod_advance > 0 else (total if payment_method == "cod" else 0)
+
+    # ============== RISK SCORING ==============
+    risk_level = "low"
+    risk_factors = []
+
+    if payment_method == "cod":
+        risk_factors.append("cod_order")
+        if subtotal > checkout_cfg.get("high_risk_threshold", 3000):
+            risk_factors.append("high_value")
+            risk_level = "high"
+
+        pending_cod_count = await db.orders.count_documents({
+            "user_id": user["user_id"],
+            "payment_method": "cod",
+            "status": {"$in": ["pending", "confirmed", "processing", "shipped", "cod_confirmed"]}
+        })
+        if pending_cod_count >= 2:
+            risk_factors.append("multiple_cod")
+            risk_level = "high" if risk_level == "high" else "medium"
+
     order_id = generate_id("order_")
     razorpay_order_id = f"order_{uuid.uuid4().hex[:16]}"
+
+    # Determine initial status
+    if payment_method == "cod":
+        initial_status = "cod_confirmed" if cod_advance == 0 else "pending_advance"
+        payment_status = "cod" if cod_advance == 0 else "advance_pending"
+    else:
+        initial_status = "pending"
+        payment_status = "pending"
 
     # Pre-calculate commission splits
     platform_commission = 0.0
@@ -199,11 +283,11 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         "items": items,
         "subtotal": subtotal,
         "discount": discount,
-        "total": total,
-        "status": "pending",
+        "total": round(total, 2),
+        "status": initial_status,
         "shipping_address": order.shipping_address,
-        "payment_method": order.payment_method,
-        "payment_status": "pending",
+        "payment_method": payment_method,
+        "payment_status": payment_status,
         "razorpay_order_id": razorpay_order_id,
         "coupon_code": order.coupon_code,
         "affiliate_id": affiliate_id,
@@ -214,6 +298,15 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         "platform_commission": round(platform_commission, 2),
         "influencer_commission": round(influencer_commission_amount, 2),
         "vendor_amount": round(vendor_amount, 2),
+        # New COD/Prepaid fields
+        "cod_charge": cod_charge,
+        "prepaid_discount": prepaid_discount_amount,
+        "cod_advance_amount": cod_advance,
+        "cod_remaining": round(cod_remaining, 2),
+        "shipping_charge": shipping_charge,
+        "risk_level": risk_level,
+        "risk_factors": risk_factors,
+        "risk_reviewed": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -237,9 +330,10 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
     )
 
     # Log order placed event
+    method_label = "Prepaid" if payment_method == "prepaid" else "Cash on Delivery"
     await log_order_event(
         order_id, "order_placed", "Order Placed",
-        f"Order #{order_id[-6:]} placed for ₹{total:,.0f} with {len(items)} item(s)",
+        f"Order #{order_id[-6:]} placed for Rs.{total:,.0f} via {method_label} with {len(items)} item(s)",
         actor_type="customer", actor_id=user["user_id"], actor_name=user.get("name", "Customer")
     )
 
