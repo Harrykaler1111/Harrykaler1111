@@ -40,7 +40,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ### Phase 14 - Global Sticky Booster Bar & Admin Control Panel (2026-03-27)
 - **Global Cart Context (CartProvider):** Wraps entire app, syncs cart state across all pages without reloads
 - **Global Sticky Booster Bar:** Desktop: sticky below header (top-72px). Mobile: fixed bottom bar with expandable details
-- **Progress Bar with Slab Markers:** Visual milestones at ₹1,200, ₹3,330, ₹5,999 with animated gold fill
+- **Progress Bar with Slab Markers:** Visual milestones at Rs.1,200, Rs.3,330, Rs.5,999 with animated gold fill
 - **Confetti Burst:** Full-screen particle animation when new slab is unlocked
 - **Smart Upsell Modal:** Slide-up modal with grid of quick-add products when near next slab threshold
 - **Admin Booster Panel:** Full management UI at /admin/cart-booster with 3 tabs:
@@ -54,7 +54,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Slide-in Cart Drawer:** Replaces full-page cart with animated right-side slide-in popup (framer-motion spring animation)
 - **Cart Items:** Compact cards with thumbnail, name, variant (size|color), price, quantity +/- controls, remove button
 - **Coupon Code Input:** Inline coupon input with Apply button inside drawer
-- **Green Savings Bar:** Animated gradient bar showing "₹X Saved so far!" when discounts are active
+- **Green Savings Bar:** Animated gradient bar showing "Rs.X Saved so far!" when discounts are active
 - **Collapsible Bill Breakdown:** Click "Estimated Total" to expand/collapse detailed bill (Subtotal, Cart Booster, Cart Subtotal, Shipping, Total Savings, Estimated Total)
 - **UPI Payment Logos:** Checkout button with amber gradient + Paytm, PhonePe, Google Pay logos + "Extra Discount On UPI" text
 - **"You May Also Like":** Horizontal scrollable product recommendations with "+ ADD" buttons, sourced from /api/cart/upsell-suggestions
@@ -90,8 +90,8 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Admin Orders Panel (AdminOrdersPanel.jsx):** Real-time polling (every 10s) via GET /api/admin/orders/new-count, popup notifications with orange gradient card, Web Audio API "ding" alert (880Hz + 1100Hz dual tone), sound on/off toggle
 - **Order Filter Tabs:** All/Pending/Confirmed/Shipped/Delivered with count badges
 - **Order Row Expansion:** Customer info (name, phone, email), shipping address, item list with images, status actions
-- **Admin Order Status Flow:** pending → confirmed → processing → shipped → delivered (+ cancel), each with dedicated button
-- **Tracking Management:** Input tracking ID + courier name → auto-sets status to shipped, displayed to customer on OrdersPage
+- **Admin Order Status Flow:** pending -> confirmed -> processing -> shipped -> delivered (+ cancel), each with dedicated button
+- **Tracking Management:** Input tracking ID + courier name -> auto-sets status to shipped, displayed to customer on OrdersPage
 - **New Order Badge:** Pulsing orange badge showing pending order count
 - **Backend Endpoints:** GET /api/admin/orders/new-count, PUT /api/admin/orders/{id}/tracking, GET /api/admin/orders/{id}/detail
 - **Testing:** Iteration 23 - PASS (17/18 backend + 100% frontend verified)
@@ -113,7 +113,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Admin-Editable Policy Pages:** Backend `/api/policies` stored in DB. Admin CRUD via `/admin/policies`. Markdown-style content.
 - **Contact Page:** WhatsApp, Email, Instagram, Phone cards + trust signals + business hours.
 - **Footer Rebuild:** Trust signals bar, policy links, contact section, social icons.
-- **Quick Add (Blinkit-style):** Product cards `+ Add` → `[-] qty [+]` controller. Out of stock handling.
+- **Quick Add (Blinkit-style):** Product cards `+ Add` -> `[-] qty [+]` controller. Out of stock handling.
 - **Scarcity & Conversion Triggers:** "Only X left", "Limited drop", "Selling Fast", "Delivery 3-5 days", "COD Available".
 - **Testing:** Iteration 25 - PASS (19/19 backend + 100% frontend)
 
@@ -149,7 +149,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Testing:** Iteration 27 - PASS (21/21 backend + 100% frontend verified)
 
 ### Phase 24 - Frequently Bought Together (2026-03-28)
-- **Backend API:** `GET /api/products/frequently-bought-together/{product_id}` with 3-step fallback: co-purchase analysis from orders → same-category products → popular by sold_count
+- **Backend API:** `GET /api/products/frequently-bought-together/{product_id}` with 3-step fallback: co-purchase analysis from orders -> same-category products -> popular by sold_count
 - **Product Detail Page (Amazon-style):** "Frequently Bought Together" section with source product ("This Item" badge), up to 3 recommended products with toggle checkboxes, plus separators, bundle price summary with savings, "Add X to Cart" button
 - **Cart Drawer (Compact):** "Frequently Bought Together" mini section with product thumbnails and "+ Add" quick-add buttons. Filters out items already in cart
 - **Fallback Images:** SVG placeholder for products missing images
@@ -158,9 +158,9 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ### Phase 25 - Admin-Managed Bundle Deals (2026-03-28)
 - **Backend API:** Full CRUD at `/api/bundles/admin` (create, update, delete, list all). Public endpoints: GET `/api/bundles` (active), GET `/api/bundles/{id}`, GET `/api/bundles/for-product/{id}`. Server-side pricing calculation with percentage or flat discounts (max 50% for percentage)
 - **Admin Bundle Panel:** Create/edit bundles with product search picker, discount type toggles (% / flat), badge text, active/inactive toggle, live price preview. List view shows product thumbnails, pricing, and action buttons
-- **Homepage Section:** "Curated Collections — Bundle Deals" section with 3-column product image grid, gold badge, pricing with savings
+- **Homepage Section:** "Curated Collections - Bundle Deals" section with 3-column product image grid, gold badge, pricing with savings
 - **Bundle Detail Page:** `/bundle/{id}` with product grid, full pricing breakdown, "Add Entire Bundle to Cart" CTA (dark box with gold styling)
-- **PDP Bundle Banner:** Products that belong to a bundle show "Part of [Bundle Name] — Save Rs.X" banner linking to the bundle page
+- **PDP Bundle Banner:** Products that belong to a bundle show "Part of [Bundle Name] - Save Rs.X" banner linking to the bundle page
 - **Validation:** Min 2 products, max 6, percentage max 50%, name required
 - **Testing:** Iteration 29 - PASS (25/25 backend + 100% frontend verified)
 
@@ -169,18 +169,26 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Homepage Flash Banner:** Red-themed "Flash Sale LIVE" banner with animated lightning bolt, digit-box countdown timer (HRS:MIN:SEC), flash bundle preview cards with compact timers
 - **Bundle Cards:** Flash bundles get red border, "FLASH SALE" pulsing badge, red pricing, inline countdown. Non-flash bundles retain gold theme
 - **Bundle Detail Page:** Red countdown bar at top ("Hurry, offer ends soon!"), red CTA button, "Includes extra Rs.X flash discount!" label
-- **PDP Banner:** Updated to show "FLASH SALE — Part of [Bundle]" with timer for flash bundles
+- **PDP Banner:** Updated to show "FLASH SALE - Part of [Bundle]" with timer for flash bundles
 - **Admin Controls:** Flash Sale Timer section in bundle form with on/off toggle, quick-start presets (2h/6h/12h/24h/48h), datetime pickers, extra discount type & value. Bundle list shows "FLASH SALE LIVE" pulsing badge
 - **Testing:** Iteration 30 - PASS (14/14 backend + 100% frontend verified)
 
 ### Phase 27 - Push Notifications & Flash Sale Toast (2026-03-28)
 - **Backend Push System:** VAPID key-based Web Push using `pywebpush`. `POST /api/notifications/subscribe` stores browser push subscriptions, `POST /api/notifications/unsubscribe` deactivates them, `GET /api/notifications/admin/stats` shows subscriber counts + recent logs
 - **Admin Manual Send:** `POST /api/notifications/admin/send` sends custom push to all active subscribers with title, body, URL
-- **Flash Sale Auto-Trigger:** When admin activates a flash sale on a bundle, push notification is automatically sent to all subscribers: "Flash Sale LIVE: [Bundle Name] — Save Rs.X"
+- **Flash Sale Auto-Trigger:** When admin activates a flash sale on a bundle, push notification is automatically sent to all subscribers: "Flash Sale LIVE: [Bundle Name] - Save Rs.X"
 - **Notification Bell:** Bell icon in header between search and user menu. Registers service worker, requests browser permission, subscribes to push with VAPID public key. Gold dot when subscribed
 - **Service Worker:** `sw-push.js` handles push events, shows notification with "Shop Now" action, navigates to bundle page on click
-- **In-App Flash Toast:** Red animated slide-in banner "Flash Sale is LIVE! [Bundle] — Save Rs.X" with Shop button and dismiss. Progress bar for urgency. Uses sessionStorage to only show once per session. Hidden on admin pages
+- **In-App Flash Toast:** Premium gold/black animated slide-in banner "Flash Sale is Live" with Shop Now button and dismiss. Auto-hide progress bar (7s). Uses sessionStorage to only show once per session. Desktop: top-right floating card. Mobile: bottom bar. Hidden on admin pages
 - **Testing:** Iteration 31 - PASS (15/15 backend + 100% frontend verified)
+
+### Phase 27.1 - Flash Sale Banner UI Refinement (2026-03-28)
+- **Design Overhaul:** Replaced red theme with premium gold/black matching site aesthetic
+- **Desktop Positioning:** Moved from bottom-center to top-right (top-[140px] right-5) to avoid overlapping Cart Booster bar
+- **Compact Layout:** Smaller card (340px), gold lightning icon, truncated bundle name, gold "Shop Now" CTA
+- **Mobile Layout:** Bottom bar (bottom-16) with ultra-compact inline layout, gold "Shop" button
+- **Auto-Hide:** 7-second countdown with gold progress bar, sessionStorage dismissal
+- **Testing:** Verified via desktop & mobile screenshots - PASS
 
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
@@ -191,7 +199,6 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ## Remaining Tasks
 
 ### P1 - Upcoming
-- Phase B Checkout: COD order confirmation flow, auto-cancel unconfirmed orders, delivery intent check
 - "Testing Mode" for Orders: Add a dev/test flow to place dummy orders and verify notifications fire correctly
 - Real Instagram Graph API (when credentials provided)
 - Real WhatsApp Business API (when credentials provided)
