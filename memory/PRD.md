@@ -164,6 +164,15 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Validation:** Min 2 products, max 6, percentage max 50%, name required
 - **Testing:** Iteration 29 - PASS (25/25 backend + 100% frontend verified)
 
+### Phase 26 - Time-Limited Flash Sales on Bundles (2026-03-28)
+- **Backend:** Added `flash_sale_start`, `flash_sale_end`, `flash_extra_discount_type`, `flash_extra_discount_value` to bundles. New `GET /api/bundles/flash-sales` returns only currently-active flash sales. Pricing engine calculates base + flash extra discount
+- **Homepage Flash Banner:** Red-themed "Flash Sale LIVE" banner with animated lightning bolt, digit-box countdown timer (HRS:MIN:SEC), flash bundle preview cards with compact timers
+- **Bundle Cards:** Flash bundles get red border, "FLASH SALE" pulsing badge, red pricing, inline countdown. Non-flash bundles retain gold theme
+- **Bundle Detail Page:** Red countdown bar at top ("Hurry, offer ends soon!"), red CTA button, "Includes extra Rs.X flash discount!" label
+- **PDP Banner:** Updated to show "FLASH SALE — Part of [Bundle]" with timer for flash bundles
+- **Admin Controls:** Flash Sale Timer section in bundle form with on/off toggle, quick-start presets (2h/6h/12h/24h/48h), datetime pickers, extra discount type & value. Bundle list shows "FLASH SALE LIVE" pulsing badge
+- **Testing:** Iteration 30 - PASS (14/14 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
