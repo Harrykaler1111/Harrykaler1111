@@ -155,6 +155,15 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Fallback Images:** SVG placeholder for products missing images
 - **Testing:** Iteration 28 - PASS (14/14 backend + 100% frontend verified)
 
+### Phase 25 - Admin-Managed Bundle Deals (2026-03-28)
+- **Backend API:** Full CRUD at `/api/bundles/admin` (create, update, delete, list all). Public endpoints: GET `/api/bundles` (active), GET `/api/bundles/{id}`, GET `/api/bundles/for-product/{id}`. Server-side pricing calculation with percentage or flat discounts (max 50% for percentage)
+- **Admin Bundle Panel:** Create/edit bundles with product search picker, discount type toggles (% / flat), badge text, active/inactive toggle, live price preview. List view shows product thumbnails, pricing, and action buttons
+- **Homepage Section:** "Curated Collections — Bundle Deals" section with 3-column product image grid, gold badge, pricing with savings
+- **Bundle Detail Page:** `/bundle/{id}` with product grid, full pricing breakdown, "Add Entire Bundle to Cart" CTA (dark box with gold styling)
+- **PDP Bundle Banner:** Products that belong to a bundle show "Part of [Bundle Name] — Save Rs.X" banner linking to the bundle page
+- **Validation:** Min 2 products, max 6, percentage max 50%, name required
+- **Testing:** Iteration 29 - PASS (25/25 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
