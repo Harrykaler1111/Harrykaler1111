@@ -207,8 +207,27 @@ async def update_bundle(bundle_id: str, data: Dict, admin: Dict = Depends(get_ad
 
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 
+    # Check if flash sale is being newly activated
+    was_flash = is_flash_active(bundle)
     await db.bundles.update_one({"bundle_id": bundle_id}, {"$set": updates})
     updated = await db.bundles.find_one({"bundle_id": bundle_id}, {"_id": 0})
+    now_flash = is_flash_active(updated)
+
+    # Trigger push notification if flash sale just started
+    if now_flash and not was_flash:
+        try:
+            from routes.notification_routes import send_push_to_all
+            await populate_bundle(updated)
+            savings = updated.get("discount_amount", 0)
+            await send_push_to_all(
+                title=f"Flash Sale LIVE: {updated['name']}",
+                body=f"Save Rs.{int(savings)} — Hurry, limited time only!",
+                url=f"/bundle/{bundle_id}",
+                tag=f"flash_{bundle_id}"
+            )
+        except Exception:
+            pass  # Don't fail the update if notification fails
+
     return {"message": "Bundle updated", **updated}
 
 

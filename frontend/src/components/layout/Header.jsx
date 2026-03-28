@@ -7,6 +7,7 @@ import {
   ShoppingBag, Heart, User, Menu, Search, ChevronDown, LifeBuoy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/NotificationSystem";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -123,6 +124,8 @@ export const Header = () => {
               onClick={() => navigate("/products?search=true")} data-testid="search-btn">
               <Search className="h-5 w-5" />
             </Button>
+
+            <NotificationBell />
 
             {user && (
               <Button variant="ghost" size="icon" className={`${textColor} hover:text-gold`}

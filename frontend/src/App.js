@@ -31,6 +31,7 @@ import { PolicyPage } from "@/pages/PolicyPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { BundleDetailPage } from "@/components/BundleDeals";
 import { Header } from "@/components/layout/Header";
+import { FlashSaleToast } from "@/components/NotificationSystem";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
 import { TrackingPixels } from "@/components/TrackingPixels";
@@ -162,6 +163,7 @@ const LayoutWrapper = ({ children }) => {
   return (
     <div className="App min-h-screen flex flex-col bg-neutral-50">
       {!hideChrome && <Header />}
+      {!hideChrome && <FlashSaleToast />}
       {!hideChrome && <BoosterBar />}
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
