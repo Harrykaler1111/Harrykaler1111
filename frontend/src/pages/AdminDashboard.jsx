@@ -28,6 +28,7 @@ import { AdminReviewsPanel } from "@/components/AdminReviewsPanel";
 import { AdminOrdersPanel } from "@/components/AdminOrdersPanel";
 import { AdminCategoriesPanel } from "@/components/AdminCategoriesPanel";
 import { AdminPoliciesPanel } from "@/components/AdminPoliciesPanel";
+import { AdminProductsHub } from "@/components/AdminProductsHub";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3227,7 +3228,6 @@ export const AdminDashboard = () => {
     { path: "/admin/instagram", icon: <Instagram className="h-5 w-5" />, label: "Instagram DM", permission: ["platform_settings", "edit"] },
     { path: "/admin/whatsapp", icon: <MessageSquare className="h-5 w-5" />, label: "WhatsApp", permission: ["platform_settings", "edit"] },
     { path: "/admin/cart-booster", icon: <TrendingUp className="h-5 w-5" />, label: "Cart Booster", permission: ["platform_settings", "edit"] },
-    { path: "/admin/categories", icon: <Tag className="h-5 w-5" />, label: "Categories", permission: ["products", "view"] },
     { path: "/admin/policies", icon: <BookOpen className="h-5 w-5" />, label: "Policies", permission: ["platform_settings", "edit"] },
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
@@ -3308,7 +3308,7 @@ export const AdminDashboard = () => {
             <Route path="influencers" element={<InfluencerManagement />} />
             <Route path="affiliates" element={<AffiliatesManagement />} />
             <Route path="withdrawals" element={<WithdrawalManagement />} />
-            <Route path="products" element={<ProductsManagement />} />
+            <Route path="products" element={<AdminProductsHub />} />
             <Route path="customers" element={<CustomersManagement />} />
             <Route path="coupons" element={<CouponsManagement />} />
             <Route path="vendors" element={<VendorsManagement />} />
@@ -3325,7 +3325,6 @@ export const AdminDashboard = () => {
             <Route path="instagram" element={<InstagramDMManagement />} />
             <Route path="whatsapp" element={<WhatsAppRemindersManagement />} />
             <Route path="cart-booster" element={<AdminBoosterPanel />} />
-            <Route path="categories" element={<AdminCategoriesPanel token={localStorage.getItem("pigma_admin_token")} />} />
             <Route path="policies" element={<AdminPoliciesPanel token={localStorage.getItem("pigma_admin_token")} />} />
             <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="users" element={<AdminUsersManagement />} />
