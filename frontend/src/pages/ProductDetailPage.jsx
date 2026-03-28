@@ -473,6 +473,51 @@ export const ProductDetailPage = () => {
               </div>
             </div>
 
+            {/* Scarcity & Conversion Triggers */}
+            <div className="flex flex-wrap gap-2 py-1">
+              {product.stock > 0 && product.stock <= 10 && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-full animate-pulse" data-testid="scarcity-low-stock">
+                  Only {product.stock} pieces left
+                </span>
+              )}
+              {product.is_limited_edition && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1.5 rounded-full" data-testid="scarcity-limited">
+                  Limited drop - no restock
+                </span>
+              )}
+              {product.sold_count > 20 && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1.5 rounded-full" data-testid="selling-fast">
+                  Selling Fast
+                </span>
+              )}
+            </div>
+
+            {/* Conversion Triggers */}
+            <div className="grid grid-cols-2 gap-2 bg-neutral-50 rounded-lg p-3">
+              {[
+                { text: "Delivery in 3-5 days", icon: Truck },
+                { text: "COD Available", icon: Shield },
+              ].map(({ text, icon: Icon }) => (
+                <div key={text} className="flex items-center gap-2 text-xs text-neutral-600">
+                  <Icon className="h-3.5 w-3.5 text-gold flex-shrink-0" />
+                  <span className="font-medium">{text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Bullet Description */}
+            {product.description && (
+              <div className="text-xs text-neutral-500 space-y-1.5 py-1">
+                <p className="font-bold text-neutral-700 text-sm mb-2">Product Details</p>
+                {product.description.split("\n").filter(l => l.trim()).map((line, i) => (
+                  <p key={i} className="flex items-start gap-2">
+                    <span className="w-1 h-1 rounded-full bg-gold flex-shrink-0 mt-1.5" />
+                    {line.replace(/^[-*]\s*/, "")}
+                  </p>
+                ))}
+              </div>
+            )}
+
             {/* Add to Cart & Wishlist */}
             <div className="flex gap-2.5 pt-2">
               <Button onClick={handleAddToCart}

@@ -39,6 +39,8 @@ from routes.reward_routes import router as reward_router
 from routes.return_routes import router as return_router
 from routes.site_settings_routes import router as site_settings_router
 from routes.booster_routes import router as booster_router
+from routes.category_routes import router as category_router
+from routes.policy_routes import router as policy_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -73,6 +75,8 @@ app.include_router(reward_router, prefix="/api")
 app.include_router(return_router, prefix="/api")
 app.include_router(site_settings_router, prefix="/api")
 app.include_router(booster_router, prefix="/api")
+app.include_router(category_router, prefix="/api")
+app.include_router(policy_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -136,10 +140,59 @@ async def startup_event():
     await db.returns.create_index("return_id", unique=True)
     await db.returns.create_index("user_id")
     await db.returns.create_index("vendor_id")
+    await db.categories.create_index("category_id", unique=True)
+    await db.sub_categories.create_index("sub_category_id", unique=True)
+    await db.policies.create_index("policy_id", unique=True)
+    await db.policies.create_index("slug", unique=True)
+    await db.order_events.create_index("order_id")
 
     # Seed booster slabs
     from routes.booster_routes import seed_default_slabs
     await seed_default_slabs()
+
+    # Seed default categories
+    cat_count = await db.categories.count_documents({})
+    if cat_count == 0:
+        default_cats = [
+            {"category_id": generate_id("cat_"), "name": "Platform Boots", "slug": "platform-boots", "description": "Bold platform boots for the fearless", "image": "", "position": 1, "is_active": True, "show_in_nav": True, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()},
+            {"category_id": generate_id("cat_"), "name": "Stiletto Heels", "slug": "stiletto-heels", "description": "Elegant stiletto heels for every occasion", "image": "", "position": 2, "is_active": True, "show_in_nav": True, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()},
+            {"category_id": generate_id("cat_"), "name": "Ankle Boots", "slug": "ankle-boots", "description": "Stylish ankle boots", "image": "", "position": 3, "is_active": True, "show_in_nav": True, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()},
+            {"category_id": generate_id("cat_"), "name": "Party Wear", "slug": "party-wear", "description": "Statement pieces for parties", "image": "", "position": 4, "is_active": True, "show_in_nav": True, "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()},
+        ]
+        await db.categories.insert_many(default_cats)
+        logger.info(f"Seeded {len(default_cats)} default categories")
+
+    # Seed default policies (admin-editable)
+    pol_count = await db.policies.count_documents({})
+    if pol_count == 0:
+        default_policies = [
+            {
+                "policy_id": generate_id("pol_"), "title": "Return Policy", "slug": "return-policy", "position": 1, "is_published": True,
+                "last_updated_by": "System",
+                "content": "## Return & Exchange Policy\n\n**Exchange Policy**\n- Size exchanges are accepted within 7 days of delivery\n- Product must be unworn, unwashed, and in original packaging\n- Tags must be intact\n\n**Return Policy**\n- Returns are only accepted for defective or damaged products\n- Report issues within 48 hours of delivery with photos\n- Refund will be processed within 5-7 business days after inspection\n\n**Non-Returnable Items**\n- Products without original tags\n- Used or worn items\n- Items purchased on sale/clearance\n\n**How to Initiate**\n1. Contact us via WhatsApp or email\n2. Share your order ID and photos\n3. We'll arrange pickup within 48 hours",
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "policy_id": generate_id("pol_"), "title": "Shipping Policy", "slug": "shipping-policy", "position": 2, "is_published": True,
+                "last_updated_by": "System",
+                "content": "## Shipping Policy\n\n**Delivery Timeline**\n- Standard Delivery: 3-5 business days\n- Express Delivery: 1-2 business days (select cities)\n\n**Shipping Charges**\n- Free shipping on orders above Rs.2,999\n- Standard shipping: Rs.199\n\n**Tracking**\n- You will receive a tracking ID via email/SMS once your order is shipped\n- Track your order in the 'My Orders' section\n\n**Delivery Areas**\n- We deliver across India (all pin codes)\n- Cash on Delivery (COD) available on orders up to Rs.10,000\n\n**Important Notes**\n- Delivery timelines may vary during sales or festive seasons\n- Ensure someone is available to receive the package",
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "policy_id": generate_id("pol_"), "title": "Privacy Policy", "slug": "privacy-policy", "position": 3, "is_published": True,
+                "last_updated_by": "System",
+                "content": "## Privacy Policy\n\n**Information We Collect**\n- Personal info: Name, email, phone, address\n- Payment info: Processed securely via Razorpay (we don't store card details)\n- Usage data: Browsing patterns to improve your experience\n\n**How We Use Your Information**\n- Process and deliver your orders\n- Send order updates and tracking info\n- Improve our products and services\n- Send promotional offers (you can opt out anytime)\n\n**Data Protection**\n- All data is encrypted and stored securely\n- We never sell your personal information to third parties\n- You can request data deletion by contacting us\n\n**Cookies**\n- We use cookies to enhance your browsing experience\n- You can disable cookies in your browser settings\n\n**Contact**\n- For privacy concerns, email us at privacy@thepigma.com",
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "policy_id": generate_id("pol_"), "title": "Terms & Conditions", "slug": "terms-and-conditions", "position": 4, "is_published": True,
+                "last_updated_by": "System",
+                "content": "## Terms & Conditions\n\n**General**\n- By using thepigma.com, you agree to these terms\n- We reserve the right to modify these terms at any time\n\n**Orders & Payments**\n- All prices are in INR and inclusive of taxes\n- We accept UPI, Credit/Debit Cards, Net Banking, and COD\n- Orders are confirmed only after successful payment verification\n\n**Product Information**\n- We strive to display accurate product colors and details\n- Slight variations may occur due to screen settings\n- Product availability is subject to stock\n\n**Intellectual Property**\n- All content, images, and designs are owned by Pigma\n- Unauthorized reproduction is prohibited\n\n**Limitation of Liability**\n- Pigma is not liable for delays caused by shipping partners\n- Maximum liability is limited to the order value\n\n**Governing Law**\n- These terms are governed by the laws of India\n- Disputes shall be resolved in Delhi jurisdiction",
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+        ]
+        await db.policies.insert_many(default_policies)
+        logger.info(f"Seeded {len(default_policies)} default policies")
 
     # Seed platform settings
     settings = await db.platform_settings.find_one({"setting_id": "global"})

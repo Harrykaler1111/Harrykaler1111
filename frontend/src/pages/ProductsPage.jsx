@@ -28,7 +28,7 @@ export const ProductsPage = () => {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortOrder, setSortOrder] = useState("desc");
-  const [selectedCategory, setSelectedCategory] = useState(category || "");
+  const [selectedCategory, setSelectedCategory] = useState(category || searchParams.get("category") || "");
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
   const [isLimited, setIsLimited] = useState(searchParams.get("limited") === "true");
 
@@ -36,13 +36,21 @@ export const ProductsPage = () => {
     const fetchCategories = async () => {
       try {
         const response = await axios.get(`${API}/categories`);
-        setCategories(response.data);
+        setCategories((response.data || []).map(c => c.name || c));
       } catch (error) {
         console.error("Error fetching categories:", error);
       }
     };
     fetchCategories();
   }, []);
+
+  // Sync URL params to state
+  useEffect(() => {
+    const urlCat = searchParams.get("category");
+    if (urlCat && urlCat !== selectedCategory) {
+      setSelectedCategory(urlCat);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProducts = async () => {

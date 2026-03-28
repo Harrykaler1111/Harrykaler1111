@@ -21,11 +21,19 @@ export const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadTickets, setUnreadTickets] = useState(0);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    axios.get(`${API}/categories`).then(r => {
+      const navCats = (r.data || []).filter(c => c.show_in_nav && c.is_active);
+      setCategories(navCats);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -38,10 +46,7 @@ export const Header = () => {
 
   const navLinks = [
     { label: "Shop All", href: "/products" },
-    { label: "Platform Boots", href: "/products/Platform Boots" },
-    { label: "Stiletto Heels", href: "/products/Stiletto Heels" },
-    { label: "Limited Drops", href: "/products?limited=true" },
-    { label: "Sell on Pigma", href: "/vendor-login" },
+    ...categories.slice(0, 4).map(c => ({ label: c.name, href: `/products?category=${encodeURIComponent(c.name)}` })),
   ];
 
   const isHomePage = location.pathname === "/";

@@ -12,6 +12,7 @@ router = APIRouter(prefix="/products", tags=["products"])
 @router.get("", response_model=List[ProductResponse])
 async def get_products(
     category: Optional[str] = None,
+    sub_category: Optional[str] = None,
     is_limited_edition: Optional[bool] = None,
     search: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -24,6 +25,8 @@ async def get_products(
     query = {"is_active": True}
     if category:
         query["category"] = category
+    if sub_category:
+        query["sub_category"] = sub_category
     if is_limited_edition is not None:
         query["is_limited_edition"] = is_limited_edition
     if search:

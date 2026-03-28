@@ -119,6 +119,30 @@ export const CartProvider = ({ children }) => {
     } catch { return false; }
   }, [token, boosterConfig, getActiveSlab]);
 
+  const updateCartItem = useCallback(async (productId, quantity, size = "M", color = "Default") => {
+    if (!token) return false;
+    try {
+      const res = await axios.put(`${API}/cart/update`, {
+        product_id: productId, quantity, size, color
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setCart(res.data);
+      prevTotalRef.current = res.data.total || 0;
+      return true;
+    } catch { return false; }
+  }, [token]);
+
+  const removeFromCart = useCallback(async (productId, size = "M", color = "Default") => {
+    if (!token) return false;
+    try {
+      const res = await axios.delete(`${API}/cart/item/${productId}?size=${encodeURIComponent(size)}&color=${encodeURIComponent(color)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setCart(res.data);
+      prevTotalRef.current = res.data.total || 0;
+      return true;
+    } catch { return false; }
+  }, [token]);
+
   useEffect(() => { fetchBoosterConfig(); }, [fetchBoosterConfig]);
   useEffect(() => { refreshCart(); }, [token]);
 
@@ -132,7 +156,7 @@ export const CartProvider = ({ children }) => {
 
   return (
     <CartContext.Provider value={{
-      cart, cartTotal, cartCount, refreshCart, addToCart,
+      cart, cartTotal, cartCount, refreshCart, addToCart, updateCartItem, removeFromCart,
       slabs, messages, boosterConfig, getActiveSlab,
       lastAddedAmount, newSlabUnlocked, prevTotal: prevTotalRef.current,
       isCartOpen, openCart, closeCart

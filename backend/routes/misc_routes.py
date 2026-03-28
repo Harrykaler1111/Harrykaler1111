@@ -50,12 +50,6 @@ async def track_referral_click(referral_code: str, product_id: Optional[str] = N
     raise HTTPException(status_code=404, detail="Invalid referral code")
 
 
-@router.get("/categories")
-async def get_categories():
-    categories = await db.products.distinct("category")
-    return categories
-
-
 @router.get("/")
 async def root():
     return {"message": "Pigma API", "version": "2.0.0"}

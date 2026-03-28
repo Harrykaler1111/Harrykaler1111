@@ -27,6 +27,8 @@ import { VendorStorePage } from "@/pages/VendorStorePage";
 import { SupportPage } from "@/pages/SupportPage";
 import { ReturnsPage } from "@/pages/ReturnsPage";
 import { CreatorRecruitmentPage } from "@/pages/CreatorRecruitmentPage";
+import { PolicyPage } from "@/pages/PolicyPage";
+import { ContactPage } from "@/pages/ContactPage";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -267,6 +269,8 @@ const AppRouter = () => {
         }
       />
       <Route path="/creators" element={<CreatorRecruitmentPage />} />
+      <Route path="/policy/:slug" element={<><ScrollToTop /><PolicyPage /></>} />
+      <Route path="/contact" element={<><ScrollToTop /><ContactPage /></>} />
       <Route
         path="/influencer"
         element={
