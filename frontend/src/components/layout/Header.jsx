@@ -47,6 +47,7 @@ export const Header = () => {
   const navLinks = [
     { label: "Shop All", href: "/products" },
     ...categories.slice(0, 4).map(c => ({ label: c.name, href: `/products?category=${encodeURIComponent(c.name)}` })),
+    { label: "Sell on Pigma", href: "/vendor-login" },
   ];
 
   const isHomePage = location.pathname === "/";

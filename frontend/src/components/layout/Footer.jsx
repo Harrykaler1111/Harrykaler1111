@@ -34,7 +34,7 @@ export const Footer = () => {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 md:gap-10 mb-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="font-serif text-2xl tracking-[0.15em] text-gold block mb-4">PIGMA</Link>
@@ -103,6 +103,17 @@ export const Footer = () => {
                   <Mail className="h-3 w-3" /> support@thepigma.com
                 </a>
               </li>
+            </ul>
+          </div>
+
+          {/* Partner with Us */}
+          <div>
+            <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-4">Partner with Us</h4>
+            <ul className="space-y-2.5">
+              <li><Link to="/influencer" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-influencer">Become an Influencer</Link></li>
+              <li><Link to="/creators" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-affiliate">Affiliate Program</Link></li>
+              <li><Link to="/reseller" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-reseller">Reseller Program</Link></li>
+              <li><Link to="/vendor-login" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-sell">Sell on Pigma</Link></li>
             </ul>
           </div>
         </div>
