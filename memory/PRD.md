@@ -13,46 +13,32 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Credentials
 - Super Admin: superadmin@pigma.com / superadmin123
+- Admin (demo): admin@pigma.com / admin123
 - Marketing: marketing@pigma.com / marketing123
 - Vendor: testvendor@example.com / vendor123
-- Customer: harpreetkaler750@gmail.com / Harpreet@123
 
 ## Completed Features (Latest)
 
-### Phase 27.1 - Flash Sale Banner UI Refinement (2026-03-28)
-- Premium gold/black theme, top-right positioning, auto-hide progress bar
-- Desktop: top-right floating card. Mobile: bottom bar
-- Testing: Verified via screenshots - PASS
-
 ### Phase 28 - Header Navigation & Mega Menu (2026-03-28)
-- **Header Cleanup:** Removed individual category links from top bar. Clean 3-item nav: All Products, Partner with Us, Sell on Pigma
-- **Amazon-Style Mega Menu:** Full-width dropdown on "All Products" hover. 4-column grid layout with gold category names. Sub-categories listed under each category. "View All Products" link at bottom with tagline
-- **Partner with Us Dropdown:** Hover-triggered dropdown with 3 links: Become an Influencer (/creators), Affiliate Program (/affiliate), Reseller Program (/reseller-register). Gold icons, dark theme
-- **Sell on Pigma CTA:** Gold-bordered button with hover fill effect, links to /vendor-login
-- **Alignment Fix:** Proper gap-7 spacing, single-line labels with `whitespace-nowrap`, vertically centered items, uppercase tracking-[0.12em]
-- **Responsive Mobile Menu:** Custom drawer (z-[61]) with backdrop overlay. PIGMA logo + close button header. Expandable categories with chevron toggle. Partner with Us expandable section. Account section for logged-in users
-- **Hover Intent:** 150ms timeout on mouse leave prevents flicker. Opening one dropdown auto-closes the other
-- **Premium Theme:** bg-neutral-950 dropdowns, gold/10 borders, shadow-2xl shadow-black/60, smooth transitions
-- **Dynamic Categories:** Fetched from /api/categories, filtered by show_in_nav and is_active
-- **Testing:** Iteration 32 - PASS (8/8 backend + 100% frontend verified)
+- Amazon-style mega menu on "All Products" hover — 4-column category grid
+- "Partner with Us" dropdown — Influencer, Affiliate, Reseller links
+- "Sell on Pigma" gold-bordered CTA button
+- Responsive mobile hamburger drawer menu
+- Testing: Iteration 32 - PASS (8/8 backend + 100% frontend)
 
-### Earlier Phases (12-27)
-- Phase 12: Site Settings & Integrations
-- Phase 13: Cart Value Booster
-- Phase 14: Global Sticky Booster Bar & Admin Control Panel
-- Phase 15: Cart Drawer Popup System
-- Phase 16: Product Page UX & Video System
-- Phase 17: Image Crop Tool + Customer Reviews with Images
-- Phase 18: E-Commerce Order Flow & Admin Notifications
-- Phase 19: Order Timeline / Activity Log
-- Phase 20: Category System, Quick Add, Policies, Conversion Optimization
-- Phase 21: Unified Products Hub & Full Product Edit
-- Phase 22: Cart Booster Upsell Popup & Admin Curation
-- Phase 23: Advanced Checkout & COD System
-- Phase 24: Frequently Bought Together
-- Phase 25: Admin-Managed Bundle Deals
-- Phase 26: Time-Limited Flash Sales on Bundles
-- Phase 27: Push Notifications & Flash Sale Toast
+### Phase 29 - UI Layout Fixes, Compact Grid & Quick Add System (2026-03-28)
+- **Header-Booster Gap Fix:** BoosterBar repositioned to `top-[68px]` (from `top-[80px]`), eliminating the 12px gap. Spacer reduced to `h-[48px]`
+- **Cart Center Modal:** Converted from right-side drawer to center popup modal. Uses flex wrapper for proper centering with framer-motion. Sticky CHECKOUT footer always visible with UPI logos. Scrollable content area with items, coupon, savings, recommendations
+- **Product Grid Density:** Desktop: 5 per row (`xl:grid-cols-5`), Tablet: 3 per row (`md:grid-cols-3`), Mobile: 2 per row (`grid-cols-2`). Compact `gap-3 md:gap-4` spacing
+- **Product Card Compaction:** Image aspect ratio changed from 3:4 to 4:5. Reduced padding, font sizes, badge sizes. Rounded corners on images (`rounded-lg`)
+- **Quick Add System (Always Visible):** Removed `opacity-0 group-hover:opacity-100` — button now always visible at bottom of every product card. Click transforms to `[-] qty [+]` controller with framer-motion AnimatePresence transitions. Decrease to 0 removes item and restores "+ Add" button. Cart badge and booster bar update instantly (no refresh)
+- **Upsell Popup Optimization:** Widened to `max-w-3xl`. Grid changed to `grid-cols-2 md:grid-cols-4` (4 per row desktop). Compact cards with `aspect-[4/5]` images
+- **HomePage Compaction:** Section padding reduced from `py-20 md:py-32` to `py-12 md:py-16`. Grid headers reduced. New Arrivals shows 10 products (up from 8) in 5-col grid
+- **Products Page Compact Hero:** Reduced from `py-12 md:py-20` to `py-6 md:py-10`. Filter bar tightened
+- **Testing:** Iteration 33 - PASS (9/9 backend + 100% frontend verified)
+
+### Earlier Phases (12-27.1)
+- Phase 12-27.1: Site Settings, Cart Value Booster, Cart Drawer, Product Page UX, Image Crop, Reviews, Order Flow, Admin Notifications, Order Timeline, Categories, Quick Add, Products Hub, Cart Booster Upsell, Advanced Checkout, Frequently Bought Together, Bundle Deals, Flash Sales, Push Notifications, Flash Sale Banner UI Refinement
 
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
