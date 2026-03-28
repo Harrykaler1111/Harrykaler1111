@@ -128,7 +128,7 @@ export const NotificationBell = () => {
 export const FlashSaleToast = () => {
   const [flashSales, setFlashSales] = useState([]);
   const [dismissed, setDismissed] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const dismissed_key = sessionStorage.getItem("pigma_flash_dismissed");
@@ -136,70 +136,151 @@ export const FlashSaleToast = () => {
 
     axios.get(`${API}/bundles/flash-sales`)
       .then(r => {
-        if (r.data?.length > 0) setFlashSales(r.data);
+        if (r.data?.length > 0) {
+          setFlashSales(r.data);
+          // Slight delay so page loads first
+          setTimeout(() => setVisible(true), 800);
+        }
       })
       .catch(() => {});
   }, []);
 
+  // Auto-hide after 7 seconds
+  useEffect(() => {
+    if (!visible) return;
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setDismissed(true);
+        sessionStorage.setItem("pigma_flash_dismissed", "1");
+      }, 400);
+    }, 7000);
+    return () => clearTimeout(timer);
+  }, [visible]);
+
   const handleDismiss = () => {
-    setDismissed(true);
-    sessionStorage.setItem("pigma_flash_dismissed", "1");
+    setVisible(false);
+    setTimeout(() => {
+      setDismissed(true);
+      sessionStorage.setItem("pigma_flash_dismissed", "1");
+    }, 400);
   };
 
   if (dismissed || flashSales.length === 0) return null;
 
-  const sale = flashSales[currentIndex % flashSales.length];
+  const sale = flashSales[0];
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ y: -80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -80, opacity: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 25 }}
-        className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] w-[95vw] max-w-lg"
-        data-testid="flash-sale-toast"
-      >
-        <div className="bg-red-600 text-white rounded-xl shadow-2xl shadow-red-500/30 overflow-hidden">
-          <div className="flex items-center gap-3 p-3 pr-2">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center shrink-0 animate-pulse">
-              <Zap className="h-5 w-5" />
+      {visible && (
+        <>
+          {/* Desktop: top-right floating card */}
+          <motion.div
+            initial={{ x: 360, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 360, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            className="hidden md:block fixed top-[140px] right-5 z-[45] w-[340px]"
+            data-testid="flash-sale-toast"
+          >
+            <div className="bg-neutral-950 border border-gold/30 rounded-xl shadow-xl shadow-black/40 overflow-hidden">
+              {/* Gold accent top bar */}
+              <div className="h-[2px] bg-gradient-to-r from-transparent via-gold to-transparent" />
+
+              <div className="p-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gold/15 rounded-lg flex items-center justify-center shrink-0">
+                    <Zap className="h-4 w-4 text-gold" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-xs text-white tracking-wide">
+                      Flash Sale is Live
+                    </p>
+                    <p className="text-[11px] text-neutral-400 truncate mt-0.5">
+                      {sale.name} — Save Rs.{sale.discount_amount?.toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleDismiss}
+                    className="p-1 hover:bg-white/10 rounded-md transition-colors shrink-0"
+                    data-testid="flash-toast-dismiss"
+                  >
+                    <X className="h-3.5 w-3.5 text-neutral-500" />
+                  </button>
+                </div>
+
+                <Link
+                  to={`/bundle/${sale.bundle_id}`}
+                  onClick={handleDismiss}
+                  className="mt-3 flex items-center justify-center gap-1.5 w-full bg-gold hover:bg-yellow-500 text-black text-xs font-bold py-2 rounded-lg transition-colors"
+                  data-testid="flash-toast-shop-btn"
+                >
+                  Shop Now <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+
+              {/* Auto-hide progress bar */}
+              <div className="h-[2px] bg-neutral-800">
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: 7, ease: "linear" }}
+                  className="h-full bg-gold/50"
+                />
+              </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm truncate">
-                Flash Sale is LIVE!
-              </p>
-              <p className="text-xs text-red-100 truncate">
-                {sale.name} — Save Rs.{sale.discount_amount?.toLocaleString()}
-              </p>
+          </motion.div>
+
+          {/* Mobile: bottom bar above booster (z-[55] between booster z-[60] and content) */}
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 24 }}
+            className="md:hidden fixed bottom-16 left-3 right-3 z-[55]"
+            data-testid="flash-sale-toast-mobile"
+          >
+            <div className="bg-neutral-950 border border-gold/30 rounded-xl shadow-xl shadow-black/50 overflow-hidden">
+              <div className="flex items-center gap-2.5 p-2.5 pr-2">
+                <div className="w-7 h-7 bg-gold/15 rounded-lg flex items-center justify-center shrink-0">
+                  <Zap className="h-3.5 w-3.5 text-gold" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-[11px] text-white truncate">
+                    Flash Sale Live
+                  </p>
+                  <p className="text-[10px] text-neutral-400 truncate">
+                    {sale.name} — Save Rs.{sale.discount_amount?.toLocaleString()}
+                  </p>
+                </div>
+                <Link
+                  to={`/bundle/${sale.bundle_id}`}
+                  onClick={handleDismiss}
+                  className="bg-gold text-black text-[10px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shrink-0"
+                  data-testid="flash-toast-shop-btn-mobile"
+                >
+                  Shop
+                </Link>
+                <button
+                  onClick={handleDismiss}
+                  className="p-1 hover:bg-white/10 rounded-md transition-colors shrink-0"
+                >
+                  <X className="h-3 w-3 text-neutral-500" />
+                </button>
+              </div>
+              {/* Progress bar */}
+              <div className="h-[1.5px] bg-neutral-800">
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: 7, ease: "linear" }}
+                  className="h-full bg-gold/40"
+                />
+              </div>
             </div>
-            <Link
-              to={`/bundle/${sale.bundle_id}`}
-              onClick={handleDismiss}
-              className="bg-white text-red-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
-              data-testid="flash-toast-shop-btn"
-            >
-              Shop <ArrowRight className="h-3 w-3" />
-            </Link>
-            <button
-              onClick={handleDismiss}
-              className="p-1 hover:bg-white/20 rounded-lg transition-colors shrink-0"
-              data-testid="flash-toast-dismiss"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {/* Progress bar showing time urgency */}
-          <div className="h-0.5 bg-white/20">
-            <motion.div
-              initial={{ width: "100%" }}
-              animate={{ width: "0%" }}
-              transition={{ duration: 8, ease: "linear" }}
-              className="h-full bg-white/60"
-            />
-          </div>
-        </div>
-      </motion.div>
+          </motion.div>
+        </>
+      )}
     </AnimatePresence>
   );
 };
