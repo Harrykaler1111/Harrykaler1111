@@ -474,7 +474,7 @@ export const AuthPage = () => {
 
           {/* Admin hint */}
           <p className="mt-6 text-xs text-center text-neutral-400">
-            Demo admin: admin@pigma.com / admin123
+            Admin? Use the <a href="/admin-login" className="text-gold hover:underline">Admin Portal</a>
           </p>
         </motion.div>
       </div>

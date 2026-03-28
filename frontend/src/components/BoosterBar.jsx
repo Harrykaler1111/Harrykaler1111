@@ -372,12 +372,12 @@ export const BoosterBar = () => {
       {/* Spacer */}
       <div className="hidden lg:block h-[48px] bg-black" />
 
-      {/* Mobile Sticky Bottom Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[60]" data-testid="booster-bar-mobile">
+      {/* Mobile Bar — sticky below header */}
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-[45]" data-testid="booster-bar-mobile">
         <motion.div
-          initial={{ y: 100 }}
+          initial={{ y: -50 }}
           animate={{ y: 0 }}
-          className="bg-black border-t border-gold/20 safe-area-bottom"
+          className="bg-black border-b border-gold/20"
         >
           {/* Expandable section */}
           <AnimatePresence>

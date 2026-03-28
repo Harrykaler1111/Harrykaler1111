@@ -84,7 +84,7 @@ export const AdminLoginPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
-                  placeholder="admin@pigma.com"
+                  placeholder="Enter your email"
                   required
                   data-testid="admin-email"
                 />
@@ -156,19 +156,9 @@ export const AdminLoginPage = () => {
             </Button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-neutral-800">
-            <p className="text-xs text-neutral-500 mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-xs text-neutral-400">
-              <p><span className="text-gold">Super Admin:</span> superadmin@pigma.com / superadmin123</p>
-              <p><span className="text-blue-400">Marketing:</span> marketing@pigma.com / marketing123</p>
-              <p><span className="text-green-400">Finance:</span> finance@pigma.com / finance123</p>
-              <p><span className="text-purple-400">Support:</span> support@pigma.com / support123</p>
-            </div>
-          </div>
+          {/* Security Notice */}
         </div>
 
-        {/* Security Notice */}
         <p className="text-center text-xs text-neutral-500 mt-6">
           This is a secure admin area. All access is logged and monitored.
         </p>

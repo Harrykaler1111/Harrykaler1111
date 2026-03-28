@@ -627,26 +627,44 @@ const WithdrawalManagement = () => {
   );
 };
 
-// Admin Users Management
+// Admin Users Management — Super Admin Control System
 const AdminUsersManagement = () => {
   const [admins, setAdmins] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("users"); // users | activity
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [resetTarget, setResetTarget] = useState(null);
+  const [tempPassword, setTempPassword] = useState(null);
   const [newAdmin, setNewAdmin] = useState({ email: "", name: "", password: "", role: "support_manager", phone: "" });
+  const [editForm, setEditForm] = useState({ name: "", email: "", role: "", phone: "" });
+  const [resetForm, setResetForm] = useState({ new_password: "" });
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const currentAdmin = JSON.parse(localStorage.getItem("pigma_admin") || "{}");
+  const isSuperAdmin = currentAdmin.role === "super_admin";
 
   const fetchAdmins = async () => {
     try {
       const response = await axios.get(`${API}/admin/users`, { headers: getAdminHeaders() });
       setAdmins(response.data);
-    } catch (error) {
-      toast.error("Failed to load admin users");
-    } finally {
-      setLoading(false);
-    }
+    } catch { toast.error("Failed to load admin users"); }
+    finally { setLoading(false); }
+  };
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const response = await axios.get(`${API}/admin/activity-log?limit=100`, { headers: getAdminHeaders() });
+      setActivityLogs(response.data.logs || []);
+    } catch { toast.error("Failed to load activity logs"); }
+    finally { setLogsLoading(false); }
   };
 
   useEffect(() => { fetchAdmins(); }, []);
+  useEffect(() => { if (activeTab === "activity" && isSuperAdmin) fetchLogs(); }, [activeTab]);
 
   const createAdmin = async (e) => {
     e.preventDefault();
@@ -657,150 +675,375 @@ const AdminUsersManagement = () => {
       setShowCreateForm(false);
       setNewAdmin({ email: "", name: "", password: "", role: "support_manager", phone: "" });
       fetchAdmins();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to create admin");
-    } finally {
-      setCreating(false);
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed to create"); }
+    finally { setCreating(false); }
   };
 
   const deleteAdmin = async (adminId) => {
-    if (!window.confirm("Are you sure you want to delete this admin?")) return;
+    if (!window.confirm("Are you sure? This action cannot be undone.")) return;
     try {
       await axios.delete(`${API}/admin/users/${adminId}`, { headers: getAdminHeaders() });
       toast.success("Admin deleted");
       fetchAdmins();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to delete");
-    }
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed"); }
+  };
+
+  const toggleStatus = async (admin) => {
+    const newStatus = !admin.is_active;
+    const reason = newStatus ? "" : (prompt("Reason for disabling this account:") || "");
+    if (!newStatus && reason === null) return;
+    try {
+      await axios.put(`${API}/admin/users/${admin.admin_id}/toggle-status`,
+        { is_active: newStatus, reason },
+        { headers: getAdminHeaders() }
+      );
+      toast.success(`Account ${newStatus ? "enabled" : "disabled"}`);
+      fetchAdmins();
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed"); }
+  };
+
+  const openEdit = (admin) => {
+    setEditForm({ name: admin.name, email: admin.email, role: admin.role, phone: admin.phone || "" });
+    setEditingUser(admin);
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/admin/users/${editingUser.admin_id}/edit`, editForm, { headers: getAdminHeaders() });
+      toast.success("User updated");
+      setEditingUser(null);
+      fetchAdmins();
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed"); }
+    finally { setSaving(false); }
+  };
+
+  const resetPassword = async () => {
+    setSaving(true);
+    try {
+      const res = await axios.post(`${API}/admin/users/${resetTarget.admin_id}/reset-password`,
+        { new_password: resetForm.new_password || null },
+        { headers: getAdminHeaders() }
+      );
+      setTempPassword(res.data.temporary_password);
+      toast.success("Password reset successfully");
+      fetchAdmins();
+    } catch (error) { toast.error(error.response?.data?.detail || "Failed"); }
+    finally { setSaving(false); }
   };
 
   const getRoleBadge = (role) => {
     const colors = {
-      super_admin: "bg-gold/20 text-gold",
-      marketing_manager: "bg-blue-500/20 text-blue-400",
-      finance_manager: "bg-green-500/20 text-green-400",
-      support_manager: "bg-purple-500/20 text-purple-400"
+      super_admin: "bg-gold/20 text-gold border-gold/30",
+      product_manager: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+      marketing_manager: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      finance_manager: "bg-green-500/20 text-green-400 border-green-500/30",
+      support_manager: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+      sales_manager: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
     };
-    return colors[role] || "bg-neutral-500/20 text-neutral-400";
+    return colors[role] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/30";
+  };
+
+  const getActionBadge = (action) => {
+    const map = {
+      login: "bg-blue-500/20 text-blue-400",
+      password_reset: "bg-amber-500/20 text-amber-400",
+      account_disabled: "bg-red-500/20 text-red-400",
+      account_enabled: "bg-green-500/20 text-green-400",
+      user_edited: "bg-purple-500/20 text-purple-400",
+      user_created: "bg-gold/20 text-gold",
+    };
+    return map[action] || "bg-neutral-500/20 text-neutral-400";
   };
 
   const canCreate = hasPermission("admin_users", "create");
   const canDelete = hasPermission("admin_users", "delete");
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="font-serif text-2xl font-bold text-white">Admin Users</h2>
-        {canCreate && (
-          <Button className="bg-gold text-black hover:bg-gold-dark" onClick={() => setShowCreateForm(!showCreateForm)} data-testid="add-admin-btn">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Admin
-          </Button>
-        )}
+    <div data-testid="admin-users-panel">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h2 className="font-serif text-2xl font-bold text-white">Admin Users</h2>
+          <p className="text-sm text-neutral-400 mt-1">{isSuperAdmin ? "Manage all admin accounts, passwords, and roles" : "View admin team members"}</p>
+        </div>
+        <div className="flex gap-2">
+          {isSuperAdmin && (
+            <div className="flex bg-neutral-800 rounded-lg p-0.5" data-testid="users-tab-group">
+              <button onClick={() => setActiveTab("users")} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "users" ? "bg-gold text-black" : "text-neutral-400 hover:text-white"}`} data-testid="tab-users">Users</button>
+              <button onClick={() => setActiveTab("activity")} className={`px-4 py-1.5 rounded-md text-xs font-medium transition-colors ${activeTab === "activity" ? "bg-gold text-black" : "text-neutral-400 hover:text-white"}`} data-testid="tab-activity">Activity Log</button>
+            </div>
+          )}
+          {canCreate && activeTab === "users" && (
+            <Button className="bg-gold text-black hover:bg-gold-dark text-xs" onClick={() => setShowCreateForm(!showCreateForm)} data-testid="add-admin-btn">
+              <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Admin
+            </Button>
+          )}
+        </div>
       </div>
 
-      {showCreateForm && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Create Admin User</h3>
-          <form onSubmit={createAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Name</label>
-              <Input value={newAdmin.name} onChange={(e) => setNewAdmin({...newAdmin, name: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-name" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Email</label>
-              <Input type="email" value={newAdmin.email} onChange={(e) => setNewAdmin({...newAdmin, email: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-email" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Password</label>
-              <Input type="password" value={newAdmin.password} onChange={(e) => setNewAdmin({...newAdmin, password: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-password" />
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Role</label>
-              <Select value={newAdmin.role} onValueChange={(val) => setNewAdmin({...newAdmin, role: val})}>
-                <SelectTrigger className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-admin-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="product_manager">Product Manager</SelectItem>
-                  <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
-                  <SelectItem value="finance_manager">Finance Manager</SelectItem>
-                  <SelectItem value="support_manager">Support Manager</SelectItem>
-                  <SelectItem value="super_admin">Super Admin</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2 flex gap-2">
-              <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold-dark" data-testid="create-admin-submit">
-                {creating ? "Creating..." : "Create Admin"}
-              </Button>
-              <Button type="button" variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setShowCreateForm(false)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </motion.div>
+      {/* ===== USERS TAB ===== */}
+      {activeTab === "users" && (
+        <>
+          {/* Create Form */}
+          {showCreateForm && (
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+              className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Create Admin User</h3>
+              <form onSubmit={createAdmin} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-neutral-400 mb-1 block">Name</label>
+                  <Input value={newAdmin.name} onChange={(e) => setNewAdmin({...newAdmin, name: e.target.value})}
+                    className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-name" />
+                </div>
+                <div>
+                  <label className="text-sm text-neutral-400 mb-1 block">Email</label>
+                  <Input type="email" value={newAdmin.email} onChange={(e) => setNewAdmin({...newAdmin, email: e.target.value})}
+                    className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-email" />
+                </div>
+                <div>
+                  <label className="text-sm text-neutral-400 mb-1 block">Password</label>
+                  <Input type="password" value={newAdmin.password} onChange={(e) => setNewAdmin({...newAdmin, password: e.target.value})}
+                    className="bg-neutral-900 border-neutral-700 text-white" required data-testid="new-admin-password" />
+                </div>
+                <div>
+                  <label className="text-sm text-neutral-400 mb-1 block">Role</label>
+                  <Select value={newAdmin.role} onValueChange={(val) => setNewAdmin({...newAdmin, role: val})}>
+                    <SelectTrigger className="bg-neutral-900 border-neutral-700 text-white" data-testid="new-admin-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="product_manager">Product Manager</SelectItem>
+                      <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
+                      <SelectItem value="finance_manager">Finance Manager</SelectItem>
+                      <SelectItem value="support_manager">Support Manager</SelectItem>
+                      <SelectItem value="sales_manager">Sales Manager</SelectItem>
+                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2 flex gap-2">
+                  <Button type="submit" disabled={creating} className="bg-gold text-black hover:bg-gold-dark" data-testid="create-admin-submit">
+                    {creating ? "Creating..." : "Create Admin"}
+                  </Button>
+                  <Button type="button" variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {/* Users Table */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-neutral-700">
+                  <TableHead className="text-neutral-400">User</TableHead>
+                  <TableHead className="text-neutral-400">Role</TableHead>
+                  <TableHead className="text-neutral-400">Status</TableHead>
+                  <TableHead className="text-neutral-400">Last Login</TableHead>
+                  <TableHead className="text-neutral-400">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {admins.map((a) => (
+                  <TableRow key={a.admin_id} className="border-neutral-700" data-testid={`admin-row-${a.admin_id}`}>
+                    <TableCell>
+                      <div>
+                        <p className="text-white font-medium text-sm">{a.name}</p>
+                        <p className="text-neutral-500 text-xs">{a.email}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-[10px] px-2 py-0.5 rounded border capitalize ${getRoleBadge(a.role)}`}>
+                        {a.role.replace(/_/g, " ")}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${a.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                        {a.is_active ? "Active" : "Disabled"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-neutral-400 text-xs">
+                      {a.last_login ? new Date(a.last_login).toLocaleDateString() : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {isSuperAdmin && a.admin_id !== currentAdmin.admin_id && (
+                          <>
+                            <Button size="sm" variant="ghost" className="text-neutral-400 hover:text-white hover:bg-neutral-700 h-7 w-7 p-0"
+                              onClick={() => openEdit(a)} title="Edit User" data-testid={`edit-admin-${a.admin_id}`}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 h-7 w-7 p-0"
+                              onClick={() => { setResetTarget(a); setTempPassword(null); setResetForm({ new_password: "" }); }}
+                              title="Reset Password" data-testid={`reset-pwd-${a.admin_id}`}>
+                              <Lock className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="ghost"
+                              className={`h-7 w-7 p-0 ${a.is_active ? "text-red-400 hover:text-red-300 hover:bg-red-500/10" : "text-green-400 hover:text-green-300 hover:bg-green-500/10"}`}
+                              onClick={() => toggleStatus(a)} title={a.is_active ? "Disable Account" : "Enable Account"}
+                              data-testid={`toggle-status-${a.admin_id}`}>
+                              {a.is_active ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                            </Button>
+                          </>
+                        )}
+                        {canDelete && a.admin_id !== currentAdmin.admin_id && a.role !== "super_admin" && (
+                          <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10 h-7 w-7 p-0"
+                            onClick={() => deleteAdmin(a.admin_id)} data-testid={`delete-admin-${a.admin_id}`}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {a.admin_id === currentAdmin.admin_id && (
+                          <span className="text-[10px] text-neutral-500 italic">You</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
+            {!loading && admins.length === 0 && <div className="text-center py-8 text-neutral-500">No admin users found</div>}
+          </div>
+        </>
       )}
 
-      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-neutral-700">
-              <TableHead className="text-neutral-400">Name</TableHead>
-              <TableHead className="text-neutral-400">Email</TableHead>
-              <TableHead className="text-neutral-400">Role</TableHead>
-              <TableHead className="text-neutral-400">2FA</TableHead>
-              <TableHead className="text-neutral-400">Last Login</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
-              {canDelete && <TableHead className="text-neutral-400">Actions</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {admins.map((admin) => (
-              <TableRow key={admin.admin_id} className="border-neutral-700">
-                <TableCell className="text-white">{admin.name}</TableCell>
-                <TableCell className="text-neutral-300">{admin.email}</TableCell>
-                <TableCell>
-                  <span className={`text-xs px-2 py-1 rounded capitalize ${getRoleBadge(admin.role)}`}>
-                    {admin.role.replace(/_/g, " ")}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {admin.two_factor_enabled ? (
-                    <span className="text-green-400"><Lock className="h-4 w-4" /></span>
-                  ) : (
-                    <span className="text-neutral-500">-</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-neutral-400">
-                  {admin.last_login ? new Date(admin.last_login).toLocaleString() : "Never"}
-                </TableCell>
-                <TableCell>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    admin.is_active ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                  }`}>
-                    {admin.is_active ? "Active" : "Disabled"}
-                  </span>
-                </TableCell>
-                {canDelete && (
-                  <TableCell>
-                    <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      onClick={() => deleteAdmin(admin.admin_id)} data-testid={`delete-admin-${admin.admin_id}`}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
-      </div>
+      {/* ===== ACTIVITY LOG TAB ===== */}
+      {activeTab === "activity" && isSuperAdmin && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid="activity-log-panel">
+          <div className="px-5 py-4 border-b border-neutral-700">
+            <h3 className="text-sm font-semibold text-white">Activity Log</h3>
+            <p className="text-xs text-neutral-500 mt-0.5">All admin account actions are tracked here</p>
+          </div>
+          {logsLoading ? (
+            <div className="text-center py-8 text-neutral-500">Loading logs...</div>
+          ) : activityLogs.length === 0 ? (
+            <div className="text-center py-8 text-neutral-500">No activity logged yet</div>
+          ) : (
+            <div className="divide-y divide-neutral-700/50 max-h-[600px] overflow-y-auto">
+              {activityLogs.map((log, i) => (
+                <div key={log.log_id || i} className="px-5 py-3 hover:bg-neutral-800/50 transition-colors" data-testid={`activity-log-${i}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${getActionBadge(log.action)}`}>
+                          {log.action?.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-xs text-white font-medium truncate">{log.actor_name}</span>
+                        <span className="text-[10px] text-neutral-600 capitalize">({log.actor_role?.replace(/_/g, " ")})</span>
+                      </div>
+                      <p className="text-xs text-neutral-400 truncate">{log.details}</p>
+                      {log.target_user_email && (
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Target: {log.target_user_email}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-neutral-600 whitespace-nowrap">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== EDIT USER MODAL ===== */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()} data-testid="edit-user-modal">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Edit2 className="h-5 w-5 text-gold" /> Edit User
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Name</label>
+                <Input value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})}
+                  className="bg-neutral-800 border-neutral-700 text-white" data-testid="edit-name" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Email</label>
+                <Input type="email" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})}
+                  className="bg-neutral-800 border-neutral-700 text-white" data-testid="edit-email" />
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Role</label>
+                <Select value={editForm.role} onValueChange={val => setEditForm({...editForm, role: val})}>
+                  <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="super_admin">Super Admin</SelectItem>
+                    <SelectItem value="product_manager">Product Manager</SelectItem>
+                    <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
+                    <SelectItem value="finance_manager">Finance Manager</SelectItem>
+                    <SelectItem value="support_manager">Support Manager</SelectItem>
+                    <SelectItem value="sales_manager">Sales Manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm text-neutral-400 mb-1 block">Phone</label>
+                <Input value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                  className="bg-neutral-800 border-neutral-700 text-white" data-testid="edit-phone" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button onClick={saveEdit} disabled={saving} className="bg-gold text-black hover:bg-gold-dark flex-1" data-testid="save-edit-btn">
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setEditingUser(null)}>Cancel</Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ===== RESET PASSWORD MODAL ===== */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={() => { setResetTarget(null); setTempPassword(null); }}>
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()} data-testid="reset-password-modal">
+            <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-amber-400" /> Reset Password
+            </h3>
+            <p className="text-sm text-neutral-400 mb-4">For: <span className="text-white">{resetTarget.name}</span> ({resetTarget.email})</p>
+
+            {tempPassword ? (
+              <div className="space-y-4" data-testid="temp-password-display">
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <p className="text-green-400 text-sm font-medium mb-2">Password reset successfully!</p>
+                  <p className="text-xs text-neutral-400 mb-2">New temporary password (shown only once):</p>
+                  <div className="bg-neutral-800 rounded-lg p-3 font-mono text-sm text-white select-all break-all" data-testid="temp-password-value">
+                    {tempPassword}
+                  </div>
+                  <p className="text-[10px] text-neutral-500 mt-2">Copy and share this securely. It will not be shown again.</p>
+                </div>
+                <Button onClick={() => { setResetTarget(null); setTempPassword(null); }} className="w-full bg-neutral-800 text-white hover:bg-neutral-700">Done</Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                  <p className="text-amber-400 text-xs">This will generate a new password. The existing password will be invalidated immediately.</p>
+                </div>
+                <div>
+                  <label className="text-sm text-neutral-400 mb-1 block">Custom Password (optional)</label>
+                  <Input type="text" value={resetForm.new_password} onChange={e => setResetForm({ new_password: e.target.value })}
+                    placeholder="Leave empty to auto-generate"
+                    className="bg-neutral-800 border-neutral-700 text-white" data-testid="reset-custom-password" />
+                  <p className="text-[10px] text-neutral-500 mt-1">Min 8 characters. Leave empty for a secure random password.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={resetPassword} disabled={saving} className="bg-amber-500 text-black hover:bg-amber-400 flex-1" data-testid="confirm-reset-btn">
+                    {saving ? "Resetting..." : "Reset Password"}
+                  </Button>
+                  <Button variant="outline" className="border-neutral-600 text-neutral-300" onClick={() => setResetTarget(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

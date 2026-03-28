@@ -52,6 +52,21 @@ async def admin_login(credentials: AdminLogin, request: Request):
         }}
     )
 
+    # Log login activity
+    await db.admin_activity_log.insert_one({
+        "_id": generate_id("log_"),
+        "log_id": generate_id("log_"),
+        "action": "login",
+        "actor_id": admin["admin_id"],
+        "actor_name": admin.get("name", "Unknown"),
+        "actor_role": admin.get("role", "unknown"),
+        "target_user_id": admin["admin_id"],
+        "target_user_email": admin.get("email", ""),
+        "details": f"{admin.get('name', 'Unknown')} logged in",
+        "ip_address": str(request.client.host) if request.client else "",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
     token = create_jwt_token(admin["admin_id"], admin["role"], is_admin=True)
 
     return {
@@ -168,6 +183,189 @@ async def toggle_2fa(admin_id: str, admin: Dict = Depends(get_admin_user)):
     )
 
     return {"two_factor_enabled": new_status, "message": f"2FA {'enabled' if new_status else 'disabled'}"}
+
+
+
+# ============== SUPER ADMIN CONTROL SYSTEM ==============
+
+class PasswordResetRequest(BaseModel):
+    new_password: Optional[str] = None  # If None, auto-generate
+
+class AccountStatusUpdate(BaseModel):
+    is_active: bool
+    reason: Optional[str] = None
+
+class AdminUserEditRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    phone: Optional[str] = None
+
+async def log_admin_activity(actor: Dict, action: str, target_id: str, target_email: str, details: str = ""):
+    """Log every super admin action for audit trail"""
+    await db.admin_activity_log.insert_one({
+        "_id": generate_id("log_"),
+        "log_id": generate_id("log_"),
+        "action": action,
+        "actor_id": actor["admin_id"],
+        "actor_name": actor.get("name", "Unknown"),
+        "actor_role": actor.get("role", "unknown"),
+        "target_user_id": target_id,
+        "target_user_email": target_email,
+        "details": details,
+        "ip_address": "",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+
+@router.post("/users/{admin_id}/reset-password")
+async def reset_admin_password(admin_id: str, body: PasswordResetRequest, admin: Dict = Depends(get_admin_user)):
+    """Super Admin resets another admin's password. Never reveals existing password."""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only Super Admin can reset passwords")
+
+    if admin_id == admin["admin_id"]:
+        raise HTTPException(status_code=400, detail="Use profile settings to change your own password")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    import secrets
+    import string
+    if body.new_password and len(body.new_password) >= 8:
+        new_pass = body.new_password
+    else:
+        chars = string.ascii_letters + string.digits + "!@#$%"
+        new_pass = ''.join(secrets.choice(chars) for _ in range(12))
+
+    hashed = hash_password(new_pass)
+    await db.admin_users.update_one(
+        {"admin_id": admin_id},
+        {"$set": {
+            "password": hashed,
+            "password_reset_at": datetime.now(timezone.utc).isoformat(),
+            "password_reset_by": admin["admin_id"],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    await log_admin_activity(
+        admin, "password_reset", admin_id, target.get("email", ""),
+        f"Password reset for {target.get('name', 'Unknown')} ({target.get('role', '')})"
+    )
+
+    return {
+        "message": "Password reset successfully",
+        "temporary_password": new_pass,
+        "note": "Share this password securely. It will not be shown again."
+    }
+
+
+@router.put("/users/{admin_id}/toggle-status")
+async def toggle_admin_status(admin_id: str, body: AccountStatusUpdate, admin: Dict = Depends(get_admin_user)):
+    """Super Admin enables or disables an admin account"""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only Super Admin can change account status")
+
+    if admin_id == admin["admin_id"]:
+        raise HTTPException(status_code=400, detail="Cannot disable your own account")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    await db.admin_users.update_one(
+        {"admin_id": admin_id},
+        {"$set": {
+            "is_active": body.is_active,
+            "status_changed_by": admin["admin_id"],
+            "status_changed_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    action = "account_enabled" if body.is_active else "account_disabled"
+    await log_admin_activity(
+        admin, action, admin_id, target.get("email", ""),
+        f"{'Enabled' if body.is_active else 'Disabled'} account for {target.get('name', '')}. Reason: {body.reason or 'N/A'}"
+    )
+
+    return {"message": f"Account {'enabled' if body.is_active else 'disabled'} successfully"}
+
+
+@router.put("/users/{admin_id}/edit")
+async def edit_admin_user_details(admin_id: str, body: AdminUserEditRequest, admin: Dict = Depends(get_admin_user)):
+    """Super Admin edits another admin's profile"""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only Super Admin can edit user details")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin user not found")
+
+    update_fields = {}
+    changes = []
+    if body.name and body.name != target.get("name"):
+        update_fields["name"] = body.name
+        changes.append(f"name: {target.get('name')} -> {body.name}")
+    if body.email and body.email != target.get("email"):
+        existing = await db.admin_users.find_one({"email": body.email, "admin_id": {"$ne": admin_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        update_fields["email"] = body.email
+        changes.append(f"email: {target.get('email')} -> {body.email}")
+    if body.role and body.role != target.get("role"):
+        valid_roles = [r.value for r in AdminRole]
+        if body.role not in valid_roles:
+            raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {valid_roles}")
+        update_fields["role"] = body.role
+        changes.append(f"role: {target.get('role')} -> {body.role}")
+    if body.phone is not None and body.phone != target.get("phone"):
+        update_fields["phone"] = body.phone
+        changes.append("phone updated")
+
+    if not update_fields:
+        return {"message": "No changes to apply"}
+
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.admin_users.update_one({"admin_id": admin_id}, {"$set": update_fields})
+
+    await log_admin_activity(
+        admin, "user_edited", admin_id, target.get("email", ""),
+        f"Edited: {', '.join(changes)}"
+    )
+
+    updated = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0, "password": 0})
+    return {
+        "message": "User updated successfully",
+        "user": {**updated, "permissions": ROLE_PERMISSIONS.get(AdminRole(updated["role"]), {})}
+    }
+
+
+@router.get("/activity-log")
+async def get_admin_activity_log(
+    limit: int = 50,
+    skip: int = 0,
+    action: Optional[str] = None,
+    admin: Dict = Depends(get_admin_user)
+):
+    """View activity log — Super Admin only"""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Only Super Admin can view activity logs")
+
+    query = {}
+    if action:
+        query["action"] = action
+
+    logs = await db.admin_activity_log.find(
+        query, {"_id": 0}
+    ).sort("timestamp", -1).skip(skip).limit(limit).to_list(limit)
+
+    total = await db.admin_activity_log.count_documents(query)
+
+    return {"logs": logs, "total": total, "limit": limit, "skip": skip}
+
 
 
 # ============== ADMIN DASHBOARD ==============
