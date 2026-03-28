@@ -1,0 +1,94 @@
+{
+  "iteration": 28,
+  "timestamp": "2026-03-28T15:45:00Z",
+  "overall_status": "PASS",
+  "summary": "Tested Frequently Bought Together (FBT) feature on Product Detail Page and Cart Drawer. All 14 backend tests passed. Frontend UI verified: PDP shows FBT section with source product ('This Item' badge), 3 recommended products with checkboxes, bundle summary with total/savings, 'Add X to Cart' button. Toggle selection works (deselecting updates count/price). Cart Drawer shows compact FBT section with '+ Add' buttons that correctly filter out items already in cart.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cart Drawer FBT", "issues": ["One product ('Top') shows broken/missing image thumbnail - likely missing product image in database"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_frequently_bought_together.py",
+    "/app/test_reports/pytest/fbt_results.xml"
+  ],
+  "action_items": [
+    "Consider adding fallback/placeholder image for products without images in FBT sections"
+  ],
+  "critical_code_review_comments": [
+    "product_routes.py: FBT endpoint correctly implements 3-step fallback (co-purchase → same-category → popular)",
+    "product_routes.py: FBT endpoint correctly excludes source product from results",
+    "product_routes.py: FBT endpoint returns all required fields (product_id, name, price, compare_price, images, sizes, colors, stock)",
+    "FrequentlyBoughtTogether.jsx: BundleProductCard correctly shows 'This Item' badge on source product",
+    "FrequentlyBoughtTogether.jsx: Checkbox toggle correctly updates selectedIds state and recalculates bundle total",
+    "FrequentlyBoughtTogether.jsx: handleAddAll correctly adds source product + selected FBT products to cart",
+    "FrequentlyBoughtTogether.jsx: FrequentlyBoughtTogetherCompact correctly filters out items already in cart",
+    "CartDrawer.jsx: Compact FBT section integrated at line 425 with cartItems prop"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_frequently_bought_together.py"
+  ],
+  "success_rate": {
+    "backend": "100% (14/14 tests passed)",
+    "frontend": "100% (All UI elements verified)"
+  },
+  "test_credentials": {
+    "admin": "superadmin@pigma.com / superadmin123 (API at /api/admin/auth/login)",
+    "customer": "upselltest@pigma.com / test123 (API at /api/auth/login)"
+  },
+  "seed_data_creation": "Used existing product prod_2636c2324d48 (pigma 1, Rs.2999)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "FBT feature fully tested. PDP at /product/{product_id} shows FBT section below product details. Cart Drawer shows compact FBT when cart has items. FBT endpoint uses 3-step fallback: co-purchased products → same-category → popular by sold_count. Compact FBT filters out items already in cart. Test product: prod_2636c2324d48.",
+  "features_tested": {
+    "backend_fbt_api": [
+      {"test": "GET /api/products/frequently-bought-together/{product_id} returns 200 for valid product", "status": "PASSED"},
+      {"test": "GET /api/products/frequently-bought-together/{product_id} returns 404 for non-existent product", "status": "PASSED"},
+      {"test": "FBT endpoint returns array of products", "status": "PASSED"},
+      {"test": "FBT products have required fields (product_id, name, price, images, sizes, colors, stock)", "status": "PASSED"},
+      {"test": "FBT products have compare_price field", "status": "PASSED"},
+      {"test": "FBT products have valid numeric price values", "status": "PASSED"},
+      {"test": "FBT default limit is 4 products", "status": "PASSED"},
+      {"test": "FBT limit=2 parameter returns max 2 products", "status": "PASSED"},
+      {"test": "FBT limit=3 parameter returns max 3 products", "status": "PASSED"},
+      {"test": "FBT excludes source product from results", "status": "PASSED"},
+      {"test": "FBT returns products via fallback when no co-purchase data", "status": "PASSED"},
+      {"test": "FBT works with multiple different products", "status": "PASSED"},
+      {"test": "Product detail endpoint works (prerequisite)", "status": "PASSED"},
+      {"test": "Products list endpoint works (prerequisite)", "status": "PASSED"}
+    ],
+    "frontend_pdp_fbt": [
+      {"test": "Product Detail Page loads (data-testid='product-detail-page')", "status": "PASSED"},
+      {"test": "FBT section visible (data-testid='frequently-bought-together')", "status": "PASSED"},
+      {"test": "Source product shows 'This Item' badge", "status": "PASSED"},
+      {"test": "4 FBT product cards displayed (data-testid='fbt-card-{id}')", "status": "PASSED"},
+      {"test": "Recommended products have checkboxes (all checked by default)", "status": "PASSED"},
+      {"test": "FBT summary section visible (data-testid='fbt-summary')", "status": "PASSED"},
+      {"test": "FBT total price displayed (data-testid='fbt-total')", "status": "PASSED"},
+      {"test": "FBT savings displayed (data-testid='fbt-savings')", "status": "PASSED"},
+      {"test": "Add All button visible (data-testid='fbt-add-all-btn')", "status": "PASSED"},
+      {"test": "Clicking recommended card toggles selection (count/price updates)", "status": "PASSED"},
+      {"test": "Toggle works both ways (deselect and re-select)", "status": "PASSED"},
+      {"test": "Add All button adds all selected items to cart", "status": "PASSED"},
+      {"test": "Cart drawer opens after Add All with correct item count", "status": "PASSED"}
+    ],
+    "frontend_cart_drawer_fbt": [
+      {"test": "Cart drawer opens when item added (data-testid='cart-drawer')", "status": "PASSED"},
+      {"test": "Compact FBT section visible (data-testid='fbt-compact')", "status": "PASSED"},
+      {"test": "Compact FBT items have '+ Add' buttons (data-testid='fbt-compact-add-{id}')", "status": "PASSED"},
+      {"test": "Clicking '+ Add' adds item to cart", "status": "PASSED"},
+      {"test": "Compact FBT filters out items already in cart", "status": "PASSED"},
+      {"test": "Cart count updates after adding FBT item", "status": "PASSED"}
+    ]
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

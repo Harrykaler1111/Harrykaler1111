@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
+import { FrequentlyBoughtTogether } from "@/components/FrequentlyBoughtTogether";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -563,6 +564,9 @@ export const ProductDetailPage = () => {
             )}
           </div>
         </div>
+
+        {/* Frequently Bought Together */}
+        <FrequentlyBoughtTogether productId={product.product_id} currentProduct={product} />
 
         {/* Reviews Section */}
         <div className="mt-12">

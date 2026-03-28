@@ -106,6 +106,77 @@ async def get_best_sellers(limit: int = 8):
     return result
 
 
+@router.get("/frequently-bought-together/{product_id}")
+async def get_frequently_bought_together(product_id: str, limit: int = 4):
+    """Get products frequently purchased together with this product.
+    Uses co-purchase analysis from order history, falls back to same-category products."""
+    product = await db.products.find_one({"product_id": product_id, "is_active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    co_purchased_ids = []
+
+    # Step 1: Find orders containing this product
+    orders_with_product = await db.orders.find(
+        {"items.product_id": product_id, "status": {"$nin": ["cancelled"]}},
+        {"items.product_id": 1, "_id": 0}
+    ).limit(100).to_list(100)
+
+    if orders_with_product:
+        # Count co-purchased product frequencies
+        freq = {}
+        for order in orders_with_product:
+            for item in order.get("items", []):
+                pid = item.get("product_id")
+                if pid and pid != product_id:
+                    freq[pid] = freq.get(pid, 0) + 1
+
+        # Sort by frequency descending
+        sorted_pairs = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+        co_purchased_ids = [pid for pid, _ in sorted_pairs[:limit]]
+
+    results = []
+
+    # Step 2: Fetch co-purchased products
+    if co_purchased_ids:
+        co_products = await db.products.find(
+            {"product_id": {"$in": co_purchased_ids}, "is_active": True},
+            {"_id": 0}
+        ).to_list(limit)
+        results.extend(co_products)
+
+    # Step 3: Fill remaining slots with same-category products
+    if len(results) < limit:
+        exclude_ids = [product_id] + [p["product_id"] for p in results]
+        category_fill = await db.products.find(
+            {"category": product.get("category"), "product_id": {"$nin": exclude_ids}, "is_active": True},
+            {"_id": 0}
+        ).limit(limit - len(results)).to_list(limit - len(results))
+        results.extend(category_fill)
+
+    # Step 4: If still not enough, fill with popular products
+    if len(results) < limit:
+        exclude_ids = [product_id] + [p["product_id"] for p in results]
+        popular_fill = await db.products.find(
+            {"product_id": {"$nin": exclude_ids}, "is_active": True},
+            {"_id": 0}
+        ).sort("sold_count", -1).limit(limit - len(results)).to_list(limit - len(results))
+        results.extend(popular_fill)
+
+    return [{
+        "product_id": p["product_id"],
+        "name": p["name"],
+        "price": p["price"],
+        "compare_price": p.get("compare_price"),
+        "images": p.get("images", []),
+        "category": p.get("category", ""),
+        "sizes": p.get("sizes", []),
+        "colors": p.get("colors", []),
+        "stock": p.get("stock", 0),
+        "average_rating": p.get("average_rating", 0),
+    } for p in results[:limit]]
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(product_id: str):
     product = await db.products.find_one({"product_id": product_id, "is_active": True}, {"_id": 0})

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
+import { FrequentlyBoughtTogetherCompact } from "@/components/FrequentlyBoughtTogether";
 import { toast } from "sonner";
 import axios from "axios";
 
@@ -419,6 +420,9 @@ export const CartDrawer = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Frequently Bought Together (Compact) */}
+                  <FrequentlyBoughtTogetherCompact cartItems={items} />
                 </>
               )}
             </div>
