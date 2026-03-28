@@ -1,31 +1,149 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ShoppingBag, Tag, Star, Check, Loader2, ArrowRight, Gift, Package } from "lucide-react";
+import { ShoppingBag, Tag, Star, Check, Loader2, ArrowRight, Gift, Package, Zap, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
 
+// ========== COUNTDOWN TIMER ==========
+const CountdownTimer = ({ endTime, variant = "default" }) => {
+  const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0, expired: false });
+
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(endTime).getTime() - Date.now();
+      if (diff <= 0) return { h: 0, m: 0, s: 0, expired: true };
+      return {
+        h: Math.floor(diff / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        expired: false,
+      };
+    };
+    setTimeLeft(calc());
+    const interval = setInterval(() => setTimeLeft(calc()), 1000);
+    return () => clearInterval(interval);
+  }, [endTime]);
+
+  if (timeLeft.expired) {
+    return <span className="text-neutral-500 text-xs font-medium">Sale ended</span>;
+  }
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  if (variant === "compact") {
+    return (
+      <span className="text-red-400 text-[10px] font-bold tabular-nums" data-testid="countdown-compact">
+        {timeLeft.h > 0 && `${timeLeft.h}h `}{pad(timeLeft.m)}m {pad(timeLeft.s)}s
+      </span>
+    );
+  }
+
+  // Default: digit boxes
+  return (
+    <div className="flex items-center gap-1.5" data-testid="countdown-timer">
+      {[
+        { val: pad(timeLeft.h), label: "HRS" },
+        { val: pad(timeLeft.m), label: "MIN" },
+        { val: pad(timeLeft.s), label: "SEC" },
+      ].map((d, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <div className="bg-red-600 text-white rounded-md px-2 py-1.5 text-center min-w-[36px]">
+            <span className="text-sm font-bold tabular-nums block leading-none">{d.val}</span>
+            <span className="text-[7px] uppercase tracking-wider opacity-70 block mt-0.5">{d.label}</span>
+          </div>
+          {i < 2 && <span className="text-red-400 font-bold text-xs">:</span>}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 // ========== HOMEPAGE BUNDLE CAROUSEL ==========
 export const BundleDealsSection = () => {
   const [bundles, setBundles] = useState([]);
+  const [flashBundles, setFlashBundles] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`${API}/bundles`)
-      .then(r => setBundles(r.data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    Promise.all([
+      axios.get(`${API}/bundles`).then(r => r.data).catch(() => []),
+      axios.get(`${API}/bundles/flash-sales`).then(r => r.data).catch(() => []),
+    ]).then(([all, flash]) => {
+      setBundles(all);
+      setFlashBundles(flash);
+    }).finally(() => setLoading(false));
   }, []);
 
-  if (loading || bundles.length === 0) return null;
+  if (loading || (bundles.length === 0 && flashBundles.length === 0)) return null;
 
   return (
     <section className="py-16 md:py-24 bg-black" data-testid="bundle-deals-section">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Header */}
+        {/* Flash Sale Banner (if any) */}
+        {flashBundles.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-10"
+            data-testid="flash-sale-banner"
+          >
+            <div className="bg-gradient-to-r from-red-600/10 via-red-500/5 to-red-600/10 border border-red-500/20 rounded-2xl p-5 md:p-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                    <Zap className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif text-xl font-bold text-white flex items-center gap-2">
+                      Flash Sale
+                      <span className="text-red-400 text-sm font-mono">LIVE</span>
+                    </h3>
+                    <p className="text-xs text-neutral-400">Limited time — grab these deals before they're gone</p>
+                  </div>
+                </div>
+                <CountdownTimer endTime={flashBundles[0].flash_sale_end} />
+              </div>
+
+              {/* Flash bundles row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                {flashBundles.slice(0, 2).map(fb => (
+                  <Link key={fb.bundle_id} to={`/bundle/${fb.bundle_id}`}
+                    className="group flex items-center gap-4 bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 hover:border-red-500/30 transition-all"
+                    data-testid={`flash-bundle-${fb.bundle_id}`}
+                  >
+                    <div className="flex -space-x-2 shrink-0">
+                      {fb.products?.slice(0, 3).map((p, i) => (
+                        <div key={i} className="w-12 h-14 bg-neutral-800 rounded-lg overflow-hidden border-2 border-neutral-900">
+                          <img src={p.images?.[0] || ""} alt="" className="w-full h-full object-cover"
+                            onError={e => { e.target.style.display = "none"; }} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-white truncate group-hover:text-red-400 transition-colors">{fb.name}</h4>
+                      <div className="flex items-baseline gap-2 mt-0.5">
+                        <span className="text-lg font-bold text-red-400">Rs.{fb.bundle_price?.toLocaleString()}</span>
+                        <span className="text-xs text-neutral-500 line-through">Rs.{fb.original_total?.toLocaleString()}</span>
+                      </div>
+                      <p className="text-[10px] text-green-400 font-medium mt-0.5">
+                        Save Rs.{fb.discount_amount?.toLocaleString()} (incl. flash bonus)
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <CountdownTimer endTime={fb.flash_sale_end} variant="compact" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Regular Bundles Header */}
         <div className="flex items-end justify-between mb-10">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-2">
@@ -57,7 +175,9 @@ export const BundleDealsSection = () => {
                 className="block group"
                 data-testid={`bundle-card-${bundle.bundle_id}`}
               >
-                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-300">
+                <div className={`bg-neutral-900 border rounded-2xl overflow-hidden transition-all duration-300 ${
+                  bundle.flash_active ? "border-red-500/30 hover:border-red-500/60" : "border-neutral-800 hover:border-gold/30"
+                }`}>
                   {/* Product Images Grid */}
                   <div className="relative">
                     <div className="grid grid-cols-3 gap-px bg-neutral-800">
@@ -72,15 +192,24 @@ export const BundleDealsSection = () => {
                         </div>
                       ))}
                     </div>
-                    {/* Badge */}
-                    <div className="absolute top-3 left-3 bg-gold text-black text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                      {bundle.badge_text || "DEAL"}
+                    {/* Badges */}
+                    <div className="absolute top-3 left-3 flex gap-1.5">
+                      {bundle.flash_active && (
+                        <div className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 animate-pulse">
+                          <Zap className="h-3 w-3" /> FLASH SALE
+                        </div>
+                      )}
+                      <div className={`${bundle.flash_active ? "bg-black/80" : "bg-gold"} text-${bundle.flash_active ? "white" : "black"} text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider`}>
+                        {bundle.badge_text || "DEAL"}
+                      </div>
                     </div>
                   </div>
 
                   {/* Info */}
                   <div className="p-5">
-                    <h3 className="font-serif text-lg font-bold text-white group-hover:text-gold transition-colors">
+                    <h3 className={`font-serif text-lg font-bold transition-colors ${
+                      bundle.flash_active ? "text-white group-hover:text-red-400" : "text-white group-hover:text-gold"
+                    }`}>
                       {bundle.name}
                     </h3>
                     {bundle.description && (
@@ -89,7 +218,7 @@ export const BundleDealsSection = () => {
 
                     {/* Pricing */}
                     <div className="flex items-baseline gap-3 mt-3">
-                      <span className="text-xl font-bold text-gold">
+                      <span className={`text-xl font-bold ${bundle.flash_active ? "text-red-400" : "text-gold"}`}>
                         Rs.{bundle.bundle_price?.toLocaleString()}
                       </span>
                       <span className="text-sm text-neutral-500 line-through">
@@ -97,15 +226,20 @@ export const BundleDealsSection = () => {
                       </span>
                     </div>
 
-                    {/* Savings badge */}
-                    <div className="flex items-center gap-2 mt-3">
+                    {/* Savings + Timer */}
+                    <div className="flex items-center justify-between mt-3">
                       <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
                         <Tag className="h-3 w-3" />
                         Save Rs.{bundle.discount_amount?.toLocaleString()}
                       </div>
-                      <span className="text-[10px] text-neutral-500">
-                        {bundle.products?.length} items
-                      </span>
+                      {bundle.flash_active ? (
+                        <div className="flex items-center gap-1 text-red-400">
+                          <Clock className="h-3 w-3" />
+                          <CountdownTimer endTime={bundle.flash_sale_end} variant="compact" />
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-neutral-500">{bundle.products?.length} items</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -148,21 +282,38 @@ export const ProductBundleBanner = ({ productId }) => {
     >
       <Link
         to={`/bundle/${bundle.bundle_id}`}
-        className="block bg-gradient-to-r from-gold/5 to-gold/10 border border-gold/20 rounded-xl p-3 hover:border-gold/40 transition-all group"
+        className={`block border rounded-xl p-3 transition-all group ${
+          bundle.flash_active
+            ? "bg-gradient-to-r from-red-500/5 to-red-500/10 border-red-500/20 hover:border-red-500/40"
+            : "bg-gradient-to-r from-gold/5 to-gold/10 border-gold/20 hover:border-gold/40"
+        }`}
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gold/20 rounded-full flex items-center justify-center shrink-0">
-            <Gift className="h-5 w-5 text-gold" />
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            bundle.flash_active ? "bg-red-500/20" : "bg-gold/20"
+          }`}>
+            {bundle.flash_active
+              ? <Zap className="h-5 w-5 text-red-400" />
+              : <Gift className="h-5 w-5 text-gold" />
+            }
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-neutral-800">
-              Part of <span className="text-gold">{bundle.name}</span>
+              {bundle.flash_active && <span className="text-red-500">FLASH SALE — </span>}
+              Part of <span className={bundle.flash_active ? "text-red-500" : "text-gold"}>{bundle.name}</span>
             </p>
             <p className="text-xs text-neutral-500">
               Buy the bundle & save Rs.{bundle.discount_amount?.toLocaleString()} ({bundle.products?.length} items)
             </p>
           </div>
-          <ArrowRight className="h-4 w-4 text-gold shrink-0 group-hover:translate-x-1 transition-transform" />
+          <div className="flex items-center gap-2 shrink-0">
+            {bundle.flash_active && (
+              <CountdownTimer endTime={bundle.flash_sale_end} variant="compact" />
+            )}
+            <ArrowRight className={`h-4 w-4 shrink-0 group-hover:translate-x-1 transition-transform ${
+              bundle.flash_active ? "text-red-400" : "text-gold"
+            }`} />
+          </div>
         </div>
       </Link>
     </motion.div>
@@ -213,13 +364,34 @@ export const BundleDetailPage = () => {
 
   if (!bundle) return null;
 
+  const isFlash = bundle.flash_active;
+
   return (
     <div className="min-h-screen pt-24 md:pt-28 pb-16 bg-white" data-testid="bundle-detail-page">
       <div className="max-w-6xl mx-auto px-4 md:px-8">
+        {/* Flash countdown bar */}
+        {isFlash && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-600 text-white rounded-xl p-4 mb-6 flex items-center justify-between flex-wrap gap-3"
+            data-testid="flash-countdown-bar"
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="h-5 w-5 animate-pulse" />
+              <span className="font-bold text-sm">FLASH SALE — Hurry, offer ends soon!</span>
+            </div>
+            <CountdownTimer endTime={bundle.flash_sale_end} />
+          </motion.div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 bg-gold/10 text-gold text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider mb-4">
-            <Gift className="h-3.5 w-3.5" /> {bundle.badge_text || "Bundle Deal"}
+          <div className={`inline-flex items-center gap-2 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider mb-4 ${
+            isFlash ? "bg-red-500/10 text-red-500" : "bg-gold/10 text-gold"
+          }`}>
+            {isFlash ? <Zap className="h-3.5 w-3.5" /> : <Gift className="h-3.5 w-3.5" />}
+            {isFlash ? "Flash Sale" : (bundle.badge_text || "Bundle Deal")}
           </div>
           <h1 className="font-serif text-3xl md:text-4xl font-bold mb-2" data-testid="bundle-title">
             {bundle.name}
@@ -285,29 +457,46 @@ export const BundleDetailPage = () => {
 
         {/* Bundle Summary + CTA */}
         <div className="max-w-lg mx-auto">
-          <div className="bg-neutral-950 text-white rounded-2xl p-6 md:p-8" data-testid="bundle-cta">
+          <div className={`text-white rounded-2xl p-6 md:p-8 ${isFlash ? "bg-red-950" : "bg-neutral-950"}`} data-testid="bundle-cta">
             <div className="text-center">
+              {isFlash && bundle.flash_extra_discount > 0 && (
+                <p className="text-red-400 text-xs font-bold mb-2">
+                  Includes extra Rs.{bundle.flash_extra_discount?.toLocaleString()} flash discount!
+                </p>
+              )}
               <p className="text-xs text-neutral-400 uppercase tracking-wider mb-2">
                 {bundle.products?.length} items bundle
               </p>
               <div className="flex items-baseline justify-center gap-3 mb-2">
-                <span className="text-3xl font-bold text-gold" data-testid="bundle-detail-price">
+                <span className={`text-3xl font-bold ${isFlash ? "text-red-400" : "text-gold"}`} data-testid="bundle-detail-price">
                   Rs.{bundle.bundle_price?.toLocaleString()}
                 </span>
                 <span className="text-lg text-neutral-500 line-through">
                   Rs.{bundle.original_total?.toLocaleString()}
                 </span>
               </div>
-              <div className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-bold px-4 py-1.5 rounded-full mb-6">
+              <div className={`inline-flex items-center gap-1.5 border text-sm font-bold px-4 py-1.5 rounded-full mb-6 ${
+                isFlash
+                  ? "bg-red-500/10 border-red-500/20 text-red-400"
+                  : "bg-green-500/10 border-green-500/20 text-green-400"
+              }`}>
                 <Tag className="h-4 w-4" />
                 Save Rs.{bundle.discount_amount?.toLocaleString()}
               </div>
+
+              {isFlash && (
+                <div className="flex justify-center mb-4">
+                  <CountdownTimer endTime={bundle.flash_sale_end} />
+                </div>
+              )}
             </div>
 
             <Button
               onClick={handleAddBundle}
               disabled={adding}
-              className="w-full btn-gold font-bold py-6 text-base rounded-xl"
+              className={`w-full font-bold py-6 text-base rounded-xl ${
+                isFlash ? "bg-red-600 hover:bg-red-500 text-white" : "btn-gold"
+              }`}
               data-testid="add-bundle-to-cart-btn"
             >
               {adding ? (
@@ -321,7 +510,7 @@ export const BundleDetailPage = () => {
             </Button>
 
             <p className="text-center text-[10px] text-neutral-500 mt-3">
-              Bundle discount applied automatically at checkout
+              {isFlash ? "Flash sale discount applied automatically" : "Bundle discount applied automatically at checkout"}
             </p>
           </div>
         </div>

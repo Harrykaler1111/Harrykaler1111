@@ -7,6 +7,73 @@ from auth import get_admin_user, check_permission, generate_id
 
 router = APIRouter(prefix="/bundles", tags=["bundles"])
 
+PRODUCT_FIELDS = {
+    "_id": 0, "product_id": 1, "name": 1, "price": 1, "compare_price": 1,
+    "images": 1, "sizes": 1, "colors": 1, "stock": 1, "category": 1,
+    "description": 1, "average_rating": 1
+}
+
+
+def is_flash_active(bundle: Dict) -> bool:
+    """Check if a flash sale is currently running"""
+    start = bundle.get("flash_sale_start")
+    end = bundle.get("flash_sale_end")
+    if not start or not end:
+        return False
+    now = datetime.now(timezone.utc).isoformat()
+    return start <= now <= end
+
+
+def calc_bundle_pricing(bundle: Dict, products: List[Dict]) -> Dict:
+    """Calculate bundle pricing including flash sale"""
+    original_total = sum(p["price"] for p in products)
+
+    # Base discount
+    if bundle["discount_type"] == "percentage":
+        base_discount = round(original_total * bundle["discount_value"] / 100, 2)
+    else:
+        base_discount = bundle["discount_value"]
+
+    # Flash sale extra discount
+    flash_active = is_flash_active(bundle)
+    flash_extra = 0
+    if flash_active:
+        extra_type = bundle.get("flash_extra_discount_type", "percentage")
+        extra_val = bundle.get("flash_extra_discount_value", 0)
+        if extra_type == "percentage":
+            flash_extra = round(original_total * extra_val / 100, 2)
+        else:
+            flash_extra = extra_val
+
+    total_discount = min(base_discount + flash_extra, original_total)
+    bundle_price = round(max(original_total - total_discount, 0), 2)
+
+    return {
+        "original_total": original_total,
+        "base_discount": min(base_discount, original_total),
+        "flash_extra_discount": flash_extra,
+        "discount_amount": total_discount,
+        "bundle_price": bundle_price,
+        "flash_active": flash_active,
+        "flash_sale_start": bundle.get("flash_sale_start"),
+        "flash_sale_end": bundle.get("flash_sale_end"),
+    }
+
+
+async def populate_bundle(bundle: Dict, active_only: bool = True) -> Dict:
+    """Populate products and calculate pricing for a bundle"""
+    products = []
+    for pid in bundle.get("product_ids", []):
+        query = {"product_id": pid}
+        if active_only:
+            query["is_active"] = True
+        product = await db.products.find_one(query, PRODUCT_FIELDS)
+        if product:
+            products.append(product)
+    bundle["products"] = products
+    bundle.update(calc_bundle_pricing(bundle, products))
+    return bundle
+
 
 # ============== PUBLIC ENDPOINTS ==============
 
@@ -14,29 +81,23 @@ router = APIRouter(prefix="/bundles", tags=["bundles"])
 async def get_active_bundles():
     """Get all active bundles with populated product data"""
     bundles = await db.bundles.find({"is_active": True}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    for bundle in bundles:
+        await populate_bundle(bundle)
+    return bundles
+
+
+@router.get("/flash-sales")
+async def get_flash_sales():
+    """Get bundles with active flash sales (running right now)"""
+    now = datetime.now(timezone.utc).isoformat()
+    bundles = await db.bundles.find({
+        "is_active": True,
+        "flash_sale_start": {"$lte": now},
+        "flash_sale_end": {"$gte": now},
+    }, {"_id": 0}).sort("flash_sale_end", 1).to_list(20)
 
     for bundle in bundles:
-        products = []
-        for pid in bundle.get("product_ids", []):
-            product = await db.products.find_one(
-                {"product_id": pid, "is_active": True},
-                {"_id": 0, "product_id": 1, "name": 1, "price": 1, "compare_price": 1,
-                 "images": 1, "sizes": 1, "colors": 1, "stock": 1, "category": 1}
-            )
-            if product:
-                products.append(product)
-        bundle["products"] = products
-
-        # Calculate bundle pricing
-        original_total = sum(p["price"] for p in products)
-        if bundle["discount_type"] == "percentage":
-            discount_amount = round(original_total * bundle["discount_value"] / 100, 2)
-        else:
-            discount_amount = bundle["discount_value"]
-        bundle["original_total"] = original_total
-        bundle["discount_amount"] = min(discount_amount, original_total)
-        bundle["bundle_price"] = round(max(original_total - discount_amount, 0), 2)
-
+        await populate_bundle(bundle)
     return bundles
 
 
@@ -44,31 +105,10 @@ async def get_active_bundles():
 async def get_bundles_for_product(product_id: str):
     """Get active bundles containing a specific product"""
     bundles = await db.bundles.find(
-        {"product_ids": product_id, "is_active": True},
-        {"_id": 0}
+        {"product_ids": product_id, "is_active": True}, {"_id": 0}
     ).to_list(10)
-
     for bundle in bundles:
-        products = []
-        for pid in bundle.get("product_ids", []):
-            product = await db.products.find_one(
-                {"product_id": pid, "is_active": True},
-                {"_id": 0, "product_id": 1, "name": 1, "price": 1, "compare_price": 1,
-                 "images": 1, "sizes": 1, "colors": 1, "stock": 1, "category": 1}
-            )
-            if product:
-                products.append(product)
-        bundle["products"] = products
-
-        original_total = sum(p["price"] for p in products)
-        if bundle["discount_type"] == "percentage":
-            discount_amount = round(original_total * bundle["discount_value"] / 100, 2)
-        else:
-            discount_amount = bundle["discount_value"]
-        bundle["original_total"] = original_total
-        bundle["discount_amount"] = min(discount_amount, original_total)
-        bundle["bundle_price"] = round(max(original_total - discount_amount, 0), 2)
-
+        await populate_bundle(bundle)
     return bundles
 
 
@@ -78,28 +118,7 @@ async def get_bundle(bundle_id: str):
     bundle = await db.bundles.find_one({"bundle_id": bundle_id}, {"_id": 0})
     if not bundle:
         raise HTTPException(status_code=404, detail="Bundle not found")
-
-    products = []
-    for pid in bundle.get("product_ids", []):
-        product = await db.products.find_one(
-            {"product_id": pid, "is_active": True},
-            {"_id": 0, "product_id": 1, "name": 1, "price": 1, "compare_price": 1,
-             "images": 1, "sizes": 1, "colors": 1, "stock": 1, "category": 1,
-             "description": 1, "average_rating": 1}
-        )
-        if product:
-            products.append(product)
-    bundle["products"] = products
-
-    original_total = sum(p["price"] for p in products)
-    if bundle["discount_type"] == "percentage":
-        discount_amount = round(original_total * bundle["discount_value"] / 100, 2)
-    else:
-        discount_amount = bundle["discount_value"]
-    bundle["original_total"] = original_total
-    bundle["discount_amount"] = min(discount_amount, original_total)
-    bundle["bundle_price"] = round(max(original_total - discount_amount, 0), 2)
-
+    await populate_bundle(bundle)
     return bundle
 
 
@@ -109,26 +128,8 @@ async def get_bundle(bundle_id: str):
 async def admin_get_all_bundles(admin: Dict = Depends(get_admin_user)):
     """Get all bundles (including inactive) for admin"""
     bundles = await db.bundles.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
-
     for bundle in bundles:
-        products = []
-        for pid in bundle.get("product_ids", []):
-            product = await db.products.find_one(
-                {"product_id": pid},
-                {"_id": 0, "product_id": 1, "name": 1, "price": 1, "images": 1, "is_active": 1}
-            )
-            if product:
-                products.append(product)
-        bundle["products"] = products
-        original_total = sum(p["price"] for p in products)
-        if bundle["discount_type"] == "percentage":
-            discount_amount = round(original_total * bundle["discount_value"] / 100, 2)
-        else:
-            discount_amount = bundle["discount_value"]
-        bundle["original_total"] = original_total
-        bundle["discount_amount"] = min(discount_amount, original_total)
-        bundle["bundle_price"] = round(max(original_total - discount_amount, 0), 2)
-
+        await populate_bundle(bundle, active_only=False)
     return bundles
 
 
@@ -166,6 +167,11 @@ async def create_bundle(data: Dict, admin: Dict = Depends(get_admin_user)):
         "image": data.get("image", ""),
         "badge_text": data.get("badge_text", "DEAL"),
         "is_active": data.get("is_active", True),
+        # Flash sale fields
+        "flash_sale_start": data.get("flash_sale_start"),
+        "flash_sale_end": data.get("flash_sale_end"),
+        "flash_extra_discount_type": data.get("flash_extra_discount_type", "percentage"),
+        "flash_extra_discount_value": float(data.get("flash_extra_discount_value", 0)),
         "created_by": admin.get("admin_id"),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -184,7 +190,9 @@ async def update_bundle(bundle_id: str, data: Dict, admin: Dict = Depends(get_ad
         raise HTTPException(status_code=404, detail="Bundle not found")
 
     allowed = {"name", "description", "product_ids", "discount_type", "discount_value",
-               "image", "badge_text", "is_active"}
+               "image", "badge_text", "is_active",
+               "flash_sale_start", "flash_sale_end",
+               "flash_extra_discount_type", "flash_extra_discount_value"}
     updates = {k: v for k, v in data.items() if k in allowed}
 
     if "product_ids" in updates:
@@ -193,6 +201,9 @@ async def update_bundle(bundle_id: str, data: Dict, admin: Dict = Depends(get_ad
 
     if "discount_type" in updates and updates["discount_type"] not in ("percentage", "flat"):
         raise HTTPException(status_code=400, detail="Invalid discount type")
+
+    if "flash_extra_discount_value" in updates:
+        updates["flash_extra_discount_value"] = float(updates["flash_extra_discount_value"])
 
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
 

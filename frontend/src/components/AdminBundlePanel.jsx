@@ -7,7 +7,8 @@ import axios from "axios";
 import { API } from "@/App";
 import {
   Package, Plus, Trash2, Save, Search, ToggleLeft, ToggleRight,
-  Percent, DollarSign, X, Edit2, ChevronDown, ChevronUp, Tag, Gift
+  Percent, DollarSign, X, Edit2, ChevronDown, ChevronUp, Tag, Gift,
+  Zap, Clock, Timer, Calendar
 } from "lucide-react";
 
 const getAdminHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("pigma_admin_token")}` });
@@ -79,7 +80,13 @@ const BundleForm = ({ bundle, onSave, onCancel }) => {
     discount_value: bundle?.discount_value || 10,
     badge_text: bundle?.badge_text || "DEAL",
     is_active: bundle?.is_active !== false,
+    // Flash sale
+    flash_sale_start: bundle?.flash_sale_start ? bundle.flash_sale_start.slice(0, 16) : "",
+    flash_sale_end: bundle?.flash_sale_end ? bundle.flash_sale_end.slice(0, 16) : "",
+    flash_extra_discount_type: bundle?.flash_extra_discount_type || "percentage",
+    flash_extra_discount_value: bundle?.flash_extra_discount_value || 0,
   });
+  const [showFlash, setShowFlash] = useState(!!(bundle?.flash_sale_start));
   const [productDetails, setProductDetails] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -104,7 +111,17 @@ const BundleForm = ({ bundle, onSave, onCancel }) => {
     if (form.product_ids.length < 2) { toast.error("Add at least 2 products"); return; }
     setSaving(true);
     try {
-      await onSave(form);
+      const payload = { ...form };
+      // Convert local datetime to ISO if flash sale is enabled
+      if (showFlash && payload.flash_sale_start && payload.flash_sale_end) {
+        payload.flash_sale_start = new Date(payload.flash_sale_start).toISOString();
+        payload.flash_sale_end = new Date(payload.flash_sale_end).toISOString();
+      } else {
+        payload.flash_sale_start = null;
+        payload.flash_sale_end = null;
+        payload.flash_extra_discount_value = 0;
+      }
+      await onSave(payload);
     } finally { setSaving(false); }
   };
 
@@ -218,6 +235,113 @@ const BundleForm = ({ bundle, onSave, onCancel }) => {
             </span>
           </button>
         </div>
+      </div>
+
+      {/* Flash Sale */}
+      <div className="border-t border-neutral-700 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-red-400" />
+            <h4 className="text-sm font-semibold text-white">Flash Sale Timer</h4>
+          </div>
+          <button onClick={() => setShowFlash(!showFlash)}>
+            {showFlash
+              ? <ToggleRight className="h-6 w-6 text-red-400" />
+              : <ToggleLeft className="h-6 w-6 text-neutral-500" />}
+          </button>
+        </div>
+
+        {showFlash && (
+          <div className="space-y-4 bg-red-500/5 border border-red-500/20 rounded-lg p-4">
+            {/* Quick presets */}
+            <div>
+              <label className="text-xs text-neutral-400 block mb-2">Quick Start (from now)</label>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  { label: "2h", hours: 2 },
+                  { label: "6h", hours: 6 },
+                  { label: "12h", hours: 12 },
+                  { label: "24h", hours: 24 },
+                  { label: "48h", hours: 48 },
+                ].map(p => {
+                  const setPreset = () => {
+                    const now = new Date();
+                    const end = new Date(now.getTime() + p.hours * 60 * 60 * 1000);
+                    const fmt = (d) => d.toISOString().slice(0, 16);
+                    setForm(f => ({ ...f, flash_sale_start: fmt(now), flash_sale_end: fmt(end) }));
+                  };
+                  return (
+                    <button key={p.hours} onClick={setPreset}
+                      className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold rounded-lg hover:bg-red-500/30 transition-colors"
+                      data-testid={`flash-preset-${p.hours}h`}>
+                      <Timer className="h-3 w-3 inline mr-1" />{p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Manual date pickers */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Sale Starts</label>
+                <Input type="datetime-local"
+                  value={form.flash_sale_start}
+                  onChange={e => setForm(f => ({ ...f, flash_sale_start: e.target.value }))}
+                  className="bg-neutral-900 border-neutral-700 text-white h-9 text-xs"
+                  data-testid="flash-start-input" />
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Sale Ends</label>
+                <Input type="datetime-local"
+                  value={form.flash_sale_end}
+                  onChange={e => setForm(f => ({ ...f, flash_sale_end: e.target.value }))}
+                  className="bg-neutral-900 border-neutral-700 text-white h-9 text-xs"
+                  data-testid="flash-end-input" />
+              </div>
+            </div>
+
+            {/* Extra flash discount */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Extra Flash Discount Type</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setForm(f => ({ ...f, flash_extra_discount_type: "percentage" }))}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
+                      form.flash_extra_discount_type === "percentage" ? "bg-red-500 text-white" : "bg-neutral-800 text-neutral-400"
+                    }`}>
+                    <Percent className="h-3 w-3" /> %
+                  </button>
+                  <button
+                    onClick={() => setForm(f => ({ ...f, flash_extra_discount_type: "flat" }))}
+                    className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all ${
+                      form.flash_extra_discount_type === "flat" ? "bg-red-500 text-white" : "bg-neutral-800 text-neutral-400"
+                    }`}>
+                    <Tag className="h-3 w-3" /> Flat
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-400 block mb-1">Extra Discount Value</label>
+                <Input type="number" min={0}
+                  value={form.flash_extra_discount_value}
+                  onChange={e => setForm(f => ({ ...f, flash_extra_discount_value: parseFloat(e.target.value) || 0 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white h-9 text-xs"
+                  data-testid="flash-extra-discount-input" />
+              </div>
+            </div>
+
+            {form.flash_sale_start && form.flash_sale_end && (
+              <div className="bg-neutral-900 rounded-lg p-2.5 text-center">
+                <p className="text-[10px] text-red-400 font-medium">
+                  <Clock className="h-3 w-3 inline mr-1" />
+                  Flash sale: {new Date(form.flash_sale_start).toLocaleString()} — {new Date(form.flash_sale_end).toLocaleString()}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Preview */}
@@ -344,6 +468,16 @@ export const AdminBundlePanel = () => {
                       {b.is_active ? "Active" : "Inactive"}
                     </Badge>
                     <Badge className="bg-gold/20 text-gold text-[10px]">{b.badge_text}</Badge>
+                    {b.flash_active && (
+                      <Badge className="bg-red-500/20 text-red-400 text-[10px] animate-pulse">
+                        <Zap className="h-2.5 w-2.5 mr-0.5" /> FLASH SALE LIVE
+                      </Badge>
+                    )}
+                    {b.flash_sale_end && !b.flash_active && new Date(b.flash_sale_start) > new Date() && (
+                      <Badge className="bg-amber-500/20 text-amber-400 text-[10px]">
+                        <Clock className="h-2.5 w-2.5 mr-0.5" /> Scheduled
+                      </Badge>
+                    )}
                   </div>
                   {b.description && <p className="text-xs text-neutral-500 mt-1">{b.description}</p>}
 
