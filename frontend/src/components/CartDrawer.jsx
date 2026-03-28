@@ -180,17 +180,19 @@ export const CartDrawer = () => {
             data-testid="cart-drawer-backdrop"
           />
 
-          {/* Drawer */}
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white z-[101] flex flex-col shadow-2xl"
-            data-testid="cart-drawer"
-          >
+          {/* Center Modal Wrapper */}
+          <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 28, stiffness: 350 }}
+              className="w-full max-w-[480px] bg-white flex flex-col shadow-2xl rounded-2xl overflow-hidden pointer-events-auto"
+              style={{ maxHeight: 'calc(100vh - 32px)' }}
+              data-testid="cart-drawer"
+            >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 shrink-0">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5" />
                 <h2 className="font-serif text-lg font-bold" data-testid="cart-drawer-title">
@@ -207,7 +209,7 @@ export const CartDrawer = () => {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto" ref={scrollRef}>
+            <div className="flex-1 overflow-y-auto min-h-0" ref={scrollRef}>
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full py-16 px-6 text-center">
                   <ShoppingBag className="h-14 w-14 text-neutral-200 mb-4" />
@@ -429,7 +431,7 @@ export const CartDrawer = () => {
 
             {/* Sticky Footer - Checkout */}
             {items.length > 0 && (
-              <div className="border-t border-neutral-100 bg-white px-4 py-3 space-y-2" data-testid="cart-drawer-footer">
+              <div className="border-t border-neutral-100 bg-white px-4 py-3 space-y-2 shrink-0" data-testid="cart-drawer-footer">
                 {/* Checkout Button */}
                 <Button
                   onClick={handleCheckout}
@@ -455,6 +457,7 @@ export const CartDrawer = () => {
               </div>
             )}
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>

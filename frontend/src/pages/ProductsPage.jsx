@@ -97,28 +97,28 @@ export const ProductsPage = () => {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen pt-20 md:pt-24" data-testid="products-page">
+    <div className="min-h-screen pt-16 md:pt-[68px]" data-testid="products-page">
       {/* Header */}
-      <div className="bg-black text-white py-12 md:py-20">
+      <div className="bg-black text-white py-6 md:py-10">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold mb-2">
               {isLimited ? "Exclusive Collection" : "Shop"}
             </p>
-            <h1 className="font-serif text-3xl md:text-5xl font-bold">
+            <h1 className="font-serif text-2xl md:text-4xl font-bold">
               {category || (isLimited ? "Limited Drops" : "All Products")}
             </h1>
           </motion.div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 md:py-8">
         {/* Filters Bar */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-8 pb-8 border-b">
+        <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center mb-6 pb-6 border-b">
           {/* Search */}
           <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
@@ -282,18 +282,18 @@ export const ProductsPage = () => {
         </div>
 
         {/* Results count */}
-        <p className="text-sm text-neutral-500 mb-6">
+        <p className="text-sm text-neutral-500 mb-4">
           {products.length} product{products.length !== 1 ? "s" : ""} found
         </p>
 
         {/* Products Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="space-y-4">
-                <div className="aspect-[3/4] bg-neutral-100 animate-pulse" />
-                <div className="h-4 bg-neutral-100 rounded animate-pulse" />
-                <div className="h-4 bg-neutral-100 rounded w-2/3 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="space-y-2">
+                <div className="aspect-[4/5] bg-neutral-100 rounded-lg animate-pulse" />
+                <div className="h-3 bg-neutral-100 rounded animate-pulse" />
+                <div className="h-3 bg-neutral-100 rounded w-2/3 animate-pulse" />
               </div>
             ))}
           </div>
@@ -301,8 +301,8 @@ export const ProductsPage = () => {
           <div
             className={
               viewMode === "grid"
-                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8"
-                : "space-y-6"
+                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
+                : "space-y-4"
             }
           >
             {products.map((product, index) => (

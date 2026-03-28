@@ -111,7 +111,7 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="bg-neutral-950 border border-neutral-800 rounded-t-3xl md:rounded-2xl w-full md:max-w-lg max-h-[85vh] overflow-hidden"
+          className="bg-neutral-950 border border-neutral-800 rounded-t-3xl md:rounded-2xl w-full md:max-w-3xl max-h-[85vh] overflow-hidden"
           onClick={e => e.stopPropagation()}
           data-testid="upsell-modal"
         >
@@ -142,7 +142,7 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
                 <p className="text-neutral-400 text-sm">No recommendations available right now</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                 {products.map(p => {
                   const qty = getCartQty(p.product_id);
                   const isOutOfStock = p.stock <= 0;
@@ -151,10 +151,10 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
                     <motion.div
                       key={p.product_id}
                       whileHover={{ scale: 1.02 }}
-                      className="bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 group"
+                      className="bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 group"
                       data-testid={`upsell-item-${p.product_id}`}
                     >
-                      <div className="aspect-square bg-neutral-800 overflow-hidden relative">
+                      <div className="aspect-[4/5] bg-neutral-800 overflow-hidden relative">
                         <img
                           src={p.images?.[0] || "/placeholder-product.svg"}
                           alt={p.name}
@@ -162,61 +162,61 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                         {qty > 0 && (
-                          <div className="absolute top-2 right-2 bg-gold text-black text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                          <div className="absolute top-1.5 right-1.5 bg-gold text-black text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                             {qty}
                           </div>
                         )}
                         {p.compare_price && (
-                          <div className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          <div className="absolute top-1.5 left-1.5 bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded">
                             -{Math.round(((p.compare_price - p.price) / p.compare_price) * 100)}%
                           </div>
                         )}
                       </div>
-                      <div className="p-3">
-                        <p className="text-xs font-medium text-neutral-200 truncate">{p.name}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className="text-sm font-bold text-gold">Rs.{p.price?.toLocaleString()}</span>
+                      <div className="p-2">
+                        <p className="text-[11px] font-medium text-neutral-200 truncate">{p.name}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-xs font-bold text-gold">Rs.{p.price?.toLocaleString()}</span>
                           {p.compare_price && (
-                            <span className="text-[10px] text-neutral-500 line-through">Rs.{p.compare_price?.toLocaleString()}</span>
+                            <span className="text-[9px] text-neutral-500 line-through">Rs.{p.compare_price?.toLocaleString()}</span>
                           )}
                         </div>
 
                         {/* Quick Add / Quantity Controller */}
-                        <div className="mt-2.5">
+                        <div className="mt-1.5">
                           {isOutOfStock ? (
-                            <div className="bg-neutral-800 text-neutral-500 text-[10px] text-center py-2 rounded-lg font-medium">
+                            <div className="bg-neutral-800 text-neutral-500 text-[10px] text-center py-1.5 rounded-md font-medium">
                               Out of Stock
                             </div>
                           ) : qty > 0 ? (
-                            <div className="flex items-center justify-between bg-neutral-800 rounded-lg overflow-hidden" data-testid={`upsell-qty-${p.product_id}`}>
+                            <div className="flex items-center justify-between bg-neutral-800 rounded-md overflow-hidden" data-testid={`upsell-qty-${p.product_id}`}>
                               <button
                                 onClick={() => handleDecrease(p)}
-                                className="w-9 h-8 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors active:scale-90"
+                                className="w-8 h-7 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors active:scale-90"
                               >
-                                <Minus className="h-3.5 w-3.5" />
+                                <Minus className="h-3 w-3" />
                               </button>
                               <motion.span
                                 key={qty}
                                 initial={{ scale: 1.4 }}
                                 animate={{ scale: 1 }}
-                                className="text-gold font-bold text-sm"
+                                className="text-gold font-bold text-xs"
                               >
                                 {qty}
                               </motion.span>
                               <button
                                 onClick={() => handleIncrease(p)}
-                                className="w-9 h-8 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors active:scale-90"
+                                className="w-8 h-7 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors active:scale-90"
                               >
-                                <Plus className="h-3.5 w-3.5" />
+                                <Plus className="h-3 w-3" />
                               </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => handleAdd(p)}
-                              className="w-full bg-gold/10 border border-gold/30 text-gold text-xs font-bold py-2 rounded-lg hover:bg-gold hover:text-black transition-all active:scale-95 flex items-center justify-center gap-1"
+                              className="w-full bg-gold/10 border border-gold/30 text-gold text-[11px] font-bold py-1.5 rounded-md hover:bg-gold hover:text-black transition-all active:scale-95 flex items-center justify-center gap-1"
                               data-testid={`upsell-add-${p.product_id}`}
                             >
-                              <Plus className="h-3.5 w-3.5" /> Add
+                              <Plus className="h-3 w-3" /> Add
                             </button>
                           )}
                         </div>
@@ -265,7 +265,7 @@ export const BoosterBar = () => {
       />
 
       {/* Desktop Bar */}
-      <div className="hidden lg:block fixed top-[80px] left-0 right-0 z-40 will-change-transform" style={{ transform: 'translateZ(0)' }} data-testid="booster-bar-desktop">
+      <div className="hidden lg:block fixed top-[68px] left-0 right-0 z-40 will-change-transform" style={{ transform: 'translateZ(0)' }} data-testid="booster-bar-desktop">
         <div className="relative bg-black border-b border-gold/20 overflow-hidden">
           {active && (
             <motion.div
@@ -370,7 +370,7 @@ export const BoosterBar = () => {
         </div>
       </div>
       {/* Spacer */}
-      <div className="hidden lg:block h-[52px] bg-black" />
+      <div className="hidden lg:block h-[48px] bg-black" />
 
       {/* Mobile Sticky Bottom Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[60]" data-testid="booster-bar-mobile">

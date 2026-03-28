@@ -219,23 +219,23 @@ export const HomePage = () => {
 
       {/* Limited Edition Section */}
       {featuredProducts.length > 0 && (
-        <section className="py-20 md:py-32 bg-neutral-50">
+        <section className="py-12 md:py-16 bg-neutral-50">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-center mb-12 md:mb-16"
+              className="text-center mb-8 md:mb-10"
             >
-              <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4">
+              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold mb-2">
                 Exclusive Collection
               </p>
-              <h2 className="font-serif text-3xl md:text-5xl font-bold">
+              <h2 className="font-serif text-2xl md:text-4xl font-bold">
                 Limited Edition Drops
               </h2>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {featuredProducts.map((product, index) => (
                 <motion.div
                   key={product.product_id}
@@ -253,11 +253,11 @@ export const HomePage = () => {
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              className="text-center mt-12"
+              className="text-center mt-8"
             >
               <Button
                 onClick={() => navigate("/products?limited=true")}
-                className="bg-black text-white hover:bg-neutral-800 uppercase tracking-widest px-10 py-6"
+                className="bg-black text-white hover:bg-neutral-800 uppercase tracking-widest px-8 py-5"
                 data-testid="view-all-limited-btn"
               >
                 View All Limited Drops
@@ -269,9 +269,9 @@ export const HomePage = () => {
       )}
 
       {/* Category Bento Grid */}
-      <section className="py-20 md:py-32">
+      <section className="py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Platform Boots */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
@@ -335,26 +335,26 @@ export const HomePage = () => {
 
       {/* New Arrivals */}
       {newArrivals.length > 0 && (
-        <section className="py-20 md:py-32 bg-white">
+        <section className="py-12 md:py-16 bg-white">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12"
+              className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8"
             >
               <div>
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold mb-2">
                   Fresh Styles
                 </p>
-                <h2 className="font-serif text-3xl md:text-5xl font-bold">
+                <h2 className="font-serif text-2xl md:text-4xl font-bold">
                   New Arrivals
                 </h2>
               </div>
               <Button
                 onClick={() => navigate("/products")}
                 variant="ghost"
-                className="mt-4 md:mt-0 text-black hover:text-gold uppercase tracking-widest"
+                className="mt-3 md:mt-0 text-black hover:text-gold uppercase tracking-widest"
                 data-testid="view-all-btn"
               >
                 View All
@@ -362,8 +362,8 @@ export const HomePage = () => {
               </Button>
             </motion.div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-              {newArrivals.slice(0, 8).map((product, index) => (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {newArrivals.slice(0, 10).map((product, index) => (
                 <motion.div
                   key={product.product_id}
                   initial={{ opacity: 0, y: 30 }}
@@ -381,19 +381,19 @@ export const HomePage = () => {
 
       {/* Best Sellers Carousel */}
       {bestSellers.length > 0 && (
-        <section className="py-20 md:py-32" data-testid="best-sellers-section">
+        <section className="py-12 md:py-16" data-testid="best-sellers-section">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <div className="flex items-end justify-between mb-12 md:mb-16">
+            <div className="flex items-end justify-between mb-8">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
               >
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-gold mb-4 flex items-center gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-gold mb-2 flex items-center gap-2">
                   <Flame className="h-3.5 w-3.5" />
                   Most Popular
                 </p>
-                <h2 className="font-serif text-3xl md:text-5xl font-bold">
+                <h2 className="font-serif text-2xl md:text-4xl font-bold">
                   Best Sellers
                 </h2>
               </motion.div>
