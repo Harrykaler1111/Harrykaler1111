@@ -29,6 +29,7 @@ import { ReturnsPage } from "@/pages/ReturnsPage";
 import { CreatorRecruitmentPage } from "@/pages/CreatorRecruitmentPage";
 import { PolicyPage } from "@/pages/PolicyPage";
 import { ContactPage } from "@/pages/ContactPage";
+import { BundleDetailPage } from "@/components/BundleDeals";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
@@ -201,6 +202,7 @@ const AppRouter = () => {
       <Route path="/products" element={<><ScrollToTop /><ProductsPage /></>} />
       <Route path="/products/:category" element={<><ScrollToTop /><ProductsPage /></>} />
       <Route path="/product/:productId" element={<><ScrollToTop /><ProductDetailPage /></>} />
+      <Route path="/bundle/:bundleId" element={<><ScrollToTop /><BundleDetailPage /></>} />
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />

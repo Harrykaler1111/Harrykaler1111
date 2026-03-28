@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
 import { FrequentlyBoughtTogether } from "@/components/FrequentlyBoughtTogether";
+import { ProductBundleBanner } from "@/components/BundleDeals";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -564,6 +565,9 @@ export const ProductDetailPage = () => {
             )}
           </div>
         </div>
+
+        {/* Bundle Deal Banner */}
+        <ProductBundleBanner productId={product.product_id} />
 
         {/* Frequently Bought Together */}
         <FrequentlyBoughtTogether productId={product.product_id} currentProduct={product} />

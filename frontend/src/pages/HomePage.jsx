@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
+import { BundleDealsSection } from "@/components/BundleDeals";
 import axios from "axios";
 import { API } from "@/App";
 
@@ -468,6 +469,9 @@ export const HomePage = () => {
       )}
 
       {/* Top Sellers section moved to hero area above */}
+
+      {/* Bundle Deals */}
+      <BundleDealsSection />
 
       {/* Influencer CTA */}
       <section className="py-20 md:py-32 bg-black text-white relative overflow-hidden">

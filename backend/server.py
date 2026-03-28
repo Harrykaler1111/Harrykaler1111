@@ -42,6 +42,7 @@ from routes.booster_routes import router as booster_router
 from routes.category_routes import router as category_router
 from routes.policy_routes import router as policy_router
 from routes.checkout_settings_routes import router as checkout_settings_router
+from routes.bundle_routes import router as bundle_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -79,6 +80,7 @@ app.include_router(booster_router, prefix="/api")
 app.include_router(category_router, prefix="/api")
 app.include_router(policy_router, prefix="/api")
 app.include_router(checkout_settings_router, prefix="/api")
+app.include_router(bundle_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles
@@ -148,6 +150,8 @@ async def startup_event():
     await db.policies.create_index("slug", unique=True)
     await db.order_events.create_index("order_id")
     await db.checkout_settings.create_index("setting_id", unique=True)
+    await db.bundles.create_index("bundle_id", unique=True)
+    await db.bundles.create_index("product_ids")
 
     # Seed booster slabs
     from routes.booster_routes import seed_default_slabs
