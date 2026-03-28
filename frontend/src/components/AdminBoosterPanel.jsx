@@ -100,6 +100,7 @@ export const AdminBoosterPanel = () => {
         <div className="flex gap-2">
           {[
             { key: "slabs", label: "Slab Manager", icon: Gift },
+            { key: "upsell", label: "Upsell Products", icon: Plus },
             { key: "messages", label: "Messages", icon: MessageSquare },
             { key: "analytics", label: "Analytics", icon: BarChart3 }
           ].map(t => (
@@ -306,6 +307,135 @@ export const AdminBoosterPanel = () => {
               </Table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* UPSELL PRODUCTS TAB */}
+      {tab === "upsell" && <UpsellProductsManager />}
+    </div>
+  );
+};
+
+// ============== UPSELL PRODUCTS MANAGER ==============
+const UpsellProductsManager = () => {
+  const [upsellProducts, setUpsellProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showPicker, setShowPicker] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [uRes, pRes] = await Promise.all([
+        axios.get(`${API}/cart/admin/upsell-products`, { headers: getAdminHeaders() }),
+        axios.get(`${API}/products?limit=200`)
+      ]);
+      setUpsellProducts(uRes.data || []);
+      setAllProducts(pRes.data || []);
+    } catch { toast.error("Failed to load"); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const addToUpsell = async (productId) => {
+    try {
+      await axios.post(`${API}/cart/admin/upsell-products`, { product_id: productId }, { headers: getAdminHeaders() });
+      toast.success("Added to upsell list");
+      fetchData();
+    } catch (e) { toast.error(e.response?.data?.detail || "Failed"); }
+  };
+
+  const removeFromUpsell = async (upsellId) => {
+    try {
+      await axios.delete(`${API}/cart/admin/upsell-products/${upsellId}`, { headers: getAdminHeaders() });
+      toast.success("Removed");
+      fetchData();
+    } catch { toast.error("Failed"); }
+  };
+
+  const upsellProductIds = upsellProducts.map(u => u.product_id);
+  const availableProducts = allProducts.filter(p =>
+    !upsellProductIds.includes(p.product_id) &&
+    p.stock > 0 &&
+    (!searchTerm || p.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  if (loading) return <div className="flex items-center justify-center h-40"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-gold" /></div>;
+
+  return (
+    <div className="space-y-6" data-testid="upsell-manager">
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white">Upsell Products</h3>
+            <p className="text-xs text-neutral-400 mt-0.5">These products appear in the "Add more to unlock" popup when customers are shopping.</p>
+          </div>
+          <Button onClick={() => setShowPicker(!showPicker)} className="bg-gold text-black font-bold hover:bg-yellow-400" data-testid="add-upsell-btn">
+            <Plus className="h-4 w-4 mr-1.5" /> Add Product
+          </Button>
+        </div>
+
+        {/* Current Upsell Products */}
+        {upsellProducts.length === 0 ? (
+          <div className="text-center py-10 text-neutral-500">
+            <Gift className="h-10 w-10 mx-auto mb-3 text-neutral-600" />
+            <p className="text-sm">No upsell products selected yet.</p>
+            <p className="text-xs mt-1">Add products that you want to recommend to customers.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {upsellProducts.map((p, i) => (
+              <div key={p.product_id} className="flex items-center gap-3 bg-neutral-900 rounded-lg p-3 border border-neutral-700" data-testid={`upsell-product-${p.product_id}`}>
+                <span className="text-xs font-bold text-gold w-6 text-center">{i + 1}</span>
+                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-12 h-12 rounded object-cover border border-neutral-700" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{p.name}</p>
+                  <p className="text-xs text-neutral-400">{p.category} | Stock: {p.stock}</p>
+                </div>
+                <span className="text-gold font-bold text-sm">Rs.{p.price?.toLocaleString()}</span>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-900/40" onClick={() => removeFromUpsell(p.upsell_id)}>
+                  <Trash2 className="h-4 w-4 text-red-400" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Product Picker */}
+      {showPicker && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-white">Select Products to Add</h3>
+            <button onClick={() => setShowPicker(false)} className="text-neutral-400 hover:text-white">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <Input
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search products..."
+            className="mb-3 bg-neutral-900 border-neutral-600 text-white placeholder:text-neutral-500"
+            data-testid="upsell-search"
+          />
+          <div className="max-h-[300px] overflow-y-auto space-y-1.5">
+            {availableProducts.slice(0, 20).map(p => (
+              <div key={p.product_id} className="flex items-center gap-3 bg-neutral-900 rounded-lg p-2.5 border border-neutral-700 hover:border-gold/30 transition-colors">
+                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-10 h-10 rounded object-cover" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-neutral-200 truncate">{p.name}</p>
+                  <p className="text-[10px] text-neutral-500">{p.category} | Rs.{p.price?.toLocaleString()} | Stock: {p.stock}</p>
+                </div>
+                <Button size="sm" className="h-7 bg-gold/10 text-gold border border-gold/30 hover:bg-gold hover:text-black text-xs" onClick={() => addToUpsell(p.product_id)}>
+                  <Plus className="h-3 w-3 mr-1" /> Add
+                </Button>
+              </div>
+            ))}
+            {availableProducts.length === 0 && (
+              <p className="text-center text-neutral-500 text-xs py-4">No matching products available</p>
+            )}
+          </div>
         </div>
       )}
     </div>

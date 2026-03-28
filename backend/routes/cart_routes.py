@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from config import db
 from models.schemas import CartItem, CartResponse
-from auth import get_current_user, generate_id
+from auth import get_current_user, get_admin_user, generate_id
 
 router = APIRouter(prefix="/cart", tags=["cart"])
 
@@ -124,8 +124,8 @@ async def clear_cart(user: Dict = Depends(get_current_user)):
 
 
 @router.get("/upsell-suggestions")
-async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_current_user)):
-    """Get product suggestions under max_price for cart upsell — prioritizes boots accessories"""
+async def get_upsell_suggestions(max_price: int = 500, user: Dict = Depends(get_current_user)):
+    """Get product suggestions for cart upsell — prioritizes admin-curated picks, then accessories"""
     cart = await db.carts.find_one({"user_id": user["user_id"]}, {"_id": 0})
     cart_product_ids = [i["product_id"] for i in (cart.get("items", []) if cart else [])]
 
@@ -134,27 +134,24 @@ async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_
         "product_id": {"$nin": cart_product_ids}
     }
 
-    # Priority 1: Boots-specific accessories under max_price
-    boots_keywords = [
-        "heel protector", "shoe care", "boot care", "shoe polish",
-        "shoe brush", "socks", "insole", "waterproof spray",
-        "boot bag", "shoe tree", "leather conditioner", "shoe horn",
-        "ankle support", "boot lace", "shoe cleaner", "foot cream"
-    ]
-    keyword_regex = "|".join(boots_keywords)
-    priority_products = await db.products.find(
-        {**base_filter, "price": {"$lte": max_price},
-         "$or": [
-             {"name": {"$regex": keyword_regex, "$options": "i"}},
-             {"description": {"$regex": keyword_regex, "$options": "i"}},
-             {"category": {"$regex": "accessor|care|sock|protect", "$options": "i"}}
-         ]},
-        {"_id": 0}
-    ).sort("price", 1).limit(8).to_list(8)
+    # Priority 0: Admin-curated upsell products
+    admin_picks = await db.upsell_products.find({}, {"_id": 0}).sort("priority", 1).to_list(20)
+    admin_pick_ids = [u["product_id"] for u in admin_picks if u["product_id"] not in cart_product_ids]
+
+    priority_products = []
+    if admin_pick_ids:
+        curated = await db.products.find(
+            {"product_id": {"$in": admin_pick_ids}, "is_active": True, "stock": {"$gt": 0}},
+            {"_id": 0}
+        ).to_list(20)
+        # Sort by admin priority
+        pick_order = {pid: i for i, pid in enumerate(admin_pick_ids)}
+        curated.sort(key=lambda p: pick_order.get(p["product_id"], 999))
+        priority_products.extend(curated[:8])
 
     seen_ids = [p["product_id"] for p in priority_products]
 
-    # Priority 2: Any products under max_price (fill remaining slots)
+    # Priority 1: Fill remaining slots with general products
     remaining = 8 - len(priority_products)
     if remaining > 0:
         general = await db.products.find(
@@ -165,7 +162,7 @@ async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_
         priority_products.extend(general)
         seen_ids.extend([p["product_id"] for p in general])
 
-    # Priority 3: Broader range items if still short (for premium catalogs)
+    # Priority 2: Broader range items if still short
     remaining = 8 - len(priority_products)
     if remaining > 0:
         extra = await db.products.find(
@@ -176,3 +173,79 @@ async def get_upsell_suggestions(max_price: int = 300, user: Dict = Depends(get_
         priority_products.extend(extra)
 
     return priority_products
+
+
+# ============== ADMIN UPSELL MANAGEMENT ==============
+
+@router.get("/admin/upsell-products")
+async def get_admin_upsell_products(admin: Dict = Depends(get_admin_user)):
+    """Get all admin-curated upsell products with their details"""
+    upsells = await db.upsell_products.find({}, {"_id": 0}).sort("priority", 1).to_list(50)
+
+    product_ids = [u["product_id"] for u in upsells]
+    if not product_ids:
+        return []
+
+    products = await db.products.find(
+        {"product_id": {"$in": product_ids}},
+        {"_id": 0}
+    ).to_list(50)
+    prod_map = {p["product_id"]: p for p in products}
+
+    result = []
+    for u in upsells:
+        p = prod_map.get(u["product_id"])
+        if p:
+            result.append({**p, "upsell_priority": u["priority"], "upsell_id": u["upsell_id"]})
+
+    return result
+
+
+@router.post("/admin/upsell-products")
+async def add_upsell_product(data: Dict, admin: Dict = Depends(get_admin_user)):
+    """Add a product to the upsell list"""
+    product_id = data.get("product_id")
+    if not product_id:
+        raise HTTPException(status_code=400, detail="product_id required")
+
+    product = await db.products.find_one({"product_id": product_id}, {"_id": 0, "product_id": 1, "name": 1})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    existing = await db.upsell_products.find_one({"product_id": product_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="Product already in upsell list")
+
+    max_pri = await db.upsell_products.find_one({}, sort=[("priority", -1)])
+    priority = (max_pri.get("priority", 0) + 1) if max_pri else 1
+
+    upsell = {
+        "upsell_id": generate_id("ups_"),
+        "product_id": product_id,
+        "priority": data.get("priority", priority),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.upsell_products.insert_one(upsell)
+    upsell.pop("_id", None)
+    return {"message": f"Added {product['name']} to upsell list", **upsell}
+
+
+@router.put("/admin/upsell-products/{upsell_id}")
+async def update_upsell_priority(upsell_id: str, data: Dict, admin: Dict = Depends(get_admin_user)):
+    """Update upsell product priority"""
+    result = await db.upsell_products.update_one(
+        {"upsell_id": upsell_id},
+        {"$set": {"priority": data.get("priority", 1)}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Upsell product not found")
+    return {"message": "Priority updated"}
+
+
+@router.delete("/admin/upsell-products/{upsell_id}")
+async def remove_upsell_product(upsell_id: str, admin: Dict = Depends(get_admin_user)):
+    """Remove a product from the upsell list"""
+    result = await db.upsell_products.delete_one({"upsell_id": upsell_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    return {"message": "Removed from upsell list"}
