@@ -3,14 +3,23 @@ import ReactDOM from "react-dom/client";
 import "@/index.css";
 import App from "@/App";
 
-// Suppress harmless ResizeObserver error from React error overlay
-// This is a known browser issue triggered by animations/dynamic layouts
-const suppressResizeObserver = (e) => {
-  if (e.message?.includes('ResizeObserver loop')) {
-    e.stopImmediatePropagation();
+// Suppress ResizeObserver loop error — harmless browser warning
+// that React dev overlay incorrectly shows as a crash on mobile
+const ro = window.ResizeObserver;
+window.ResizeObserver = class extends ro {
+  constructor(cb) {
+    super((entries, observer) => {
+      requestAnimationFrame(() => { cb(entries, observer); });
+    });
   }
 };
-window.addEventListener('error', suppressResizeObserver);
+window.addEventListener('error', (e) => {
+  if (e.message?.includes?.('ResizeObserver')) {
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+    e.preventDefault();
+  }
+});
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
