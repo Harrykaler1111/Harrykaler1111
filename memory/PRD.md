@@ -134,6 +134,20 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - **Fallback Images:** Added SVG placeholder for products without images
 - **Testing:** Iteration 26 - PASS (15/15 backend + 100% frontend verified)
 
+### Phase 23 - Advanced Checkout & COD System (2026-03-28)
+- **Partial COD Payment:** Rs.500 advance required for COD orders >= Rs.1000 subtotal. Split display: "Pay Now Rs.500 | Pay on Delivery Rs.X"
+- **COD Charge:** Rs.49 handling fee added to all COD orders, clearly shown in checkout
+- **Prepaid Incentive:** Rs.100 flat discount for online payments. "SAVE Rs.100" badge on Prepaid option
+- **PIN Code Validation:** Auto-fills city/state from 6-digit Indian PIN code. Covers 200+ cities across all states. Invalid PINs blocked
+- **Risk Scoring:** COD orders scored as low/medium/high risk based on: order value > Rs.3000, multiple pending COD orders, etc.
+- **COD Limits:** Max 3 pending COD per user. Users with 3+ cancelled COD orders blocked from COD
+- **Checkout Page Redesign:** Premium dark/gold theme, 2-column layout (shipping + payment | order summary), animated interactions, trust badges
+- **Switch Nudge:** When COD selected, green nudge "Switch to online payment & save Rs.X instantly"
+- **Admin Checkout Settings:** 6 config cards (COD, COD Advance, Prepaid, Fraud, Shipping, Messages) with real-time toggle/save
+- **High-Risk Orders Panel:** Admin can review flagged orders, approve/hold/cancel with audit trail
+- **Order Success Page:** Updated to show COD/prepaid breakdown, advance paid, remaining on delivery
+- **Testing:** Iteration 27 - PASS (21/21 backend + 100% frontend verified)
+
 ## MOCKED Integrations
 - Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET (checkout uses demo payment IDs)
 - Instagram Graph API -> needs Meta credentials
@@ -143,13 +157,15 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 ## Remaining Tasks
 
 ### P1 - Upcoming
+- Phase B Checkout: COD order confirmation flow, auto-cancel unconfirmed orders, delivery intent check
 - "Testing Mode" for Orders: Add a dev/test flow to place dummy orders and verify notifications fire correctly
 - Real Instagram Graph API (when credentials provided)
 - Real WhatsApp Business API (when credentials provided)
 
 ### P2 - Future/Backlog
+- Phone/OTP verification for shipping (needs SMS provider)
 - Real Razorpay live keys
 - Real Meta Pixel / Google Ads pixel IDs
-- Frontend refactoring (AdminDashboard 3300+ lines → smaller components)
+- Frontend refactoring (AdminDashboard 3300+ lines -> smaller components)
 - Vendor email digest notifications
 - A/B testing for hero videos
