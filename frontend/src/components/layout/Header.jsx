@@ -305,7 +305,7 @@ export const Header = () => {
     setMegaOpen(true);
   }, []);
   const closeMega = useCallback(() => {
-    megaTimer.current = setTimeout(() => setMegaOpen(false), 150);
+    megaTimer.current = setTimeout(() => setMegaOpen(false), 250);
   }, []);
   const openPartner = useCallback(() => {
     clearTimeout(partnerTimer.current);
@@ -364,6 +364,8 @@ export const Header = () => {
                   All Products
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${megaOpen ? 'rotate-180' : ''}`} />
                 </Link>
+                {/* Invisible bridge to prevent hover gap */}
+                {megaOpen && <div className="absolute top-full left-0 w-full h-4" />}
               </div>
 
               {/* Partner with Us */}
