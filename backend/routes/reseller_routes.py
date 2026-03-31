@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from config import db, MIN_WITHDRAWAL_AMOUNT
 from models.schemas import ResellerRegister, ResellerResponse, WalletTransactionResponse, WithdrawalRequest, WithdrawalResponse
@@ -10,6 +11,11 @@ from auth import get_current_user, get_current_reseller, get_admin_user, check_p
 router = APIRouter(prefix="/resellers", tags=["resellers"])
 
 DEFAULT_RESELLER_COMMISSION = 5.0
+
+
+class ResellerMarginUpdate(BaseModel):
+    product_id: str
+    margin: float  # Custom margin the reseller adds on top of product price
 
 
 @router.post("/register", response_model=ResellerResponse)
@@ -35,6 +41,7 @@ async def register_as_reseller(data: ResellerRegister, user: Dict = Depends(get_
         "total_conversions": 0,
         "total_earnings": 0.0,
         "wallet_balance": 0.0,
+        "product_margins": {},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -46,6 +53,64 @@ async def register_as_reseller(data: ResellerRegister, user: Dict = Depends(get_
 @router.get("/me", response_model=ResellerResponse)
 async def get_my_reseller_profile(reseller: Dict = Depends(get_current_reseller)):
     return ResellerResponse(**reseller)
+
+
+@router.get("/products")
+async def get_reseller_products(reseller: Dict = Depends(get_current_reseller)):
+    """Get all active products with reseller-specific links and margins."""
+    if reseller["status"] != "approved":
+        raise HTTPException(status_code=403, detail="Account must be approved first")
+
+    products = await db.products.find({"is_active": True}, {"_id": 0}).to_list(200)
+    margins = reseller.get("product_margins", {})
+    ref_code = reseller["referral_code"]
+
+    result = []
+    for p in products:
+        pid = p["product_id"]
+        margin = margins.get(pid, 0)
+        result.append({
+            "product_id": pid,
+            "name": p["name"],
+            "image": p["images"][0] if p.get("images") else None,
+            "price": p["price"],
+            "compare_price": p.get("compare_price"),
+            "category": p.get("category", ""),
+            "margin": margin,
+            "reseller_price": p["price"] + margin,
+            "share_link": generate_referral_link(ref_code, pid),
+            "stock": p.get("stock", 0),
+        })
+    return result
+
+
+@router.put("/product-margin")
+async def set_product_margin(body: ResellerMarginUpdate, reseller: Dict = Depends(get_current_reseller)):
+    """Set custom margin for a specific product."""
+    if reseller["status"] != "approved":
+        raise HTTPException(status_code=403, detail="Account must be approved first")
+
+    if body.margin < 0:
+        raise HTTPException(status_code=400, detail="Margin cannot be negative")
+
+    product = await db.products.find_one({"product_id": body.product_id, "is_active": True})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    await db.resellers.update_one(
+        {"reseller_id": reseller["reseller_id"]},
+        {"$set": {
+            f"product_margins.{body.product_id}": body.margin,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    return {
+        "product_id": body.product_id,
+        "margin": body.margin,
+        "reseller_price": product["price"] + body.margin,
+        "share_link": generate_referral_link(reseller["referral_code"], body.product_id)
+    }
 
 
 @router.get("/referral-links")

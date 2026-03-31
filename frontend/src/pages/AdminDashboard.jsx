@@ -31,6 +31,7 @@ import { AdminPoliciesPanel } from "@/components/AdminPoliciesPanel";
 import { AdminProductsHub } from "@/components/AdminProductsHub";
 import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 import { AdminBundlePanel } from "@/components/AdminBundlePanel";
+import { PermissionsPanel } from "@/components/PermissionsPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -3478,6 +3479,7 @@ export const AdminDashboard = () => {
     { path: "/admin/policies", icon: <BookOpen className="h-5 w-5" />, label: "Policies", permission: ["platform_settings", "edit"] },
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
+    { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
   ];
 
   // Filter nav items based on permissions
@@ -3577,6 +3579,7 @@ export const AdminDashboard = () => {
             <Route path="policies" element={<AdminPoliciesPanel token={localStorage.getItem("pigma_admin_token")} />} />
             <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="users" element={<AdminUsersManagement />} />
+            <Route path="permissions" element={<PermissionsPanel />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>
         </main>

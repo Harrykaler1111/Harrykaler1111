@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
+import os
 
 from config import db
 from models.schemas import AffiliateCreate, AffiliateResponse
 from auth import get_current_user, get_admin_user, check_permission, generate_id, generate_referral_code
 
 router = APIRouter(prefix="/affiliates", tags=["affiliates"])
+
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://pigma.com")
 
 
 @router.post("/apply", response_model=AffiliateResponse)
@@ -89,3 +92,30 @@ async def update_affiliate_commission(affiliate_id: str, commission_rate: float,
         raise HTTPException(status_code=404, detail="Affiliate not found")
 
     return {"message": f"Commission rate updated to {commission_rate}%"}
+
+
+@router.get("/product-links")
+async def get_affiliate_product_links(user: Dict = Depends(get_current_user)):
+    """Get per-product affiliate links for approved affiliates."""
+    affiliate = await db.affiliates.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not affiliate:
+        raise HTTPException(status_code=404, detail="Not registered as affiliate")
+    if affiliate["status"] != "approved":
+        raise HTTPException(status_code=403, detail="Account must be approved first")
+
+    products = await db.products.find({"is_active": True}, {"_id": 0}).to_list(200)
+    ref_code = affiliate["referral_code"]
+
+    links = []
+    for p in products:
+        links.append({
+            "product_id": p["product_id"],
+            "name": p["name"],
+            "image": p["images"][0] if p.get("images") else None,
+            "price": p["price"],
+            "category": p.get("category", ""),
+            "affiliate_link": f"{FRONTEND_URL}/product/{p['product_id']}?ref={ref_code}",
+            "commission_rate": affiliate["commission_rate"],
+            "estimated_earning": round(p["price"] * affiliate["commission_rate"] / 100, 2)
+        })
+    return links

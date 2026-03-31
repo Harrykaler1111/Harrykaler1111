@@ -15,6 +15,11 @@ export const AuthPage = () => {
   const { login, user } = useAuth();
   const from = location.state?.from?.pathname || "/";
 
+  // Detect ?type=influencer or ?type=affiliate
+  const params = new URLSearchParams(location.search);
+  const joinType = params.get("type"); // "influencer" or "affiliate"
+  const redirectTo = joinType === "influencer" ? "/influencer" : joinType === "affiliate" ? "/affiliate" : from;
+
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
@@ -43,9 +48,9 @@ export const AuthPage = () => {
 
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     }
-  }, [user, navigate, from]);
+  }, [user, navigate, redirectTo]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -57,7 +62,7 @@ export const AuthPage = () => {
       });
       login(response.data.user, response.data.token);
       toast.success("Welcome back!");
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Invalid credentials");
     } finally {
@@ -77,7 +82,7 @@ export const AuthPage = () => {
       });
       login(response.data.user, response.data.token);
       toast.success("Account created successfully!");
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Registration failed");
     } finally {
@@ -116,7 +121,7 @@ export const AuthPage = () => {
       });
       login(response.data.user, response.data.token);
       toast.success("Welcome!");
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       toast.error(error.response?.data?.detail || "Invalid OTP");
     } finally {

@@ -141,13 +141,13 @@ const OrderRow = ({ order, token, onRefresh }) => {
 
   return (
     <div
-      className={`border rounded-lg bg-white transition-all ${isNew ? "border-orange-300 ring-1 ring-orange-200" : "border-neutral-200"}`}
+      className={`border rounded-lg bg-neutral-800/50 transition-all ${isNew ? "border-orange-500/40 ring-1 ring-orange-500/30" : "border-neutral-700"}`}
       data-testid={`admin-order-${order.order_id}`}
     >
       {/* Summary row */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between gap-4 text-left hover:bg-neutral-50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between gap-4 text-left hover:bg-neutral-700/30 transition-colors"
       >
         <div className="flex items-center gap-3 min-w-0">
           {isNew && <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse flex-shrink-0" />}
@@ -162,7 +162,7 @@ const OrderRow = ({ order, token, onRefresh }) => {
 
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="text-right">
-            <p className="text-sm font-bold">₹{order.total?.toLocaleString()}</p>
+            <p className="text-sm font-bold text-white">₹{order.total?.toLocaleString()}</p>
             <p className="text-xs text-neutral-400">{order.items?.length || 0} item(s)</p>
           </div>
           {expanded ? <ChevronUp className="h-4 w-4 text-neutral-400" /> : <ChevronDown className="h-4 w-4 text-neutral-400" />}
@@ -178,27 +178,27 @@ const OrderRow = ({ order, token, onRefresh }) => {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-4 border-t border-neutral-100 pt-3">
+            <div className="px-4 pb-4 space-y-4 border-t border-neutral-700 pt-3">
               {/* Customer info */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-neutral-50 rounded-lg p-3 space-y-1.5">
+                <div className="bg-neutral-900/50 rounded-lg p-3 space-y-1.5">
                   <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Customer</p>
-                  <div className="flex items-center gap-1.5 text-sm">
+                  <div className="flex items-center gap-1.5 text-sm text-neutral-200">
                     <User className="h-3.5 w-3.5 text-neutral-400" />
                     <span>{order.shipping_address?.name || order.customer?.name || "N/A"}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-sm">
+                  <div className="flex items-center gap-1.5 text-sm text-neutral-200">
                     <Phone className="h-3.5 w-3.5 text-neutral-400" />
                     <span>{order.shipping_address?.phone || "N/A"}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-sm">
+                  <div className="flex items-center gap-1.5 text-sm text-neutral-200">
                     <Mail className="h-3.5 w-3.5 text-neutral-400" />
                     <span className="text-xs truncate">{order.customer?.email || "N/A"}</span>
                   </div>
                 </div>
-                <div className="bg-neutral-50 rounded-lg p-3 space-y-1.5">
+                <div className="bg-neutral-900/50 rounded-lg p-3 space-y-1.5">
                   <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium">Shipping Address</p>
-                  <div className="flex items-start gap-1.5 text-sm">
+                  <div className="flex items-start gap-1.5 text-sm text-neutral-200">
                     <MapPin className="h-3.5 w-3.5 text-neutral-400 mt-0.5 flex-shrink-0" />
                     <span>
                       {order.shipping_address?.address}, {order.shipping_address?.city}, {order.shipping_address?.state} - {order.shipping_address?.pincode}
@@ -212,17 +212,17 @@ const OrderRow = ({ order, token, onRefresh }) => {
                 <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium mb-2">Items</p>
                 <div className="space-y-2">
                   {order.items?.map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-neutral-50 rounded-lg p-2">
+                    <div key={i} className="flex items-center gap-3 bg-neutral-900/50 rounded-lg p-2">
                       {item.product_image && (
                         <img src={item.product_image} alt="" className="w-10 h-12 object-cover rounded" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.product_name}</p>
+                        <p className="text-sm font-medium truncate text-white">{item.product_name}</p>
                         <p className="text-xs text-neutral-400">
                           Qty: {item.quantity} | {item.size} | {item.color}
                         </p>
                       </div>
-                      <span className="text-sm font-medium flex-shrink-0">₹{item.item_total?.toLocaleString()}</span>
+                      <span className="text-sm font-medium flex-shrink-0 text-white">₹{item.item_total?.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -230,8 +230,8 @@ const OrderRow = ({ order, token, onRefresh }) => {
 
               {/* Tracking */}
               {(order.status === "confirmed" || order.status === "processing" || order.status === "shipped") && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 space-y-2">
-                  <p className="text-xs text-indigo-700 uppercase tracking-wider font-medium flex items-center gap-1">
+                <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-lg p-3 space-y-2">
+                  <p className="text-xs text-indigo-400 uppercase tracking-wider font-medium flex items-center gap-1">
                     <Truck className="h-3.5 w-3.5" /> Shipping & Tracking
                   </p>
                   {order.tracking_id ? (
@@ -256,7 +256,7 @@ const OrderRow = ({ order, token, onRefresh }) => {
               )}
 
               {/* Timeline */}
-              <div className="bg-neutral-50 rounded-lg p-3">
+              <div className="bg-neutral-900/50 rounded-lg p-3">
                 <p className="text-xs text-neutral-400 uppercase tracking-wider font-medium mb-2">Activity Log</p>
                 <OrderTimeline orderId={order.order_id} token={token} isAdmin={true} />
               </div>
@@ -283,7 +283,7 @@ const OrderRow = ({ order, token, onRefresh }) => {
                 )}
                 {!["delivered", "cancelled"].includes(order.status) && (
                   <Button size="sm" variant="outline" onClick={() => updateStatus("cancelled")} disabled={updatingStatus}
-                    className="border-red-300 text-red-600 hover:bg-red-50 text-xs" data-testid="cancel-order-btn">
+                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs" data-testid="cancel-order-btn">
                     Cancel
                   </Button>
                 )}
@@ -362,7 +362,7 @@ export const AdminOrdersPanel = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Order Management</h2>
+        <h2 className="text-lg font-bold text-white">Order Management</h2>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
@@ -381,7 +381,7 @@ export const AdminOrdersPanel = () => {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-neutral-100 p-1 rounded-lg overflow-x-auto" data-testid="order-filter-tabs">
+      <div className="flex gap-1 bg-neutral-800 p-1 rounded-lg overflow-x-auto" data-testid="order-filter-tabs">
         {[
           { key: "all", label: "All" },
           { key: "pending", label: "Pending" },
@@ -393,7 +393,7 @@ export const AdminOrdersPanel = () => {
             key={tab.key}
             onClick={() => setFilter(tab.key)}
             className={`flex-1 text-xs font-medium py-2 px-3 rounded-md transition-colors whitespace-nowrap ${
-              filter === tab.key ? "bg-white shadow-sm text-black" : "text-neutral-500 hover:text-neutral-700"
+              filter === tab.key ? "bg-neutral-700 shadow-sm text-white" : "text-neutral-400 hover:text-neutral-200"
             }`}
             data-testid={`order-tab-${tab.key}`}
           >

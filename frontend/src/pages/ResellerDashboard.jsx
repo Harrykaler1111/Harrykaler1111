@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, Link2, Wallet, TrendingUp, Copy, ExternalLink,
-  LogOut, MousePointerClick, ShoppingCart, DollarSign, Clock
+  LogOut, MousePointerClick, ShoppingCart, DollarSign, Clock,
+  Package, Share2, Edit3, Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -29,11 +31,96 @@ const StatCard = ({ icon, label, value, bg }) => (
   </motion.div>
 );
 
+// Product card for reseller with margin control + share link
+const ResellerProductCard = ({ product, onMarginSave }) => {
+  const [editing, setEditing] = useState(false);
+  const [margin, setMargin] = useState(product.margin || 0);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onMarginSave(product.product_id, margin);
+    setSaving(false);
+    setEditing(false);
+  };
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(product.share_link);
+    toast.success("Link copied!");
+  };
+
+  return (
+    <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid={`reseller-product-${product.product_id}`}>
+      <div className="aspect-square bg-neutral-900 relative overflow-hidden">
+        {product.image ? (
+          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-neutral-600">
+            <Package className="h-10 w-10" />
+          </div>
+        )}
+        {product.stock <= 0 && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+            <span className="text-red-400 font-bold text-sm">Out of Stock</span>
+          </div>
+        )}
+      </div>
+      <div className="p-3 space-y-2">
+        <p className="text-sm font-medium text-white truncate">{product.name}</p>
+        <p className="text-xs text-neutral-500">{product.category}</p>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-neutral-400">Base Price</p>
+            <p className="text-sm font-bold text-white">₹{product.price?.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-neutral-400">Your Price</p>
+            <p className="text-sm font-bold text-green-400">₹{product.reseller_price?.toLocaleString()}</p>
+          </div>
+        </div>
+
+        {/* Margin Control */}
+        <div className="bg-neutral-900 rounded-lg p-2">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-neutral-400 whitespace-nowrap">Margin ₹</span>
+              <Input type="number" min="0" value={margin} onChange={e => setMargin(parseFloat(e.target.value) || 0)}
+                className="bg-neutral-800 border-neutral-600 text-white h-7 text-xs" data-testid="margin-input" />
+              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 text-white h-7 px-2 text-xs" data-testid="margin-save">
+                <Check className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-neutral-400">Margin: <span className="text-gold font-medium">₹{product.margin || 0}</span></span>
+              <button onClick={() => setEditing(true)} className="text-neutral-500 hover:text-gold transition-colors" data-testid="margin-edit">
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Share Link */}
+        <div className="flex gap-1.5">
+          <Button size="sm" className="flex-1 bg-gold/10 text-gold hover:bg-gold/20 h-8 text-xs" onClick={copyLink} data-testid="copy-product-link">
+            <Copy className="h-3 w-3 mr-1" /> Copy Link
+          </Button>
+          <a href={product.share_link} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="ghost" className="text-neutral-400 h-8 px-2"><ExternalLink className="h-3 w-3" /></Button>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ResellerDashboard = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
   const [profile, setProfile] = useState(null);
   const [links, setLinks] = useState([]);
+  const [products, setProducts] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +152,13 @@ export const ResellerDashboard = () => {
     } catch { toast.error("Failed to load referral links"); }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get(`${API}/resellers/products`, { headers: getHeaders() });
+      setProducts(res.data);
+    } catch { toast.error("Failed to load products"); }
+  };
+
   const fetchWallet = async () => {
     try {
       const [balRes, txRes] = await Promise.all([
@@ -79,9 +173,18 @@ export const ResellerDashboard = () => {
   useEffect(() => {
     if (profile?.status === "approved") {
       if (tab === "links") fetchLinks();
+      if (tab === "products") fetchProducts();
       if (tab === "wallet") fetchWallet();
     }
   }, [tab, profile]);
+
+  const handleMarginSave = async (productId, margin) => {
+    try {
+      const res = await axios.put(`${API}/resellers/product-margin`, { product_id: productId, margin }, { headers: getHeaders() });
+      toast.success(`Margin set to ₹${margin}. Your price: ₹${res.data.reseller_price}`);
+      setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, margin, reseller_price: res.data.reseller_price } : p));
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to update margin"); }
+  };
 
   const copyLink = (link) => {
     navigator.clipboard.writeText(link);
@@ -107,6 +210,7 @@ export const ResellerDashboard = () => {
 
   const tabs = [
     { id: "overview", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
+    { id: "products", icon: <Package className="h-4 w-4" />, label: "Products" },
     { id: "links", icon: <Link2 className="h-4 w-4" />, label: "Referral Links" },
     { id: "wallet", icon: <Wallet className="h-4 w-4" />, label: "Wallet" },
   ];
@@ -157,11 +261,11 @@ export const ResellerDashboard = () => {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-8 border-b border-neutral-800 pb-4">
+        <div className="flex gap-2 mb-8 border-b border-neutral-800 pb-4 overflow-x-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               disabled={t.id !== "overview" && (isPending || isSuspended)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 tab === t.id ? "bg-gold text-black font-medium" :
                 (isPending || isSuspended) && t.id !== "overview"
                   ? "text-neutral-600 cursor-not-allowed"
@@ -196,6 +300,26 @@ export const ResellerDashboard = () => {
           </div>
         )}
 
+        {/* Products Tab (Meesho-style) */}
+        {tab === "products" && (
+          <div className="space-y-4" data-testid="reseller-products-tab">
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif text-2xl font-bold text-white">Sell Products</h2>
+              <p className="text-xs text-neutral-400">{products.length} products available</p>
+            </div>
+            <p className="text-sm text-neutral-400">Set your margin on each product. Share your unique link and earn on every sale.</p>
+            {products.length === 0 ? (
+              <p className="text-neutral-500 text-center py-12">No products available</p>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {products.map(p => (
+                  <ResellerProductCard key={p.product_id} product={p} onMarginSave={handleMarginSave} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Referral Links Tab */}
         {tab === "links" && (
           <div>
@@ -203,11 +327,11 @@ export const ResellerDashboard = () => {
             <div className="space-y-3">
               {links.map((l, i) => (
                 <div key={i} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0 flex-1 mr-4">
                     <p className="text-white font-medium">{l.product_name}</p>
-                    <p className="text-xs text-neutral-400 font-mono truncate max-w-md">{l.link}</p>
+                    <p className="text-xs text-neutral-400 font-mono truncate">{l.link}</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => copyLink(l.link)} data-testid={`copy-link-${i}`}>
                       <Copy className="h-3 w-3 mr-1" /> Copy
                     </Button>

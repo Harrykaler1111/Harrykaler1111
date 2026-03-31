@@ -83,7 +83,12 @@ async def get_admin_user(authorization: Optional[str] = Header(None)) -> Dict:
     if not admin:
         raise HTTPException(status_code=401, detail="Admin user not found or inactive")
 
-    admin["permissions"] = ROLE_PERMISSIONS.get(AdminRole(admin["role"]), {})
+    # Dynamic permissions: check for custom overrides first, then fallback to role defaults
+    custom = await db.admin_permissions.find_one({"admin_id": admin["admin_id"]}, {"_id": 0})
+    if custom and custom.get("permissions"):
+        admin["permissions"] = custom["permissions"]
+    else:
+        admin["permissions"] = ROLE_PERMISSIONS.get(AdminRole(admin["role"]), {})
     return admin
 
 

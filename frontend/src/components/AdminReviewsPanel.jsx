@@ -9,9 +9,9 @@ import axios from "axios";
 
 const StatusBadge = ({ status }) => {
   const styles = {
-    pending: "bg-amber-50 text-amber-700 border-amber-200",
-    approved: "bg-green-50 text-green-700 border-green-200",
-    rejected: "bg-red-50 text-red-700 border-red-200",
+    pending: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    approved: "bg-green-500/10 text-green-400 border-green-500/30",
+    rejected: "bg-red-500/10 text-red-400 border-red-500/30",
   };
   return (
     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${styles[status] || styles.pending}`}>
@@ -64,7 +64,7 @@ const ReviewRow = ({ review, token, onAction }) => {
   });
 
   return (
-    <div className="border border-neutral-200 rounded-lg p-4 bg-white" data-testid={`admin-review-${review.review_id}`}>
+    <div className="border border-neutral-700 rounded-lg p-4 bg-neutral-800/50" data-testid={`admin-review-${review.review_id}`}>
       {/* Header row */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex gap-3 flex-1 min-w-0">
@@ -72,15 +72,15 @@ const ReviewRow = ({ review, token, onAction }) => {
             <img src={review.product_image} alt="" className="w-10 h-12 object-cover rounded flex-shrink-0" />
           )}
           <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{review.product_name || "Product"}</p>
+            <p className="text-sm font-medium truncate text-white">{review.product_name || "Product"}</p>
             <div className="flex items-center gap-2 mt-0.5">
               <div className="flex gap-0.5">
                 {[1,2,3,4,5].map(s => (
-                  <Star key={s} className={`h-3 w-3 ${s <= review.rating ? "fill-gold text-gold" : "fill-none text-neutral-200"}`} />
+                  <Star key={s} className={`h-3 w-3 ${s <= review.rating ? "fill-gold text-gold" : "fill-none text-neutral-600"}`} />
                 ))}
               </div>
-              <span className="text-xs text-neutral-500">by {review.user_name}</span>
-              <span className="text-[10px] text-neutral-400">{date}</span>
+              <span className="text-xs text-neutral-400">by {review.user_name}</span>
+              <span className="text-[10px] text-neutral-500">{date}</span>
             </div>
           </div>
         </div>
@@ -102,16 +102,16 @@ const ReviewRow = ({ review, token, onAction }) => {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
-              {review.title && <p className="text-sm font-medium">{review.title}</p>}
-              <p className="text-sm text-neutral-600">{review.comment}</p>
+            <div className="mt-3 pt-3 border-t border-neutral-700 space-y-3">
+              {review.title && <p className="text-sm font-medium text-white">{review.title}</p>}
+              <p className="text-sm text-neutral-300">{review.comment}</p>
 
               {/* Images with remove buttons */}
               {review.images?.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
                   {review.images.map((img, i) => (
                     <div key={i} className="relative group">
-                      <button onClick={() => setLightboxImg(img)} className="w-16 h-16 rounded overflow-hidden border border-neutral-200 hover:border-gold transition-colors">
+                      <button onClick={() => setLightboxImg(img)} className="w-16 h-16 rounded overflow-hidden border border-neutral-700 hover:border-gold transition-colors">
                         <img src={img} alt="" className="w-full h-full object-cover" />
                       </button>
                       <button
@@ -132,7 +132,7 @@ const ReviewRow = ({ review, token, onAction }) => {
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Admin note / reason (optional)"
                 rows={2}
-                className="text-sm resize-none"
+                className="text-sm resize-none bg-neutral-900 border-neutral-700 text-white"
               />
 
               {/* Action buttons */}
@@ -199,30 +199,30 @@ export const AdminReviewsPanel = () => {
     { key: "pending", label: "Pending", count: counts.pending, color: "text-amber-600" },
     { key: "approved", label: "Approved", count: counts.approved, color: "text-green-600" },
     { key: "rejected", label: "Rejected", count: counts.rejected, color: "text-red-600" },
-    { key: "", label: "All", count: counts.total, color: "text-neutral-600" },
+    { key: "", label: "All", count: counts.total, color: "text-neutral-400" },
   ];
 
   return (
     <div className="space-y-4" data-testid="admin-reviews-panel">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Review Moderation</h2>
+        <h2 className="text-lg font-bold text-white">Review Moderation</h2>
         <div className="flex items-center gap-1 text-xs">
           <Clock className="h-3.5 w-3.5 text-amber-500" />
-          <span className="font-bold text-amber-600">{counts.pending}</span>
-          <span className="text-neutral-500">pending</span>
+          <span className="font-bold text-amber-400">{counts.pending}</span>
+          <span className="text-neutral-400">pending</span>
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-1 bg-neutral-100 p-1 rounded-lg" data-testid="review-filter-tabs">
+      <div className="flex gap-1 bg-neutral-800 p-1 rounded-lg" data-testid="review-filter-tabs">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setFilter(tab.key)}
             className={`flex-1 text-xs font-medium py-2 px-3 rounded-md transition-colors ${
               filter === tab.key
-                ? "bg-white shadow-sm text-black"
-                : "text-neutral-500 hover:text-neutral-700"
+                ? "bg-neutral-700 shadow-sm text-white"
+                : "text-neutral-400 hover:text-neutral-200"
             }`}
             data-testid={`review-tab-${tab.key || 'all'}`}
           >

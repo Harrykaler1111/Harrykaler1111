@@ -111,7 +111,7 @@ export const Footer = () => {
             <h4 className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-4">Partner with Us</h4>
             <ul className="space-y-2.5">
               <li><Link to="/influencer" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-influencer">Become an Influencer</Link></li>
-              <li><Link to="/creators" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-affiliate">Affiliate Program</Link></li>
+              <li><Link to="/affiliate" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-affiliate">Affiliate Program</Link></li>
               <li><Link to="/reseller" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-reseller">Reseller Program</Link></li>
               <li><Link to="/vendor-login" className="text-sm text-neutral-300 hover:text-gold transition-colors" data-testid="footer-sell">Sell on Pigma</Link></li>
             </ul>

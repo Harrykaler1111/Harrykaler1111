@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+async def get_effective_permissions(admin_id: str, role: str) -> dict:
+    """Get effective permissions: dynamic overrides first, then role defaults."""
+    custom = await db.admin_permissions.find_one({"admin_id": admin_id}, {"_id": 0})
+    if custom and custom.get("permissions"):
+        return custom["permissions"]
+    return ROLE_PERMISSIONS.get(AdminRole(role), {})
+
+
 # ============== ADMIN AUTH ==============
 
 @router.post("/auth/login", response_model=Dict)
@@ -69,11 +77,13 @@ async def admin_login(credentials: AdminLogin, request: Request):
 
     token = create_jwt_token(admin["admin_id"], admin["role"], is_admin=True)
 
+    perms = await get_effective_permissions(admin["admin_id"], admin["role"])
+
     return {
         "token": token,
         "admin": AdminUserResponse(**{
             **{k: v for k, v in admin.items() if k != "password"},
-            "permissions": ROLE_PERMISSIONS.get(AdminRole(admin["role"]), {})
+            "permissions": perms
         }).model_dump()
     }
 
@@ -84,6 +94,114 @@ async def get_current_admin(admin: Dict = Depends(get_admin_user)):
 
 
 # ============== ADMIN USER MANAGEMENT ==============
+
+# Pydantic model for permission updates
+class PermissionUpdate(BaseModel):
+    permissions: Dict
+
+
+@router.get("/permissions/modules")
+async def get_all_modules(admin: Dict = Depends(get_admin_user)):
+    """Get the list of all permission modules and actions for the UI."""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin only")
+
+    return {
+        "modules": {
+            "products": ["view", "create", "edit", "delete", "approve"],
+            "orders": ["view", "update", "delete"],
+            "influencers": ["view", "approve", "reject", "edit", "delete", "suspend", "disconnect", "reactivate"],
+            "affiliates": ["view", "approve", "reject", "edit", "delete"],
+            "resellers": ["view", "approve", "reject", "suspend", "disconnect", "reactivate"],
+            "commissions": ["view", "edit", "approve"],
+            "wallets": ["view", "edit", "approve_withdrawal"],
+            "payouts": ["view", "create", "approve", "process"],
+            "analytics": ["view", "export"],
+            "admin_users": ["view", "create", "edit", "delete"],
+            "system": ["view", "configure"],
+            "customers": ["view", "edit", "delete"],
+            "coupons": ["view", "create", "edit", "delete"],
+            "vendors": ["view", "approve", "reject", "edit", "delete", "suspend", "disconnect", "reactivate"],
+            "vendor_products": ["view", "approve", "reject"],
+            "vendor_kyc": ["view", "approve", "reject"],
+            "vendor_withdrawals": ["view", "approve", "reject", "process"],
+            "platform_settings": ["view", "edit"],
+            "categories": ["view", "create", "edit", "delete"],
+            "tickets": ["view", "manage", "assign", "escalate"],
+        }
+    }
+
+
+@router.get("/permissions/{admin_id}")
+async def get_admin_permissions(admin_id: str, admin: Dict = Depends(get_admin_user)):
+    """Get current permissions for a specific admin user."""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin only")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    custom = await db.admin_permissions.find_one({"admin_id": admin_id}, {"_id": 0})
+    role_defaults = ROLE_PERMISSIONS.get(AdminRole(target["role"]), {})
+
+    return {
+        "admin_id": admin_id,
+        "role": target["role"],
+        "name": target.get("name", ""),
+        "has_custom": custom is not None and bool(custom.get("permissions")),
+        "permissions": custom["permissions"] if custom and custom.get("permissions") else role_defaults,
+        "role_defaults": role_defaults
+    }
+
+
+@router.put("/permissions/{admin_id}")
+async def update_admin_permissions(admin_id: str, body: PermissionUpdate, admin: Dict = Depends(get_admin_user)):
+    """Set custom permissions for a specific admin user. Super Admin only."""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin only")
+
+    target = await db.admin_users.find_one({"admin_id": admin_id}, {"_id": 0})
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin not found")
+
+    if target["role"] == "super_admin":
+        raise HTTPException(status_code=400, detail="Cannot modify Super Admin permissions")
+
+    await db.admin_permissions.update_one(
+        {"admin_id": admin_id},
+        {"$set": {
+            "admin_id": admin_id,
+            "permissions": body.permissions,
+            "updated_by": admin["admin_id"],
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+
+    # Log activity
+    await db.activity_logs.insert_one({
+        "log_id": generate_id("log_"),
+        "admin_id": admin["admin_id"],
+        "action": "update_permissions",
+        "target_user": admin_id,
+        "reason": f"Permissions updated for {target.get('name', admin_id)}",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": "Permissions updated", "admin_id": admin_id}
+
+
+@router.delete("/permissions/{admin_id}")
+async def reset_admin_permissions(admin_id: str, admin: Dict = Depends(get_admin_user)):
+    """Reset admin to role defaults (remove custom permissions)."""
+    if admin["role"] != "super_admin":
+        raise HTTPException(status_code=403, detail="Super Admin only")
+
+    await db.admin_permissions.delete_one({"admin_id": admin_id})
+
+    return {"message": "Permissions reset to role defaults"}
+
 
 @router.post("/users", response_model=AdminUserResponse)
 async def create_admin_user(user_data: AdminUserCreate, admin: Dict = Depends(get_admin_user)):

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Link2, TrendingUp, DollarSign, Copy, Globe, 
-  Percent, ArrowRight, Check, Clock, Tag
+  Percent, ArrowRight, Check, Clock, Tag, Package, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ export const AffiliateDashboard = () => {
   const [affiliate, setAffiliate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
+  const [productLinks, setProductLinks] = useState([]);
 
   const [formData, setFormData] = useState({
     company_name: "",
@@ -33,6 +34,15 @@ export const AffiliateDashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         setAffiliate(response.data);
+        // Fetch product links if approved
+        if (response.data.status === "approved") {
+          try {
+            const plRes = await axios.get(`${API}/affiliates/product-links`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            setProductLinks(plRes.data);
+          } catch { /* ignore */ }
+        }
       } catch (error) {
         // Not an affiliate yet
       } finally {
@@ -117,6 +127,9 @@ export const AffiliateDashboard = () => {
               </TabsTrigger>
               <TabsTrigger value="coupons" className="data-[state=active]:bg-gold data-[state=active]:text-black">
                 Coupon Codes
+              </TabsTrigger>
+              <TabsTrigger value="products" className="data-[state=active]:bg-gold data-[state=active]:text-black">
+                Product Links
               </TabsTrigger>
             </TabsList>
 
@@ -247,6 +260,52 @@ export const AffiliateDashboard = () => {
                     </p>
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="products">
+              <div className="space-y-4" data-testid="affiliate-product-links">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-serif text-xl font-bold">Product Affiliate Links</h2>
+                  <p className="text-xs text-neutral-400">{productLinks.length} products</p>
+                </div>
+                <p className="text-sm text-neutral-400">Share individual product links. Earn {affiliate?.commission_rate}% on every sale.</p>
+                {productLinks.length === 0 ? (
+                  <div className="text-center py-12 text-neutral-500">No products available</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {productLinks.map(p => (
+                      <div key={p.product_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid={`affiliate-product-${p.product_id}`}>
+                        <div className="aspect-video bg-neutral-900 overflow-hidden">
+                          {p.image ? (
+                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                              <Package className="h-10 w-10" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-neutral-400">Price: <span className="text-white font-bold">₹{p.price?.toLocaleString()}</span></span>
+                            <span className="text-green-400 font-medium">Earn ₹{p.estimated_earning}</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Button size="sm" className="flex-1 bg-gold/10 text-gold hover:bg-gold/20 h-8 text-xs"
+                              onClick={() => { navigator.clipboard.writeText(p.affiliate_link); toast.success("Link copied!"); }}
+                              data-testid={`copy-affiliate-link-${p.product_id}`}>
+                              <Copy className="h-3 w-3 mr-1" /> Copy Link
+                            </Button>
+                            <a href={p.affiliate_link} target="_blank" rel="noreferrer">
+                              <Button size="sm" variant="ghost" className="text-neutral-400 h-8 px-2"><ExternalLink className="h-3 w-3" /></Button>
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>

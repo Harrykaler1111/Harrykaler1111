@@ -1237,6 +1237,16 @@ async def create_credit_order(data: CreditPurchaseRequest, vendor: Dict = Depend
             upsert=True
         )
         txn.pop("_id", None)
+        # Log as platform revenue
+        await db.platform_revenue.insert_one({
+            "revenue_id": generate_id("rev_"),
+            "vendor_id": vendor["vendor_id"],
+            "type": "credit_purchase",
+            "amount": data.amount,
+            "description": f"Promotion credit purchase ({data.amount} credits)",
+            "payment_status": "mocked",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
         return {
             "order_id": order_id,
             "amount": data.amount * 100,
@@ -1336,6 +1346,18 @@ async def verify_credit_payment(data: CreditVerifyRequest, vendor: Dict = Depend
          "$setOnInsert": {"total_spent": 0, "created_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
     )
+
+    # Log as platform revenue
+    await db.platform_revenue.insert_one({
+        "revenue_id": generate_id("rev_"),
+        "vendor_id": vendor["vendor_id"],
+        "type": "credit_purchase",
+        "amount": credits_to_add,
+        "razorpay_payment_id": data.razorpay_payment_id,
+        "description": f"Promotion credit purchase ({credits_to_add} credits)",
+        "payment_status": "completed",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
 
     return {"message": f"Payment verified! Added {credits_to_add} credits", "credits_added": credits_to_add}
 

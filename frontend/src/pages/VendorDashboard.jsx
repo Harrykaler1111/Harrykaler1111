@@ -83,7 +83,7 @@ export const VendorDashboard = () => {
   return (
     <div className="min-h-screen bg-neutral-900 text-white" data-testid="vendor-dashboard">
       <div className="flex">
-        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 p-4 fixed left-0 top-0">
+        <aside className="hidden md:flex flex-col w-64 min-h-screen bg-neutral-950 border-r border-neutral-800 p-4 fixed left-0 top-0 overflow-y-auto max-h-screen">
           <div className="mb-4 pb-3 border-b border-neutral-800">
             <h1 className="font-serif text-xl font-bold text-gold tracking-wider">PIGMA</h1>
             <p className="text-xs text-neutral-500">Vendor Portal</p>
