@@ -16,67 +16,70 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Super Admin: superadmin@pigma.com / superadmin123
 - Marketing: marketing@pigma.com / marketing123
 - Vendor: testvendor@example.com / vendor123
-- Customer/Reseller: admin@pigma.com / admin123
+- Customer/Affiliate/Reseller: admin@pigma.com / admin123
 
 ## Completed Features
 
+### Phase 33 - Scalable On-Demand Affiliate + Reseller System (2026-03-31)
+**Architecture**: Amazon+Meesho model — links generated PER PRODUCT on-demand, not bulk-loaded.
+
+**Backend Changes:**
+- `POST /api/affiliates/generate-link` — generate affiliate link for one product (stores in `affiliate_links` collection)
+- `GET /api/affiliates/my-links` — paginated history of generated links only
+- `GET /api/affiliates/check-product/{product_id}` — check if link exists for a product
+- `POST /api/resellers/generate-link` — generate reseller link with custom margin
+- `GET /api/resellers/my-links` — paginated history of generated reseller links
+- `GET /api/resellers/check-product/{product_id}` — check if link exists
+- **REMOVED**: Bulk `/api/affiliates/product-links` and `/api/resellers/products` endpoints
+
+**Frontend Changes:**
+- `ProductPartnerLinks` component on every product page — inline affiliate/reseller link generation
+- Affiliate Dashboard: lightweight with My Links + Find Products (search) tabs
+- Reseller Dashboard: lightweight with Overview + My Links + Find Products + Wallet tabs
+- No bulk product loading anywhere — supports 10K+ products efficiently
+
+**Link Structure:**
+- Affiliate: `?aff_id=USER_ID`
+- Reseller: `?reseller_id=USER_ID&price=CUSTOM_PRICE`
+
+**Testing**: Iteration 37 - PASS (17/17 backend, 100% frontend)
+
 ### Phase 32 - 7-Feature Fix & Enhancement (2026-03-31)
-1. **Reseller System Fix**: Separate Reseller Dashboard with Meesho-style Products tab - per-product margin control, auto-generated share links, custom reseller pricing
-2. **Super Admin Dark Theme**: Orders & Reviews panels converted from white to dark theme (bg-neutral-800/900)
-3. **Influencer Join Flow**: AuthPage detects ?type=influencer param, redirects to /influencer dashboard after login/signup
-4. **Affiliate System**: Per-product affiliate links (GET /api/affiliates/product-links), "Product Links" tab in dashboard, footer link fixed to /affiliate
-5. **Dynamic RBAC**: Super Admin can assign/revoke module-level permissions per manager. Custom overrides stored in admin_permissions collection, fallback to role defaults
-6. **Vendor Panel**: Scrollable sidebar (overflow-y-auto), logout button already present
-7. **Credit System**: Vendor credit purchases now logged to platform_revenue collection as real revenue
-- **Testing**: Iteration 36 - PASS (100% backend, 100% frontend)
+- Reseller System Fix, Admin Dark Theme, Influencer Join Flow, Affiliate System, Dynamic RBAC, Vendor Scrollable Sidebar, Credit Revenue Tracking
+- Testing: Iteration 36 - PASS
 
 ### Phase 31 - Deep Interakt WhatsApp Integration (2026-03-31)
-- Interakt API connected, order notifications, COD confirmation, abandoned cart recovery, broadcast marketing, admin WhatsApp panel
+- Interakt API connected, order notifications, COD confirmation, abandoned cart recovery, broadcast marketing
 - Testing: Iteration 35 - PASS
 
 ### Phase 30 - Security & Super Admin Control System
-- Credential cleanup, Super Admin user management, activity logging, RBAC enforcement
+- Credential cleanup, Super Admin user management, activity logging
 - Testing: Iteration 34 - PASS
 
 ### Earlier Phases (12-29)
 - Full platform: Cart Booster, Flash Sales, Push Notifications, Mega Menu, Compact Grid, Quick Add, Bundles, Advanced Checkout, etc.
 
-## Architecture
-```
-/app/backend/
-  routes/ - 24+ route files (admin, order, vendor, whatsapp, reseller, affiliate, influencer, etc.)
-  services/ - interakt_service.py
-  models/ - schemas.py, enums.py
-  auth.py - JWT, RBAC, dynamic permission check
-  
-/app/frontend/src/
-  pages/ - AdminDashboard, ResellerDashboard, VendorDashboard, AffiliateDashboard, InfluencerDashboard, etc.
-  components/ - PermissionsPanel, AdminOrdersPanel, AdminReviewsPanel, AdminSiteSettings, etc.
-```
-
-## Key DB Collections
-- `admin_permissions` - Custom permission overrides per admin_id
-- `platform_revenue` - Credit purchase revenue records
-- `whatsapp_messages/settings/campaigns/webhooks` - Interakt data
-- `vendor_credits/credit_transactions` - Vendor promotion credits
-- Standard: orders, products, users, admin_users, resellers, affiliates, etc.
+## Key DB Collections (New)
+- `affiliate_links` — generated affiliate links (one per user+product)
+- `reseller_links` — generated reseller links (one per user+product)
+- `admin_permissions` — custom permission overrides per admin
+- `platform_revenue` — credit purchase revenue records
+- `whatsapp_messages/settings/campaigns/webhooks` — Interakt data
 
 ## MOCKED Integrations
-- Razorpay -> needs RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET
-- Instagram Graph API -> needs Meta credentials
+- Razorpay, Instagram Graph API
 
 ## REAL Integrations
-- Interakt WhatsApp Business API (Growth Plan) - CONNECTED & WORKING
+- Interakt WhatsApp Business API (Growth Plan)
 
 ## Remaining Tasks
-
 ### P1 - Upcoming
 - "Testing Mode" for Orders (dummy order flow)
 - Real Instagram Graph API (when credentials provided)
-- Phone/OTP verification
+- Track affiliate/reseller link clicks and conversions on product page
 
 ### P2 - Future/Backlog
-- AdminDashboard.jsx refactoring (3500+ lines -> smaller components)
+- AdminDashboard.jsx refactoring (3500+ lines)
 - Vendor email digest notifications
 - A/B testing for hero videos
 - Real Razorpay live keys
