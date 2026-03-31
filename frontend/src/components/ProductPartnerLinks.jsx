@@ -84,29 +84,29 @@ export const ProductPartnerLinks = ({ product }) => {
     <div className="mt-6 space-y-3" data-testid="product-partner-links">
       {/* Affiliate Section */}
       {showAff && (
-        <div className="border border-blue-500/20 bg-blue-500/5 rounded-xl p-4" data-testid="product-affiliate-section">
+        <div className="border-2 border-blue-500 bg-blue-50 rounded-xl p-4" data-testid="product-affiliate-section">
           <div className="flex items-center gap-2 mb-2">
-            <Link2 className="h-4 w-4 text-blue-400" />
-            <span className="text-sm font-medium text-blue-300">Affiliate Program</span>
-            <span className="text-xs text-blue-400/60 ml-auto">{affStatus.commission_rate}% commission</span>
+            <Link2 className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-bold text-blue-700">Affiliate Program</span>
+            <span className="text-xs font-semibold text-blue-500 ml-auto">{affStatus.commission_rate}% commission</span>
           </div>
           {affLink ? (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 bg-neutral-900/50 rounded-lg p-2">
-                <input readOnly value={affLink} className="flex-1 bg-transparent text-xs text-neutral-300 outline-none truncate" data-testid="affiliate-link-display" />
+              <div className="flex items-center gap-2 bg-white border border-blue-200 rounded-lg p-2.5">
+                <input readOnly value={affLink} className="flex-1 bg-transparent text-xs text-blue-800 font-mono outline-none truncate" data-testid="affiliate-link-display" />
                 <button onClick={() => copyToClipboard(affLink, "aff")}
-                  className="shrink-0 text-blue-400 hover:text-blue-300 transition-colors" data-testid="copy-affiliate-link">
-                  {copied === "aff" ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                  className="shrink-0 text-blue-600 hover:text-blue-800 transition-colors" data-testid="copy-affiliate-link">
+                  {copied === "aff" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-blue-400/60">
+              <p className="text-xs font-semibold text-blue-600">
                 Earn ₹{(product.price * affStatus.commission_rate / 100).toFixed(0)} on each sale
               </p>
             </div>
           ) : (
             <Button size="sm" onClick={generateAffLink} disabled={generating}
-              className="bg-blue-600 text-white hover:bg-blue-700 text-xs h-8" data-testid="generate-affiliate-link-btn">
-              <Share2 className="h-3 w-3 mr-1" /> {generating ? "Generating..." : "Generate Affiliate Link"}
+              className="bg-blue-600 text-white hover:bg-blue-700 text-xs h-9 font-semibold shadow-md" data-testid="generate-affiliate-link-btn">
+              <Share2 className="h-3.5 w-3.5 mr-1.5" /> {generating ? "Generating..." : "Generate Affiliate Link"}
             </Button>
           )}
         </div>
@@ -114,26 +114,26 @@ export const ProductPartnerLinks = ({ product }) => {
 
       {/* Reseller Section */}
       {showRes && (
-        <div className="border border-green-500/20 bg-green-500/5 rounded-xl p-4" data-testid="product-reseller-section">
+        <div className="border-2 border-green-500 bg-green-50 rounded-xl p-4" data-testid="product-reseller-section">
           <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-4 w-4 text-green-400" />
-            <span className="text-sm font-medium text-green-300">Sell this Product</span>
+            <DollarSign className="h-4 w-4 text-green-600" />
+            <span className="text-sm font-bold text-green-700">Sell this Product</span>
           </div>
           {resLink ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs mb-1">
-                <span className="text-neutral-400">Base: ₹{product.price?.toLocaleString()}</span>
-                <span className="text-neutral-400">Your margin: ₹{margin}</span>
-                <span className="text-green-400 font-medium">Selling at: ₹{resPrice?.toLocaleString()}</span>
+                <span className="text-neutral-600 font-medium">Base: ₹{product.price?.toLocaleString()}</span>
+                <span className="text-neutral-600 font-medium">Your margin: ₹{margin}</span>
+                <span className="text-green-700 font-bold">Selling at: ₹{resPrice?.toLocaleString()}</span>
               </div>
-              <div className="flex items-center gap-2 bg-neutral-900/50 rounded-lg p-2">
-                <input readOnly value={resLink} className="flex-1 bg-transparent text-xs text-neutral-300 outline-none truncate" data-testid="reseller-link-display" />
+              <div className="flex items-center gap-2 bg-white border border-green-200 rounded-lg p-2.5">
+                <input readOnly value={resLink} className="flex-1 bg-transparent text-xs text-green-800 font-mono outline-none truncate" data-testid="reseller-link-display" />
                 <button onClick={() => copyToClipboard(resLink, "res")}
-                  className="shrink-0 text-green-400 hover:text-green-300 transition-colors" data-testid="copy-reseller-link">
-                  {copied === "res" ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4" />}
+                  className="shrink-0 text-green-600 hover:text-green-800 transition-colors" data-testid="copy-reseller-link">
+                  {copied === "res" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
-              <Button size="sm" variant="ghost" className="text-xs text-neutral-400"
+              <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-400 hover:bg-green-100 font-medium"
                 onClick={() => { setResLink(""); setResPrice(product.price); }} data-testid="update-reseller-margin">
                 Update margin
               </Button>
@@ -142,19 +142,19 @@ export const ProductPartnerLinks = ({ product }) => {
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-neutral-400 mb-1 block">Your Margin (₹)</label>
+                  <label className="text-xs text-green-700 font-medium mb-1 block">Your Margin (₹)</label>
                   <Input type="number" min="0" value={margin}
                     onChange={e => { const m = parseFloat(e.target.value) || 0; setMargin(m); setResPrice(product.price + m); }}
-                    className="bg-neutral-900 border-neutral-700 text-white h-8 text-xs" data-testid="reseller-margin-input" />
+                    className="bg-white border-green-300 text-green-900 h-9 text-sm font-medium" data-testid="reseller-margin-input" />
                 </div>
                 <div className="text-right">
-                  <label className="text-xs text-neutral-400 mb-1 block">Selling Price</label>
-                  <p className="text-sm font-bold text-green-400">₹{resPrice?.toLocaleString()}</p>
+                  <label className="text-xs text-green-700 font-medium mb-1 block">Selling Price</label>
+                  <p className="text-lg font-bold text-green-700">₹{resPrice?.toLocaleString()}</p>
                 </div>
               </div>
               <Button size="sm" onClick={generateResLink} disabled={generating}
-                className="bg-green-600 text-white hover:bg-green-700 text-xs h-8" data-testid="generate-reseller-link-btn">
-                <DollarSign className="h-3 w-3 mr-1" /> {generating ? "Generating..." : "Generate Reseller Link"}
+                className="bg-green-600 text-white hover:bg-green-700 text-xs h-9 font-semibold shadow-md" data-testid="generate-reseller-link-btn">
+                <DollarSign className="h-3.5 w-3.5 mr-1.5" /> {generating ? "Generating..." : "Generate Reseller Link"}
               </Button>
             </div>
           )}
