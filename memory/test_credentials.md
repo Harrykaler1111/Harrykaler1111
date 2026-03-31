@@ -6,9 +6,13 @@
 - Finance Manager: finance@pigma.com / finance123
 - Support Manager: support@pigma.com / support123
 - Product Manager: products@pigma.com / products123
+- Sales Manager: sales@pigma.com / sales123
 
-## Customer Login (Auth Page)
-- Admin user: admin@pigma.com / admin123
+## Customer Login (Auth Page /auth)
+- Customer/Reseller: admin@pigma.com / admin123
+
+## Vendor Login (/vendor-login)
+- Vendor: testvendor@example.com / vendor123
 
 ## WhatsApp/Interakt
 - Test Phone: +919625992057
