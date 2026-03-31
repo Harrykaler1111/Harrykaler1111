@@ -2,21 +2,25 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
+import os
 
 from config import db, MIN_WITHDRAWAL_AMOUNT
 from models.schemas import ResellerRegister, ResellerResponse, WalletTransactionResponse, WithdrawalRequest, WithdrawalResponse
 from models.enums import WithdrawalStatus, TransactionType
-from auth import get_current_user, get_current_reseller, get_admin_user, check_permission, generate_id, generate_referral_code, generate_referral_link
+from auth import get_current_user, get_current_reseller, get_admin_user, check_permission, generate_id, generate_referral_code
 
 router = APIRouter(prefix="/resellers", tags=["resellers"])
 
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://pigma.com")
 DEFAULT_RESELLER_COMMISSION = 5.0
 
 
-class ResellerMarginUpdate(BaseModel):
+class GenerateResellerLinkRequest(BaseModel):
     product_id: str
-    margin: float  # Custom margin the reseller adds on top of product price
+    margin: float  # Custom margin reseller adds on top of base price
 
+
+# ============== REGISTRATION ==============
 
 @router.post("/register", response_model=ResellerResponse)
 async def register_as_reseller(data: ResellerRegister, user: Dict = Depends(get_current_user)):
@@ -41,7 +45,6 @@ async def register_as_reseller(data: ResellerRegister, user: Dict = Depends(get_
         "total_conversions": 0,
         "total_earnings": 0.0,
         "wallet_balance": 0.0,
-        "product_margins": {},
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -55,83 +58,95 @@ async def get_my_reseller_profile(reseller: Dict = Depends(get_current_reseller)
     return ResellerResponse(**reseller)
 
 
-@router.get("/products")
-async def get_reseller_products(reseller: Dict = Depends(get_current_reseller)):
-    """Get all active products with reseller-specific links and margins."""
-    if reseller["status"] != "approved":
-        raise HTTPException(status_code=403, detail="Account must be approved first")
+# ============== ON-DEMAND LINK GENERATION ==============
 
-    products = await db.products.find({"is_active": True}, {"_id": 0}).to_list(200)
-    margins = reseller.get("product_margins", {})
-    ref_code = reseller["referral_code"]
-
-    result = []
-    for p in products:
-        pid = p["product_id"]
-        margin = margins.get(pid, 0)
-        result.append({
-            "product_id": pid,
-            "name": p["name"],
-            "image": p["images"][0] if p.get("images") else None,
-            "price": p["price"],
-            "compare_price": p.get("compare_price"),
-            "category": p.get("category", ""),
-            "margin": margin,
-            "reseller_price": p["price"] + margin,
-            "share_link": generate_referral_link(ref_code, pid),
-            "stock": p.get("stock", 0),
-        })
-    return result
-
-
-@router.put("/product-margin")
-async def set_product_margin(body: ResellerMarginUpdate, reseller: Dict = Depends(get_current_reseller)):
-    """Set custom margin for a specific product."""
+@router.post("/generate-link")
+async def generate_reseller_link(body: GenerateResellerLinkRequest, reseller: Dict = Depends(get_current_reseller)):
+    """Generate a reseller link for a SINGLE product with custom margin (on-demand)."""
     if reseller["status"] != "approved":
         raise HTTPException(status_code=403, detail="Account must be approved first")
 
     if body.margin < 0:
         raise HTTPException(status_code=400, detail="Margin cannot be negative")
 
-    product = await db.products.find_one({"product_id": body.product_id, "is_active": True})
+    product = await db.products.find_one(
+        {"product_id": body.product_id, "is_active": True},
+        {"_id": 0, "product_id": 1, "name": 1, "price": 1, "images": 1, "category": 1, "stock": 1}
+    )
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    await db.resellers.update_one(
-        {"reseller_id": reseller["reseller_id"]},
-        {"$set": {
-            f"product_margins.{body.product_id}": body.margin,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
+    reseller_price = product["price"] + body.margin
+    reseller_link = f"{FRONTEND_URL}/product/{body.product_id}?reseller_id={reseller['user_id']}&price={reseller_price}"
+
+    # Upsert into reseller_links collection
+    link_doc = {
+        "reseller_id": reseller["reseller_id"],
+        "user_id": reseller["user_id"],
+        "product_id": body.product_id,
+        "product_name": product["name"],
+        "product_image": product["images"][0] if product.get("images") else None,
+        "product_price": product["price"],
+        "category": product.get("category", ""),
+        "margin": body.margin,
+        "reseller_price": reseller_price,
+        "reseller_link": reseller_link,
+        "clicks": 0,
+        "conversions": 0,
+        "earnings": 0.0,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    await db.reseller_links.update_one(
+        {"user_id": reseller["user_id"], "product_id": body.product_id},
+        {"$set": link_doc, "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
     )
 
     return {
+        "reseller_link": reseller_link,
         "product_id": body.product_id,
+        "product_name": product["name"],
+        "base_price": product["price"],
         "margin": body.margin,
-        "reseller_price": product["price"] + body.margin,
-        "share_link": generate_referral_link(reseller["referral_code"], body.product_id)
+        "reseller_price": reseller_price
     }
 
 
-@router.get("/referral-links")
-async def get_reseller_referral_links(reseller: Dict = Depends(get_current_reseller)):
-    if reseller["status"] != "approved":
-        raise HTTPException(status_code=403, detail="Account must be approved first")
+@router.get("/my-links")
+async def get_my_reseller_links(
+    reseller: Dict = Depends(get_current_reseller),
+    skip: int = 0,
+    limit: int = 20
+):
+    """Get paginated history of generated reseller links."""
+    links = await db.reseller_links.find(
+        {"user_id": reseller["user_id"]}, {"_id": 0}
+    ).sort("updated_at", -1).skip(skip).limit(limit).to_list(limit)
 
-    products = await db.products.find({"is_active": True}, {"_id": 0}).limit(50).to_list(50)
-    base_link = generate_referral_link(reseller["referral_code"])
+    total = await db.reseller_links.count_documents({"user_id": reseller["user_id"]})
 
-    links = [{"type": "general", "product_id": None, "product_name": "All Products", "link": base_link}]
-    for p in products:
-        links.append({
-            "type": "product",
-            "product_id": p["product_id"],
-            "product_name": p["name"],
-            "link": generate_referral_link(reseller["referral_code"], p["product_id"])
-        })
+    return {"links": links, "total": total, "skip": skip, "limit": limit}
 
-    return links
 
+@router.get("/check-product/{product_id}")
+async def check_reseller_product_link(product_id: str, reseller: Dict = Depends(get_current_reseller)):
+    """Check if reseller has already generated a link for this product."""
+    link = await db.reseller_links.find_one(
+        {"user_id": reseller["user_id"], "product_id": product_id}, {"_id": 0}
+    )
+
+    return {
+        "is_reseller": True,
+        "status": reseller["status"],
+        "has_link": link is not None,
+        "reseller_link": link["reseller_link"] if link else None,
+        "margin": link["margin"] if link else None,
+        "reseller_price": link["reseller_price"] if link else None
+    }
+
+
+# ============== WALLET ==============
 
 @router.get("/wallet/balance")
 async def get_reseller_wallet(reseller: Dict = Depends(get_current_reseller)):
@@ -156,10 +171,8 @@ async def get_reseller_transactions(reseller: Dict = Depends(get_current_reselle
 async def admin_list_resellers(status: Optional[str] = None, admin: Dict = Depends(get_admin_user)):
     if not check_permission(admin, "resellers", "view"):
         raise HTTPException(status_code=403, detail="Permission denied")
-
     query = {}
     if status:
         query["status"] = status
-
     resellers = await db.resellers.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return [ResellerResponse(**r) for r in resellers]

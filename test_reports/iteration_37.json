@@ -1,0 +1,100 @@
+{
+  "summary": "Completed comprehensive testing of On-Demand Affiliate & Reseller Link Generation System. All 17 backend API tests passed (100%). All frontend UI tests passed. The new scalable system correctly generates links per-product on-demand instead of bulk loading.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_affiliate_reseller_ondemand.py",
+    "/app/test_reports/pytest/affiliate_reseller_ondemand_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_affiliate_reseller_ondemand.py"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "test_credentials": {
+    "customer_affiliate_reseller": "admin@pigma.com / admin123 (POST /api/auth/login)",
+    "super_admin": "superadmin@pigma.com / superadmin123 (POST /api/admin/auth/login)"
+  },
+  "seed_data_creation": "None - used existing test data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "On-demand affiliate/reseller link system fully tested. User admin@pigma.com is approved as both affiliate and reseller. New collections: affiliate_links, reseller_links. Old bulk endpoints /api/affiliates/product-links and /api/resellers/products have been REMOVED (return 404). Link structures verified: affiliate=?aff_id=USER_ID, reseller=?reseller_id=USER_ID&price=CUSTOM_PRICE. Dashboards are lightweight with My Links + Find Products tabs - NO bulk product loading.",
+  "features_tested": {
+    "affiliate_on_demand_links": {
+      "status": "PASS",
+      "endpoints_tested": [
+        "POST /api/affiliates/generate-link - Generates affiliate link for single product on-demand",
+        "GET /api/affiliates/my-links - Returns paginated history of generated affiliate links",
+        "GET /api/affiliates/check-product/{product_id} - Checks if affiliate has link for specific product",
+        "GET /api/affiliates/me - Returns affiliate profile"
+      ],
+      "link_structure": "?aff_id=USER_ID verified"
+    },
+    "reseller_on_demand_links": {
+      "status": "PASS",
+      "endpoints_tested": [
+        "POST /api/resellers/generate-link - Generates reseller link with custom margin",
+        "GET /api/resellers/my-links - Returns paginated history of generated reseller links",
+        "GET /api/resellers/check-product/{product_id} - Checks if reseller has link for specific product",
+        "GET /api/resellers/me - Returns reseller profile"
+      ],
+      "link_structure": "?reseller_id=USER_ID&price=CUSTOM_PRICE verified",
+      "margin_validation": "Negative margin correctly rejected with 400 error"
+    },
+    "old_bulk_endpoints_removed": {
+      "status": "PASS",
+      "verified": [
+        "/api/affiliates/product-links returns 404",
+        "/api/resellers/products returns 404"
+      ]
+    },
+    "product_search": {
+      "status": "PASS",
+      "endpoint": "GET /api/products?search= returns filtered products"
+    },
+    "affiliate_dashboard_ui": {
+      "status": "PASS",
+      "features": [
+        "Stats cards (Links Generated, Total Clicks, Conversions, Earnings)",
+        "My Links tab - shows generated link history with product info",
+        "Find Products tab - search functionality working",
+        "No bulk product loading - lightweight dashboard"
+      ]
+    },
+    "reseller_dashboard_ui": {
+      "status": "PASS",
+      "features": [
+        "Overview tab - stats and user details",
+        "My Links tab - shows generated links with margin info",
+        "Find Products tab - search with margin input and Sell button",
+        "Wallet tab - balance, earnings, min withdrawal, transaction history",
+        "No bulk product loading - lightweight dashboard"
+      ]
+    },
+    "product_page_partner_links": {
+      "status": "PASS",
+      "features": [
+        "ProductPartnerLinks component visible on product detail page",
+        "Affiliate section shows commission rate and Generate button",
+        "Reseller section shows margin input, price calculator, Generate button",
+        "After generation: shows link with copy button and earnings info",
+        "Update margin button available for reseller links"
+      ]
+    }
+  },
+  "mocked_integrations": [
+    "Razorpay payment integration",
+    "Instagram Auto-DMs"
+  ]
+}

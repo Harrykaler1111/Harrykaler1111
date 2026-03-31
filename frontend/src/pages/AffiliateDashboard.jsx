@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { 
-  Link2, TrendingUp, DollarSign, Copy, Globe, 
-  Percent, ArrowRight, Check, Clock, Tag, Package, ExternalLink
+import {
+  Link2, TrendingUp, DollarSign, Copy, Globe,
+  ArrowRight, Check, Clock, Search, ExternalLink,
+  MousePointerClick, ShoppingCart, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
@@ -19,7 +20,14 @@ export const AffiliateDashboard = () => {
   const [affiliate, setAffiliate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [productLinks, setProductLinks] = useState([]);
+  const [links, setLinks] = useState([]);
+  const [linksTotal, setLinksTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [generating, setGenerating] = useState("");
+  const [copied, setCopied] = useState("");
+  const [tab, setTab] = useState("links");
 
   const [formData, setFormData] = useState({
     company_name: "",
@@ -28,375 +36,240 @@ export const AffiliateDashboard = () => {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get(`${API}/affiliates/me`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setAffiliate(response.data);
-        // Fetch product links if approved
-        if (response.data.status === "approved") {
-          try {
-            const plRes = await axios.get(`${API}/affiliates/product-links`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            setProductLinks(plRes.data);
-          } catch { /* ignore */ }
-        }
-      } catch (error) {
-        // Not an affiliate yet
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+    if (!user || !token) { navigate("/auth?type=affiliate"); return; }
+    fetchProfile();
+  }, [user, token, navigate]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await axios.get(`${API}/affiliates/me`, { headers: { Authorization: `Bearer ${token}` } });
+      setAffiliate(res.data);
+      if (res.data.status === "approved") fetchLinks();
+    } catch { /* not registered */ }
+    finally { setLoading(false); }
+  };
+
+  const fetchLinks = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/affiliates/my-links?limit=50`, { headers: { Authorization: `Bearer ${token}` } });
+      setLinks(res.data.links || []);
+      setLinksTotal(res.data.total || 0);
+    } catch { /* ignore */ }
   }, [token]);
 
   const handleApply = async (e) => {
     e.preventDefault();
-
     setApplying(true);
     try {
-      const response = await axios.post(
-        `${API}/affiliates/apply`,
-        {
-          company_name: formData.company_name || null,
-          website: formData.website || null,
-          marketing_channels: formData.marketing_channels
-            .split(",")
-            .map(c => c.trim())
-            .filter(Boolean)
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setAffiliate(response.data);
-      toast.success("Application submitted successfully!");
-    } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to submit application");
-    } finally {
-      setApplying(false);
-    }
+      const res = await axios.post(`${API}/affiliates/apply`, formData, { headers: { Authorization: `Bearer ${token}` } });
+      setAffiliate(res.data);
+      toast.success("Application submitted!");
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setApplying(false); }
   };
 
-  const copyReferralLink = () => {
-    const link = `${window.location.origin}?ref=${affiliate?.referral_code}`;
+  const searchProducts = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    try {
+      const res = await axios.get(`${API}/products?search=${encodeURIComponent(searchQuery)}&limit=10`);
+      setSearchResults(res.data || []);
+    } catch { toast.error("Search failed"); }
+    finally { setSearching(false); }
+  };
+
+  const generateLink = async (productId) => {
+    setGenerating(productId);
+    try {
+      const res = await axios.post(`${API}/affiliates/generate-link`,
+        { product_id: productId }, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success(`Link generated! Earn ₹${res.data.estimated_earning} per sale`);
+      fetchLinks(); // Refresh link list
+      // Update search result to show generated link
+      setSearchResults(prev => prev.map(p =>
+        p.product_id === productId ? { ...p, _generated: res.data.affiliate_link } : p
+      ));
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setGenerating(""); }
+  };
+
+  const copyLink = (link, id) => {
     navigator.clipboard.writeText(link);
-    toast.success("Referral link copied!");
+    setCopied(id);
+    toast.success("Copied!");
+    setTimeout(() => setCopied(""), 2000);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen pt-24 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold" />
+    </div>
+  );
 
+  // Application Form (not registered yet)
+  if (!affiliate) return (
+    <div className="min-h-screen bg-neutral-950 text-white px-4 py-12">
+      <div className="max-w-md mx-auto">
+        <h1 className="font-serif text-3xl font-bold text-gold mb-2">Join as Affiliate</h1>
+        <p className="text-neutral-400 mb-8">Earn commission by promoting PIGMA products</p>
+        <form onSubmit={handleApply} className="space-y-4">
+          <Input value={formData.company_name} onChange={e => setFormData(p => ({ ...p, company_name: e.target.value }))}
+            placeholder="Company / Brand name" required className="bg-neutral-900 border-neutral-700 text-white" data-testid="aff-company" />
+          <Input value={formData.website} onChange={e => setFormData(p => ({ ...p, website: e.target.value }))}
+            placeholder="Website or social profile URL" className="bg-neutral-900 border-neutral-700 text-white" data-testid="aff-website" />
+          <Textarea value={formData.marketing_channels} onChange={e => setFormData(p => ({ ...p, marketing_channels: e.target.value }))}
+            placeholder="How will you promote products?" rows={3} className="bg-neutral-900 border-neutral-700 text-white resize-none" data-testid="aff-channels" />
+          <Button type="submit" disabled={applying} className="w-full bg-gold text-black hover:bg-gold/80" data-testid="aff-apply-btn">
+            {applying ? "Submitting..." : "Apply Now"}
+          </Button>
+        </form>
+      </div>
+    </div>
+  );
+
+  // Pending state
+  if (affiliate.status === "pending") return (
+    <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-4">
+      <div className="text-center max-w-sm">
+        <Clock className="h-12 w-12 text-amber-400 mx-auto mb-4" />
+        <h2 className="text-xl font-bold mb-2">Application Under Review</h2>
+        <p className="text-neutral-400 text-sm">Your affiliate application is being reviewed. You'll be notified once approved.</p>
+      </div>
+    </div>
+  );
+
+  // Approved Dashboard
   return (
-    <div className="min-h-screen pt-20 md:pt-24 bg-neutral-900 text-white" data-testid="affiliate-dashboard">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <p className="font-mono text-xs uppercase tracking-widest text-gold mb-2">
-              Partner Program
-            </p>
-            <h1 className="font-serif text-3xl md:text-4xl font-bold">Affiliate Dashboard</h1>
-          </div>
-          {affiliate?.status === "approved" && (
-            <div className="flex items-center gap-2 bg-green-500/20 text-green-400 px-4 py-2 rounded-full">
-              <Check className="h-4 w-4" />
-              <span className="text-sm">Approved Affiliate</span>
+    <div className="min-h-screen bg-neutral-950 text-white" data-testid="affiliate-dashboard">
+      {/* Header */}
+      <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="font-serif text-xl font-bold text-gold tracking-wider">PIGMA</h1>
+          <span className="text-neutral-500 text-sm">Affiliate Portal</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">{affiliate.commission_rate}% commission</Badge>
+          <Link to="/" className="text-neutral-400 hover:text-white text-sm">Shop</Link>
+          <button onClick={() => { localStorage.removeItem("pigma_token"); navigate("/"); }} className="text-red-400 hover:text-red-300">
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { icon: <Link2 className="h-5 w-5 text-blue-400" />, label: "Links Generated", value: linksTotal, bg: "bg-blue-500/10" },
+            { icon: <MousePointerClick className="h-5 w-5 text-purple-400" />, label: "Total Clicks", value: affiliate.total_clicks || 0, bg: "bg-purple-500/10" },
+            { icon: <ShoppingCart className="h-5 w-5 text-green-400" />, label: "Conversions", value: affiliate.total_conversions || 0, bg: "bg-green-500/10" },
+            { icon: <DollarSign className="h-5 w-5 text-gold" />, label: "Earnings", value: `₹${(affiliate.total_earnings || 0).toLocaleString()}`, bg: "bg-gold/10" },
+          ].map(s => (
+            <div key={s.label} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+              <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-2`}>{s.icon}</div>
+              <p className="text-xl font-bold text-white">{s.value}</p>
+              <p className="text-xs text-neutral-500">{s.label}</p>
             </div>
-          )}
-          {affiliate?.status === "pending" && (
-            <div className="flex items-center gap-2 bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-full">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm">Application Pending</span>
-            </div>
-          )}
+          ))}
         </div>
 
-        {affiliate ? (
-          <Tabs defaultValue="overview" className="space-y-8">
-            <TabsList className="bg-neutral-800 border-neutral-700">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-gold data-[state=active]:text-black">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="links" className="data-[state=active]:bg-gold data-[state=active]:text-black">
-                Referral Links
-              </TabsTrigger>
-              <TabsTrigger value="coupons" className="data-[state=active]:bg-gold data-[state=active]:text-black">
-                Coupon Codes
-              </TabsTrigger>
-              <TabsTrigger value="products" className="data-[state=active]:bg-gold data-[state=active]:text-black">
-                Product Links
-              </TabsTrigger>
-            </TabsList>
+        {/* Tabs */}
+        <div className="flex gap-2 border-b border-neutral-800 pb-3">
+          {[
+            { id: "links", label: "My Links" },
+            { id: "search", label: "Find Products" },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                tab === t.id ? "bg-gold text-black" : "text-neutral-400 hover:bg-neutral-800"
+              }`} data-testid={`aff-tab-${t.id}`}>{t.label}</button>
+          ))}
+        </div>
 
-            <TabsContent value="overview">
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                      <Link2 className="h-5 w-5 text-emerald-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{affiliate.total_clicks}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Total Clicks</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-blue-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{affiliate.total_conversions}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Conversions</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-gold/20 rounded-lg flex items-center justify-center">
-                      <DollarSign className="h-5 w-5 text-gold" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">Rs.{affiliate.total_earnings.toLocaleString()}</p>
-                  <p className="text-sm text-neutral-400 mt-1">Total Earnings</p>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                      <Percent className="h-5 w-5 text-purple-400" />
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold">{affiliate.commission_rate}%</p>
-                  <p className="text-sm text-neutral-400 mt-1">Commission Rate</p>
-                </motion.div>
+        {/* My Links */}
+        {tab === "links" && (
+          <div className="space-y-3" data-testid="affiliate-my-links">
+            <p className="text-sm text-neutral-400">{linksTotal} product links generated</p>
+            {links.length === 0 ? (
+              <div className="text-center py-16 text-neutral-500">
+                <Link2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No links generated yet</p>
+                <p className="text-sm mt-1">Go to any product page or use Search to generate your first link</p>
               </div>
-
-              {/* Profile Card */}
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
-                <h2 className="font-serif text-xl font-bold mb-6">Your Profile</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm text-neutral-400 mb-1">Company Name</p>
-                    <p>{affiliate.company_name || "Individual"}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-neutral-400 mb-1">Referral Code</p>
-                    <p className="font-mono text-gold">{affiliate.referral_code}</p>
-                  </div>
-                  {affiliate.website && (
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-5 w-5 text-blue-400" />
-                      <span>{affiliate.website}</span>
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm text-neutral-400 mb-1">Marketing Channels</p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {affiliate.marketing_channels?.map((channel, idx) => (
-                        <span key={idx} className="bg-neutral-700 px-2 py-1 text-xs rounded">
-                          {channel}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="links">
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
-                <h2 className="font-serif text-xl font-bold mb-6">Your Referral Link</h2>
-                <div className="flex gap-3">
-                  <Input
-                    value={`${window.location.origin}?ref=${affiliate.referral_code}`}
-                    readOnly
-                    className="bg-neutral-900 border-neutral-700 text-white"
-                  />
-                  <Button onClick={copyReferralLink} className="bg-gold text-black hover:bg-gold-dark">
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                </div>
-                <p className="text-sm text-neutral-400 mt-4">
-                  Share this link on your website or marketing channels. You'll earn {affiliate.commission_rate}% commission on every sale!
-                </p>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="coupons">
-              <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6">
-                <h2 className="font-serif text-xl font-bold mb-6">Your Coupon Codes</h2>
-                <div className="flex items-center justify-center py-12 text-center">
-                  <div>
-                    <Tag className="h-12 w-12 mx-auto text-neutral-600 mb-4" />
-                    <p className="text-neutral-400">No coupon codes assigned yet</p>
-                    <p className="text-sm text-neutral-500 mt-2">
-                      Contact admin to get custom coupon codes for your audience
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="products">
-              <div className="space-y-4" data-testid="affiliate-product-links">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-serif text-xl font-bold">Product Affiliate Links</h2>
-                  <p className="text-xs text-neutral-400">{productLinks.length} products</p>
-                </div>
-                <p className="text-sm text-neutral-400">Share individual product links. Earn {affiliate?.commission_rate}% on every sale.</p>
-                {productLinks.length === 0 ? (
-                  <div className="text-center py-12 text-neutral-500">No products available</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {productLinks.map(p => (
-                      <div key={p.product_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid={`affiliate-product-${p.product_id}`}>
-                        <div className="aspect-video bg-neutral-900 overflow-hidden">
-                          {p.image ? (
-                            <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                              <Package className="h-10 w-10" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-4 space-y-2">
-                          <p className="text-sm font-medium text-white truncate">{p.name}</p>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-neutral-400">Price: <span className="text-white font-bold">₹{p.price?.toLocaleString()}</span></span>
-                            <span className="text-green-400 font-medium">Earn ₹{p.estimated_earning}</span>
-                          </div>
-                          <div className="flex gap-1.5">
-                            <Button size="sm" className="flex-1 bg-gold/10 text-gold hover:bg-gold/20 h-8 text-xs"
-                              onClick={() => { navigator.clipboard.writeText(p.affiliate_link); toast.success("Link copied!"); }}
-                              data-testid={`copy-affiliate-link-${p.product_id}`}>
-                              <Copy className="h-3 w-3 mr-1" /> Copy Link
-                            </Button>
-                            <a href={p.affiliate_link} target="_blank" rel="noreferrer">
-                              <Button size="sm" variant="ghost" className="text-neutral-400 h-8 px-2"><ExternalLink className="h-3 w-3" /></Button>
-                            </a>
-                          </div>
-                        </div>
+            ) : (
+              <div className="space-y-2">
+                {links.map(l => (
+                  <div key={l.product_id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center gap-3" data-testid={`aff-link-${l.product_id}`}>
+                    {l.product_image && <img src={l.product_image} alt="" className="w-12 h-12 rounded object-cover shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{l.product_name}</p>
+                      <div className="flex items-center gap-3 text-xs text-neutral-400 mt-0.5">
+                        <span>₹{l.product_price?.toLocaleString()}</span>
+                        <span className="text-green-400">Earn ₹{l.estimated_earning}</span>
+                        <span>{l.clicks || 0} clicks</span>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => copyLink(l.affiliate_link, l.product_id)}
+                        className="p-2 rounded-lg hover:bg-neutral-800 transition-colors" data-testid={`copy-aff-${l.product_id}`}>
+                        {copied === l.product_id ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-neutral-400" />}
+                      </button>
+                      <Link to={`/product/${l.product_id}`} className="p-2 rounded-lg hover:bg-neutral-800 transition-colors">
+                        <ExternalLink className="h-4 w-4 text-neutral-400" />
+                      </Link>
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-            </TabsContent>
-          </Tabs>
-        ) : (
-          /* Application Form */
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-2xl mx-auto"
-          >
-            <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-8">
-              <div className="text-center mb-8">
-                <Percent className="h-16 w-16 mx-auto text-gold mb-4" />
-                <h2 className="font-serif text-2xl font-bold mb-2">Join Our Affiliate Program</h2>
-                <p className="text-neutral-400">
-                  Earn commissions by promoting Pigma products to your audience
-                </p>
+            )}
+          </div>
+        )}
+
+        {/* Search Products */}
+        {tab === "search" && (
+          <div className="space-y-4" data-testid="affiliate-search">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && searchProducts()}
+                  placeholder="Search products to generate affiliate links..."
+                  className="bg-neutral-900 border-neutral-700 text-white pl-10" data-testid="aff-search-input" />
               </div>
-
-              <form onSubmit={handleApply} className="space-y-6">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Company Name (Optional)</label>
-                  <Input
-                    value={formData.company_name}
-                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    placeholder="Your company or brand name"
-                    className="bg-neutral-900 border-neutral-700 text-white"
-                    data-testid="affiliate-company"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-blue-400" />
-                    Website (Optional)
-                  </label>
-                  <Input
-                    value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    placeholder="https://yourwebsite.com"
-                    className="bg-neutral-900 border-neutral-700 text-white"
-                    data-testid="affiliate-website"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Marketing Channels</label>
-                  <Input
-                    value={formData.marketing_channels}
-                    onChange={(e) => setFormData({ ...formData, marketing_channels: e.target.value })}
-                    placeholder="Blog, Email, Social Media, Ads"
-                    className="bg-neutral-900 border-neutral-700 text-white"
-                    data-testid="affiliate-channels"
-                  />
-                  <p className="text-xs text-neutral-500 mt-1">Separate multiple channels with commas</p>
-                </div>
-
-                <div className="bg-neutral-900/50 p-4 rounded-lg">
-                  <h3 className="font-medium mb-2">Program Benefits</h3>
-                  <ul className="space-y-2 text-sm text-neutral-400">
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-400" />
-                      5% base commission on all sales
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-400" />
-                      Custom coupon codes for your audience
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-400" />
-                      Real-time tracking and analytics
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-green-400" />
-                      Monthly payouts
-                    </li>
-                  </ul>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={applying}
-                  className="w-full btn-gold py-6"
-                  data-testid="apply-affiliate-btn"
-                >
-                  {applying ? "Submitting..." : "Join Affiliate Program"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </form>
+              <Button onClick={searchProducts} disabled={searching} className="bg-gold text-black hover:bg-gold/80" data-testid="aff-search-btn">
+                {searching ? "..." : "Search"}
+              </Button>
             </div>
-          </motion.div>
+
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                {searchResults.map(p => (
+                  <div key={p.product_id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center gap-3" data-testid={`search-result-${p.product_id}`}>
+                    {p.images?.[0] && <img src={p.images[0]} alt="" className="w-12 h-12 rounded object-cover shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                      <p className="text-xs text-neutral-400">₹{p.price?.toLocaleString()} | {p.category}</p>
+                    </div>
+                    {p._generated ? (
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => copyLink(p._generated, `s_${p.product_id}`)}
+                          className="p-2 rounded-lg hover:bg-neutral-800">
+                          {copied === `s_${p.product_id}` ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-blue-400" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <Button size="sm" onClick={() => generateLink(p.product_id)}
+                        disabled={generating === p.product_id}
+                        className="bg-blue-600 text-white text-xs h-8 shrink-0" data-testid={`gen-aff-${p.product_id}`}>
+                        <Link2 className="h-3 w-3 mr-1" />
+                        {generating === p.product_id ? "..." : "Generate Link"}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

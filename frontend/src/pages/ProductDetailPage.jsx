@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
 import { FrequentlyBoughtTogether } from "@/components/FrequentlyBoughtTogether";
 import { ProductBundleBanner } from "@/components/BundleDeals";
+import { ProductPartnerLinks } from "@/components/ProductPartnerLinks";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -563,6 +564,9 @@ export const ProductDetailPage = () => {
                 ))}
               </div>
             )}
+
+            {/* Partner Links (Affiliate / Reseller) — on-demand */}
+            <ProductPartnerLinks product={product} />
           </div>
         </div>
 

@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, Link2, Wallet, TrendingUp, Copy, ExternalLink,
   LogOut, MousePointerClick, ShoppingCart, DollarSign, Clock,
-  Package, Share2, Edit3, Check
+  Search, Check, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,108 +22,21 @@ const getHeaders = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
-const StatCard = ({ icon, label, value, bg }) => (
-  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-    className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
-    <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center mb-3`}>{icon}</div>
-    <p className="text-2xl font-bold text-white">{value}</p>
-    <p className="text-sm text-neutral-400">{label}</p>
-  </motion.div>
-);
-
-// Product card for reseller with margin control + share link
-const ResellerProductCard = ({ product, onMarginSave }) => {
-  const [editing, setEditing] = useState(false);
-  const [margin, setMargin] = useState(product.margin || 0);
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    await onMarginSave(product.product_id, margin);
-    setSaving(false);
-    setEditing(false);
-  };
-
-  const copyLink = () => {
-    navigator.clipboard.writeText(product.share_link);
-    toast.success("Link copied!");
-  };
-
-  return (
-    <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden" data-testid={`reseller-product-${product.product_id}`}>
-      <div className="aspect-square bg-neutral-900 relative overflow-hidden">
-        {product.image ? (
-          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-neutral-600">
-            <Package className="h-10 w-10" />
-          </div>
-        )}
-        {product.stock <= 0 && (
-          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-            <span className="text-red-400 font-bold text-sm">Out of Stock</span>
-          </div>
-        )}
-      </div>
-      <div className="p-3 space-y-2">
-        <p className="text-sm font-medium text-white truncate">{product.name}</p>
-        <p className="text-xs text-neutral-500">{product.category}</p>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-neutral-400">Base Price</p>
-            <p className="text-sm font-bold text-white">₹{product.price?.toLocaleString()}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-neutral-400">Your Price</p>
-            <p className="text-sm font-bold text-green-400">₹{product.reseller_price?.toLocaleString()}</p>
-          </div>
-        </div>
-
-        {/* Margin Control */}
-        <div className="bg-neutral-900 rounded-lg p-2">
-          {editing ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-neutral-400 whitespace-nowrap">Margin ₹</span>
-              <Input type="number" min="0" value={margin} onChange={e => setMargin(parseFloat(e.target.value) || 0)}
-                className="bg-neutral-800 border-neutral-600 text-white h-7 text-xs" data-testid="margin-input" />
-              <Button size="sm" onClick={handleSave} disabled={saving} className="bg-green-600 text-white h-7 px-2 text-xs" data-testid="margin-save">
-                <Check className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-neutral-400">Margin: <span className="text-gold font-medium">₹{product.margin || 0}</span></span>
-              <button onClick={() => setEditing(true)} className="text-neutral-500 hover:text-gold transition-colors" data-testid="margin-edit">
-                <Edit3 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Share Link */}
-        <div className="flex gap-1.5">
-          <Button size="sm" className="flex-1 bg-gold/10 text-gold hover:bg-gold/20 h-8 text-xs" onClick={copyLink} data-testid="copy-product-link">
-            <Copy className="h-3 w-3 mr-1" /> Copy Link
-          </Button>
-          <a href={product.share_link} target="_blank" rel="noreferrer">
-            <Button size="sm" variant="ghost" className="text-neutral-400 h-8 px-2"><ExternalLink className="h-3 w-3" /></Button>
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 export const ResellerDashboard = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
   const [profile, setProfile] = useState(null);
   const [links, setLinks] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [linksTotal, setLinksTotal] = useState(0);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [generatingId, setGeneratingId] = useState("");
+  const [margins, setMargins] = useState({});
+  const [copied, setCopied] = useState("");
 
   useEffect(() => {
     const token = localStorage.getItem("pigma_token");
@@ -135,31 +48,21 @@ export const ResellerDashboard = () => {
     try {
       const res = await axios.get(`${API}/resellers/me`, { headers: getHeaders() });
       setProfile(res.data);
-    } catch (err) {
-      if (err.response?.status === 404) {
-        toast.error("You are not registered as a reseller");
-        navigate("/reseller-register");
-      } else {
-        toast.error("Failed to load profile");
-      }
+    } catch {
+      toast.error("Not registered as reseller");
+      navigate("/reseller-register");
     } finally { setLoading(false); }
   };
 
-  const fetchLinks = async () => {
+  const fetchLinks = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/resellers/referral-links`, { headers: getHeaders() });
-      setLinks(res.data);
-    } catch { toast.error("Failed to load referral links"); }
-  };
+      const res = await axios.get(`${API}/resellers/my-links?limit=50`, { headers: getHeaders() });
+      setLinks(res.data.links || []);
+      setLinksTotal(res.data.total || 0);
+    } catch { /* ignore */ }
+  }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await axios.get(`${API}/resellers/products`, { headers: getHeaders() });
-      setProducts(res.data);
-    } catch { toast.error("Failed to load products"); }
-  };
-
-  const fetchWallet = async () => {
+  const fetchWallet = useCallback(async () => {
     try {
       const [balRes, txRes] = await Promise.all([
         axios.get(`${API}/resellers/wallet/balance`, { headers: getHeaders() }),
@@ -167,28 +70,46 @@ export const ResellerDashboard = () => {
       ]);
       setWallet(balRes.data);
       setTransactions(txRes.data);
-    } catch { toast.error("Failed to load wallet"); }
-  };
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     if (profile?.status === "approved") {
-      if (tab === "links") fetchLinks();
-      if (tab === "products") fetchProducts();
+      if (tab === "links" || tab === "search") fetchLinks();
       if (tab === "wallet") fetchWallet();
     }
-  }, [tab, profile]);
+  }, [tab, profile, fetchLinks, fetchWallet]);
 
-  const handleMarginSave = async (productId, margin) => {
+  const searchProducts = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
     try {
-      const res = await axios.put(`${API}/resellers/product-margin`, { product_id: productId, margin }, { headers: getHeaders() });
-      toast.success(`Margin set to ₹${margin}. Your price: ₹${res.data.reseller_price}`);
-      setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, margin, reseller_price: res.data.reseller_price } : p));
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed to update margin"); }
+      const res = await axios.get(`${API}/products?search=${encodeURIComponent(searchQuery)}&limit=10`);
+      setSearchResults(res.data || []);
+    } catch { toast.error("Search failed"); }
+    finally { setSearching(false); }
   };
 
-  const copyLink = (link) => {
+  const generateLink = async (productId, price) => {
+    const margin = margins[productId] || 0;
+    setGeneratingId(productId);
+    try {
+      const res = await axios.post(`${API}/resellers/generate-link`,
+        { product_id: productId, margin }, { headers: getHeaders() });
+      toast.success(`Link generated! Selling at ₹${res.data.reseller_price}`);
+      fetchLinks();
+      setSearchResults(prev => prev.map(p =>
+        p.product_id === productId ? { ...p, _generated: res.data.reseller_link, _price: res.data.reseller_price, _margin: margin } : p
+      ));
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setGeneratingId(""); }
+  };
+
+  const copyLink = (link, id) => {
     navigator.clipboard.writeText(link);
-    toast.success("Link copied!");
+    setCopied(id);
+    toast.success("Copied!");
+    setTimeout(() => setCopied(""), 2000);
   };
 
   const handleLogout = () => {
@@ -198,30 +119,29 @@ export const ResellerDashboard = () => {
     navigate("/");
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-neutral-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-neutral-950 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold" />
+    </div>
+  );
 
   if (!profile) return null;
 
+  const isPending = profile.status === "pending";
+  const isSuspended = ["suspended", "disconnected", "discontinued"].includes(profile.status);
+  const isApproved = profile.status === "approved";
+
   const tabs = [
     { id: "overview", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
-    { id: "products", icon: <Package className="h-4 w-4" />, label: "Products" },
-    { id: "links", icon: <Link2 className="h-4 w-4" />, label: "Referral Links" },
+    { id: "links", icon: <Link2 className="h-4 w-4" />, label: "My Links" },
+    { id: "search", icon: <Search className="h-4 w-4" />, label: "Find Products" },
     { id: "wallet", icon: <Wallet className="h-4 w-4" />, label: "Wallet" },
   ];
 
-  const isPending = profile.status === "pending";
-  const isSuspended = ["suspended", "disconnected", "discontinued"].includes(profile.status);
-
   return (
-    <div className="min-h-screen bg-neutral-900 text-white" data-testid="reseller-dashboard">
+    <div className="min-h-screen bg-neutral-950 text-white" data-testid="reseller-dashboard">
       {/* Top Bar */}
-      <div className="bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
+      <div className="bg-neutral-900 border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="font-serif text-xl font-bold text-gold tracking-wider">PIGMA</h1>
           <span className="text-neutral-500 text-sm">Reseller Portal</span>
@@ -229,33 +149,25 @@ export const ResellerDashboard = () => {
         <div className="flex items-center gap-4">
           <span className="text-sm text-neutral-400">{profile.name}</span>
           <Badge variant="outline" className={`text-xs ${
-            profile.status === "approved" ? "border-green-500 text-green-400" :
+            isApproved ? "border-green-500 text-green-400" :
             isPending ? "border-yellow-500 text-yellow-400" :
             "border-red-500 text-red-400"
           }`}>{profile.status}</Badge>
+          <Link to="/" className="text-neutral-400 hover:text-white text-sm">Shop</Link>
           <Button variant="ghost" size="sm" className="text-red-400" onClick={handleLogout} data-testid="reseller-logout-btn">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-8">
         {/* Status Banners */}
         {isPending && (
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
             <Clock className="h-5 w-5 text-yellow-400" />
             <div>
               <p className="font-medium text-yellow-300">Account Pending Approval</p>
-              <p className="text-sm text-neutral-400">Your reseller application is under review. You'll be notified once approved.</p>
-            </div>
-          </div>
-        )}
-        {isSuspended && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <DollarSign className="h-5 w-5 text-red-400" />
-            <div>
-              <p className="font-medium text-red-300">Account {profile.status}</p>
-              <p className="text-sm text-neutral-400">Your reseller account has been {profile.status}. Please contact support.</p>
+              <p className="text-sm text-neutral-400">Your application is under review.</p>
             </div>
           </div>
         )}
@@ -264,85 +176,151 @@ export const ResellerDashboard = () => {
         <div className="flex gap-2 mb-8 border-b border-neutral-800 pb-4 overflow-x-auto">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
-              disabled={t.id !== "overview" && (isPending || isSuspended)}
+              disabled={t.id !== "overview" && !isApproved}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 tab === t.id ? "bg-gold text-black font-medium" :
-                (isPending || isSuspended) && t.id !== "overview"
-                  ? "text-neutral-600 cursor-not-allowed"
-                  : "text-neutral-400 hover:bg-neutral-800"
+                !isApproved && t.id !== "overview" ? "text-neutral-600 cursor-not-allowed" :
+                "text-neutral-400 hover:bg-neutral-800"
               }`} data-testid={`reseller-tab-${t.id}`}>
               {t.icon} {t.label}
             </button>
           ))}
         </div>
 
-        {/* Overview Tab */}
+        {/* Overview */}
         {tab === "overview" && (
           <div className="space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard icon={<MousePointerClick className="h-5 w-5 text-blue-400" />} label="Total Clicks" value={profile.total_clicks || 0} bg="bg-blue-500/10" />
-              <StatCard icon={<ShoppingCart className="h-5 w-5 text-green-400" />} label="Conversions" value={profile.total_conversions || 0} bg="bg-green-500/10" />
-              <StatCard icon={<DollarSign className="h-5 w-5 text-gold" />} label="Total Earnings" value={`₹${(profile.total_earnings || 0).toLocaleString()}`} bg="bg-gold/10" />
-              <StatCard icon={<Wallet className="h-5 w-5 text-purple-400" />} label="Wallet Balance" value={`₹${(profile.wallet_balance || 0).toLocaleString()}`} bg="bg-purple-500/10" />
+              {[
+                { icon: <Link2 className="h-5 w-5 text-blue-400" />, label: "Links Generated", value: linksTotal || profile.total_clicks || 0, bg: "bg-blue-500/10" },
+                { icon: <MousePointerClick className="h-5 w-5 text-purple-400" />, label: "Total Clicks", value: profile.total_clicks || 0, bg: "bg-purple-500/10" },
+                { icon: <ShoppingCart className="h-5 w-5 text-green-400" />, label: "Conversions", value: profile.total_conversions || 0, bg: "bg-green-500/10" },
+                { icon: <DollarSign className="h-5 w-5 text-gold" />, label: "Total Earnings", value: `₹${(profile.total_earnings || 0).toLocaleString()}`, bg: "bg-gold/10" },
+              ].map(s => (
+                <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+                  <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-2`}>{s.icon}</div>
+                  <p className="text-xl font-bold text-white">{s.value}</p>
+                  <p className="text-xs text-neutral-500">{s.label}</p>
+                </motion.div>
+              ))}
             </div>
 
-            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
               <h3 className="font-semibold text-white mb-4">Your Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div><span className="text-neutral-400">Name:</span> <span className="text-white ml-2">{profile.name}</span></div>
                 <div><span className="text-neutral-400">Email:</span> <span className="text-white ml-2">{profile.email}</span></div>
                 <div><span className="text-neutral-400">Referral Code:</span> <span className="text-gold ml-2 font-mono">{profile.referral_code}</span></div>
-                <div><span className="text-neutral-400">Commission Rate:</span> <span className="text-white ml-2">{profile.commission_rate}%</span></div>
-                <div><span className="text-neutral-400">Bio:</span> <span className="text-white ml-2">{profile.bio || "Not set"}</span></div>
+                <div><span className="text-neutral-400">Commission:</span> <span className="text-white ml-2">{profile.commission_rate}%</span></div>
                 <div><span className="text-neutral-400">Joined:</span> <span className="text-white ml-2">{new Date(profile.created_at).toLocaleDateString()}</span></div>
               </div>
             </div>
+
+            {isApproved && (
+              <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4 text-center">
+                <p className="text-sm text-green-300">Browse any product page and click "Sell this Product" to generate your reseller link</p>
+                <Link to="/" className="inline-flex items-center gap-1 mt-2 text-gold text-sm hover:underline">
+                  Browse Products <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Products Tab (Meesho-style) */}
-        {tab === "products" && (
-          <div className="space-y-4" data-testid="reseller-products-tab">
-            <div className="flex items-center justify-between">
-              <h2 className="font-serif text-2xl font-bold text-white">Sell Products</h2>
-              <p className="text-xs text-neutral-400">{products.length} products available</p>
-            </div>
-            <p className="text-sm text-neutral-400">Set your margin on each product. Share your unique link and earn on every sale.</p>
-            {products.length === 0 ? (
-              <p className="text-neutral-500 text-center py-12">No products available</p>
+        {/* My Links */}
+        {tab === "links" && (
+          <div className="space-y-3" data-testid="reseller-my-links">
+            <p className="text-sm text-neutral-400">{linksTotal} product links generated</p>
+            {links.length === 0 ? (
+              <div className="text-center py-16 text-neutral-500">
+                <Link2 className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No links generated yet</p>
+                <p className="text-sm mt-1">Go to any product page or use Search to generate your first reseller link</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {products.map(p => (
-                  <ResellerProductCard key={p.product_id} product={p} onMarginSave={handleMarginSave} />
+              <div className="space-y-2">
+                {links.map(l => (
+                  <div key={l.product_id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center gap-3" data-testid={`res-link-${l.product_id}`}>
+                    {l.product_image && <img src={l.product_image} alt="" className="w-12 h-12 rounded object-cover shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{l.product_name}</p>
+                      <div className="flex items-center gap-3 text-xs mt-0.5">
+                        <span className="text-neutral-400">Base: ₹{l.product_price?.toLocaleString()}</span>
+                        <span className="text-gold">+₹{l.margin} margin</span>
+                        <span className="text-green-400 font-medium">Sell: ₹{l.reseller_price?.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button onClick={() => copyLink(l.reseller_link, l.product_id)}
+                        className="p-2 rounded-lg hover:bg-neutral-800 transition-colors" data-testid={`copy-res-${l.product_id}`}>
+                        {copied === l.product_id ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-neutral-400" />}
+                      </button>
+                      <Link to={`/product/${l.product_id}`} className="p-2 rounded-lg hover:bg-neutral-800 transition-colors">
+                        <ExternalLink className="h-4 w-4 text-neutral-400" />
+                      </Link>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Referral Links Tab */}
-        {tab === "links" && (
-          <div>
-            <h2 className="font-serif text-2xl font-bold text-white mb-6">Your Referral Links</h2>
-            <div className="space-y-3">
-              {links.map((l, i) => (
-                <div key={i} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 flex items-center justify-between">
-                  <div className="min-w-0 flex-1 mr-4">
-                    <p className="text-white font-medium">{l.product_name}</p>
-                    <p className="text-xs text-neutral-400 font-mono truncate">{l.link}</p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button size="sm" variant="outline" className="border-gold text-gold" onClick={() => copyLink(l.link)} data-testid={`copy-link-${i}`}>
-                      <Copy className="h-3 w-3 mr-1" /> Copy
-                    </Button>
-                    <a href={l.link} target="_blank" rel="noreferrer">
-                      <Button size="sm" variant="ghost" className="text-neutral-400"><ExternalLink className="h-3 w-3" /></Button>
-                    </a>
-                  </div>
-                </div>
-              ))}
-              {links.length === 0 && <p className="text-neutral-500 text-center py-8">No referral links available</p>}
+        {/* Search Products */}
+        {tab === "search" && (
+          <div className="space-y-4" data-testid="reseller-search">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-500" />
+                <Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && searchProducts()}
+                  placeholder="Search products to sell..."
+                  className="bg-neutral-900 border-neutral-700 text-white pl-10" data-testid="res-search-input" />
+              </div>
+              <Button onClick={searchProducts} disabled={searching} className="bg-gold text-black hover:bg-gold/80" data-testid="res-search-btn">
+                {searching ? "..." : "Search"}
+              </Button>
             </div>
+
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                {searchResults.map(p => (
+                  <div key={p.product_id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-3" data-testid={`res-search-${p.product_id}`}>
+                    <div className="flex items-center gap-3">
+                      {p.images?.[0] && <img src={p.images[0]} alt="" className="w-12 h-12 rounded object-cover shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                        <p className="text-xs text-neutral-400">₹{p.price?.toLocaleString()} | {p.category}</p>
+                      </div>
+                      {p._generated ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-green-400">₹{p._price}</span>
+                          <button onClick={() => copyLink(p._generated, `s_${p.product_id}`)} className="p-2 rounded-lg hover:bg-neutral-800">
+                            {copied === `s_${p.product_id}` ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-green-400" />}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-neutral-500">+₹</span>
+                            <Input type="number" min="0" placeholder="0" value={margins[p.product_id] || ""}
+                              onChange={e => setMargins(prev => ({ ...prev, [p.product_id]: parseFloat(e.target.value) || 0 }))}
+                              className="bg-neutral-800 border-neutral-700 text-white h-7 w-16 text-xs" data-testid={`margin-${p.product_id}`} />
+                          </div>
+                          <Button size="sm" onClick={() => generateLink(p.product_id, p.price)}
+                            disabled={generatingId === p.product_id}
+                            className="bg-green-600 text-white text-xs h-7 shrink-0" data-testid={`gen-res-${p.product_id}`}>
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            {generatingId === p.product_id ? "..." : "Sell"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -350,18 +328,26 @@ export const ResellerDashboard = () => {
         {tab === "wallet" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard icon={<Wallet className="h-5 w-5 text-gold" />} label="Wallet Balance" value={`₹${(wallet?.wallet_balance || 0).toLocaleString()}`} bg="bg-gold/10" />
-              <StatCard icon={<TrendingUp className="h-5 w-5 text-green-400" />} label="Total Earnings" value={`₹${(wallet?.total_earnings || 0).toLocaleString()}`} bg="bg-green-500/10" />
-              <StatCard icon={<DollarSign className="h-5 w-5 text-blue-400" />} label="Min Withdrawal" value={`₹${(wallet?.min_withdrawal_amount || 0).toLocaleString()}`} bg="bg-blue-500/10" />
+              {[
+                { icon: <Wallet className="h-5 w-5 text-gold" />, label: "Balance", value: `₹${(wallet?.wallet_balance || 0).toLocaleString()}`, bg: "bg-gold/10" },
+                { icon: <TrendingUp className="h-5 w-5 text-green-400" />, label: "Total Earnings", value: `₹${(wallet?.total_earnings || 0).toLocaleString()}`, bg: "bg-green-500/10" },
+                { icon: <DollarSign className="h-5 w-5 text-blue-400" />, label: "Min Withdrawal", value: `₹${(wallet?.min_withdrawal_amount || 0).toLocaleString()}`, bg: "bg-blue-500/10" },
+              ].map(s => (
+                <div key={s.label} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+                  <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-2`}>{s.icon}</div>
+                  <p className="text-xl font-bold text-white">{s.value}</p>
+                  <p className="text-xs text-neutral-500">{s.label}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-neutral-700">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-neutral-800">
                 <h3 className="font-semibold text-white">Transaction History</h3>
               </div>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-neutral-700">
+                  <TableRow className="border-neutral-800">
                     <TableHead className="text-neutral-400">Date</TableHead>
                     <TableHead className="text-neutral-400">Type</TableHead>
                     <TableHead className="text-neutral-400">Amount</TableHead>
@@ -370,7 +356,7 @@ export const ResellerDashboard = () => {
                 </TableHeader>
                 <TableBody>
                   {transactions.map((t, i) => (
-                    <TableRow key={i} className="border-neutral-700">
+                    <TableRow key={i} className="border-neutral-800">
                       <TableCell className="text-neutral-400 text-sm">{new Date(t.created_at).toLocaleDateString()}</TableCell>
                       <TableCell><span className="capitalize text-neutral-300 text-sm">{t.type}</span></TableCell>
                       <TableCell className={t.type === "credit" || t.type === "commission" ? "text-green-400" : "text-red-400"}>
