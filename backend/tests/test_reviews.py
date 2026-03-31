@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pigma-approval-hub.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://automated-recovery.preview.emergentagent.com')
 
 # Test credentials
 CUSTOMER_EMAIL = "harpreetkaler750@gmail.com"

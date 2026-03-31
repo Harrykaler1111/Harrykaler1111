@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pigma-approval-hub.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://automated-recovery.preview.emergentagent.com').rstrip('/')
 
 # Test credentials
 USER_EMAIL = "harpreetkaler750@gmail.com"
