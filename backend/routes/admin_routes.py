@@ -630,6 +630,38 @@ async def update_order_status(order_id: str, status: str, admin: Dict = Depends(
             }
             logger.info(f"Auto-settled order {order_id} on delivery: {settlement_info}")
 
+    # ============== WHATSAPP NOTIFICATIONS ==============
+    try:
+        from services.interakt_service import notify_order_confirmed, notify_order_shipped, notify_order_delivered
+        from routes.whatsapp_routes import get_wa_settings as get_wa_cfg
+
+        wa_settings = await get_wa_cfg()
+        customer_phone = order.get("shipping_address", {}).get("phone", "")
+        customer_name = ""
+        if customer_phone:
+            cust = await db.users.find_one({"user_id": order.get("user_id")}, {"_id": 0, "name": 1})
+            customer_name = cust.get("name", "Customer") if cust else "Customer"
+
+        if customer_phone:
+            if status == "confirmed" and wa_settings.get("order_confirmed_enabled", True):
+                notify_order_confirmed(customer_phone, order_id, customer_name, order.get("total", 0))
+            elif status == "shipped" and wa_settings.get("order_shipped_enabled", True):
+                notify_order_shipped(customer_phone, order_id, customer_name,
+                                     order.get("tracking_id", ""), order.get("courier_name", ""))
+            elif status == "delivered" and wa_settings.get("order_delivered_enabled", True):
+                notify_order_delivered(customer_phone, order_id, customer_name, order.get("total", 0))
+
+            await db.whatsapp_messages.insert_one({
+                "message_id": generate_id("wmsg_"),
+                "phone": customer_phone,
+                "message_type": f"order_{status}",
+                "order_id": order_id,
+                "delivery_status": "sent",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+    except Exception as e:
+        logger.warning(f"WhatsApp notification failed for order {order_id} status {status}: {e}")
+
     return {"message": f"Order status updated to {status}", "settlement": settlement_info}
 
 
@@ -673,6 +705,27 @@ async def update_order_tracking(order_id: str, data: TrackingUpdate, admin: Dict
         actor_type="admin", actor_id=admin["admin_id"], actor_name=admin.get("name", "Admin"),
         meta={"old_status": order.get("status", "processing"), "new_status": "shipped"}
     )
+
+    # WhatsApp: Send shipped notification
+    try:
+        from services.interakt_service import notify_order_shipped
+        from routes.whatsapp_routes import get_wa_settings as get_wa_cfg
+        wa_settings = await get_wa_cfg()
+        customer_phone = order.get("shipping_address", {}).get("phone", "")
+        if customer_phone and wa_settings.get("order_shipped_enabled", True):
+            cust = await db.users.find_one({"user_id": order.get("user_id")}, {"_id": 0, "name": 1})
+            notify_order_shipped(customer_phone, order_id, cust.get("name", "Customer") if cust else "Customer",
+                                 data.tracking_id, data.courier_name)
+            await db.whatsapp_messages.insert_one({
+                "message_id": generate_id("wmsg_"),
+                "phone": customer_phone,
+                "message_type": "order_shipped",
+                "order_id": order_id,
+                "delivery_status": "sent",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+    except Exception as e:
+        logger.warning(f"WhatsApp shipped notification failed for {order_id}: {e}")
 
     return {"message": "Tracking updated, order marked as shipped"}
 

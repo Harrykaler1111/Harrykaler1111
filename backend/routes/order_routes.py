@@ -337,6 +337,55 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         actor_type="customer", actor_id=user["user_id"], actor_name=user.get("name", "Customer")
     )
 
+    # ============== WHATSAPP NOTIFICATIONS ==============
+    try:
+        from services.interakt_service import notify_order_placed, notify_cod_confirmation, track_user
+        from routes.whatsapp_routes import get_wa_settings as get_wa_cfg
+
+        wa_settings = await get_wa_cfg()
+        customer_phone = order.shipping_address.get("phone", "") if isinstance(order.shipping_address, dict) else ""
+        customer_name = user.get("name", "Customer")
+
+        if customer_phone:
+            # Track user in Interakt
+            track_user(customer_phone, traits={
+                "name": customer_name,
+                "email": user.get("email", ""),
+                "user_id": user["user_id"]
+            })
+
+            # Order placed notification
+            if wa_settings.get("order_placed_enabled", True):
+                notify_order_placed(
+                    phone=customer_phone,
+                    order_id=order_id,
+                    customer_name=customer_name,
+                    total=round(total, 2),
+                    items_count=len(items),
+                    payment_method=payment_method
+                )
+
+            # COD confirmation request
+            if payment_method == "cod" and wa_settings.get("cod_confirmation_enabled", True):
+                notify_cod_confirmation(
+                    phone=customer_phone,
+                    order_id=order_id,
+                    customer_name=customer_name,
+                    total=round(total, 2)
+                )
+
+            # Log WhatsApp message
+            await db.whatsapp_messages.insert_one({
+                "message_id": generate_id("wmsg_"),
+                "phone": customer_phone,
+                "message_type": "order_placed",
+                "order_id": order_id,
+                "delivery_status": "sent",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+    except Exception as e:
+        logger.warning(f"WhatsApp notification failed for order {order_id}: {e}")
+
     return OrderResponse(**order_doc)
 
 

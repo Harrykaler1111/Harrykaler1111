@@ -44,6 +44,7 @@ from routes.policy_routes import router as policy_router
 from routes.checkout_settings_routes import router as checkout_settings_router
 from routes.bundle_routes import router as bundle_router
 from routes.notification_routes import router as notification_router
+from routes.whatsapp_routes import router as whatsapp_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -83,6 +84,7 @@ app.include_router(policy_router, prefix="/api")
 app.include_router(checkout_settings_router, prefix="/api")
 app.include_router(bundle_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
+app.include_router(whatsapp_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles

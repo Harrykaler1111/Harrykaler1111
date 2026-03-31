@@ -433,150 +433,357 @@ export const InstagramDMManagement = () => {
 
 // ============== WHATSAPP CART REMINDERS ==============
 export const WhatsAppRemindersManagement = () => {
-  const [config, setConfig] = useState(null);
+  const [activeSection, setActiveSection] = useState("dashboard");
+  const [settings, setSettings] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [phone, setPhone] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [template, setTemplate] = useState("");
-  const [delayHours, setDelayHours] = useState(24);
-  const [isEnabled, setIsEnabled] = useState(false);
+  const [testPhone, setTestPhone] = useState("");
+  const [testEvent, setTestEvent] = useState("test_message");
+  const [sending, setSending] = useState(false);
+  const [broadcastTemplate, setBroadcastTemplate] = useState("");
+  const [broadcastSegment, setBroadcastSegment] = useState("all");
+  const [broadcastPhones, setBroadcastPhones] = useState("");
+  const [broadcastBody, setBroadcastBody] = useState("");
+  const [broadcasting, setBroadcasting] = useState(false);
 
-  const fetchConfig = useCallback(async () => {
+  const h = getAdminHeaders();
+
+  const fetchAll = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/admin/site/whatsapp/config`, { headers: getAdminHeaders() });
-      setConfig(res.data);
-      setTemplate(res.data.message_template || "");
-      setDelayHours(res.data.reminder_delay_hours || 24);
-      setIsEnabled(res.data.is_enabled || false);
-      setPhone(res.data.phone_number || "");
-    } catch { /* ignore */ }
+      const [sRes, stRes, mRes, cRes] = await Promise.all([
+        axios.get(`${API}/whatsapp/settings`, { headers: h }),
+        axios.get(`${API}/whatsapp/stats`, { headers: h }),
+        axios.get(`${API}/whatsapp/messages?limit=30`, { headers: h }),
+        axios.get(`${API}/whatsapp/campaigns`, { headers: h }),
+      ]);
+      setSettings(sRes.data);
+      setStats(stRes.data);
+      setMessages(mRes.data.messages || []);
+      setCampaigns(cRes.data.campaigns || []);
+    } catch { /* ignore initial load error */ }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const connectWA = async () => {
+  const toggleSetting = async (key) => {
     try {
-      await axios.post(`${API}/admin/site/whatsapp/connect?phone_number=${phone}&api_key=${apiKey || "mock_key"}`, {}, { headers: getAdminHeaders() });
-      toast.success("WhatsApp connected (MOCK)");
-      fetchConfig();
+      const val = !settings[key];
+      await axios.put(`${API}/whatsapp/settings`, { [key]: val }, { headers: h });
+      setSettings(prev => ({ ...prev, [key]: val }));
+      toast.success(`${key.replace(/_/g, " ")} ${val ? "enabled" : "disabled"}`);
     } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
   };
 
-  const saveConfig = async () => {
+  const updateDelay = async (val) => {
     try {
-      await axios.put(`${API}/admin/site/whatsapp/config`, {
-        is_enabled: isEnabled,
-        reminder_delay_hours: delayHours,
-        message_template: template,
-      }, { headers: getAdminHeaders() });
-      toast.success("WhatsApp config saved!");
+      await axios.put(`${API}/whatsapp/settings`, { abandoned_cart_delay_minutes: val }, { headers: h });
+      setSettings(prev => ({ ...prev, abandoned_cart_delay_minutes: val }));
+      toast.success("Delay updated");
+    } catch (err) { toast.error("Failed"); }
+  };
+
+  const sendTest = async () => {
+    if (!testPhone) { toast.error("Enter a phone number"); return; }
+    setSending(true);
+    try {
+      const res = await axios.post(`${API}/whatsapp/test`, { phone: testPhone, event_name: testEvent }, { headers: h });
+      if (res.data.success) toast.success("Test message sent!");
+      else toast.error(`Failed: ${JSON.stringify(res.data.result?.data?.message || "Unknown error")}`);
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    finally { setSending(false); }
+  };
+
+  const sendBroadcast = async () => {
+    if (!broadcastTemplate) { toast.error("Enter template name"); return; }
+    setBroadcasting(true);
+    try {
+      const body = {
+        template_name: broadcastTemplate,
+        target_segment: broadcastSegment,
+        body_values: broadcastBody ? broadcastBody.split(",").map(s => s.trim()) : null,
+        phone_numbers: broadcastSegment === "custom" && broadcastPhones ? broadcastPhones.split(",").map(s => s.trim()) : null,
+      };
+      const res = await axios.post(`${API}/whatsapp/broadcast`, body, { headers: h });
+      toast.success(`Broadcast started: ${res.data.total_recipients} recipients`);
+      fetchAll();
+    } catch (err) { toast.error(err.response?.data?.detail || "No recipients found"); }
+    finally { setBroadcasting(false); }
+  };
+
+  const triggerAbandonedCart = async () => {
+    try {
+      await axios.post(`${API}/whatsapp/check-abandoned-carts`, {}, { headers: h });
+      toast.success("Abandoned cart check triggered");
     } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
   };
 
-  const testReminder = async () => {
-    try {
-      const res = await axios.post(`${API}/admin/site/whatsapp/test-reminder`, {}, { headers: getAdminHeaders() });
-      toast.success(res.data.message);
-      fetchConfig();
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  const Toggle = ({ enabled, onToggle, label }) => (
+    <div className="flex items-center justify-between py-2">
+      <span className="text-sm text-neutral-300">{label}</span>
+      <button onClick={onToggle}
+        className={`w-10 h-5 rounded-full transition-colors ${enabled ? "bg-green-500" : "bg-neutral-600"} relative`}>
+        <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+      </button>
+    </div>
+  );
+
+  const statusColor = (s) => {
+    if (s === "delivered") return "bg-green-500/20 text-green-400";
+    if (s === "read") return "bg-blue-500/20 text-blue-400";
+    if (s === "failed") return "bg-red-500/20 text-red-400";
+    return "bg-yellow-500/20 text-yellow-400";
   };
 
   if (loading) return <div className="animate-pulse h-40 bg-neutral-800 rounded-xl" />;
 
   return (
     <div className="space-y-6" data-testid="whatsapp-management">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-          <Phone className="h-5 w-5 text-green-400" /> WhatsApp Cart Reminders
+          <Phone className="h-5 w-5 text-green-400" /> WhatsApp Business (Interakt)
         </h3>
-        <Badge className={config?.is_connected ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}>
-          {config?.is_connected ? "Connected (MOCK)" : "Not Connected"}
+        <Badge className="bg-green-500/20 text-green-400" data-testid="wa-connection-status">
+          Connected via Interakt
         </Badge>
       </div>
 
-      {/* Connection */}
-      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-3">
-        <p className="text-sm font-medium text-white">WhatsApp Business API</p>
-        <p className="text-xs text-yellow-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Currently MOCKED. Add real WhatsApp Business API credentials to go live.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">Business Phone Number</label>
-            <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+91 1234567890"
-              className="bg-neutral-900 border-neutral-700 text-white" data-testid="wa-phone-input" />
-          </div>
-          <div>
-            <label className="text-xs text-neutral-400 mb-1 block">API Key</label>
-            <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="WhatsApp Business API Key"
-              className="bg-neutral-900 border-neutral-700 text-white" data-testid="wa-key-input" />
-          </div>
-        </div>
-        <Button onClick={connectWA} className="bg-green-600 text-white hover:bg-green-700" data-testid="wa-connect-btn">
-          <Phone className="h-4 w-4 mr-1" /> {config?.is_connected ? "Update Connection" : "Connect WhatsApp"}
-        </Button>
+      {/* Section Tabs */}
+      <div className="flex gap-2 flex-wrap" data-testid="wa-section-tabs">
+        {[
+          { key: "dashboard", label: "Dashboard" },
+          { key: "settings", label: "Settings" },
+          { key: "broadcast", label: "Broadcast" },
+          { key: "messages", label: "Messages" },
+          { key: "test", label: "Test" },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveSection(tab.key)}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${activeSection === tab.key ? "bg-green-600 text-white" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
+            data-testid={`wa-tab-${tab.key}`}>
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      {/* Dashboard */}
+      {activeSection === "dashboard" && stats && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center" data-testid="wa-stat-sent">
+              <p className="text-2xl font-bold text-white">{stats.total_sent}</p>
+              <p className="text-xs text-neutral-400">Total Sent</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center" data-testid="wa-stat-delivered">
+              <p className="text-2xl font-bold text-green-400">{stats.total_delivered}</p>
+              <p className="text-xs text-neutral-400">Delivered</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center" data-testid="wa-stat-read">
+              <p className="text-2xl font-bold text-blue-400">{stats.total_read}</p>
+              <p className="text-xs text-neutral-400">Read</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center" data-testid="wa-stat-failed">
+              <p className="text-2xl font-bold text-red-400">{stats.total_failed}</p>
+              <p className="text-xs text-neutral-400">Failed</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-green-400">{stats.delivery_rate}%</p>
+              <p className="text-xs text-neutral-400">Delivery Rate</p>
+            </div>
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center">
+              <p className="text-2xl font-bold text-white">{stats.last_7_days}</p>
+              <p className="text-xs text-neutral-400">Last 7 Days</p>
+            </div>
+          </div>
+
+          {/* Recent Campaigns */}
+          {campaigns.length > 0 && (
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+              <p className="text-sm font-medium text-white mb-3">Recent Campaigns</p>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {campaigns.slice(0, 5).map(c => (
+                  <div key={c.campaign_id} className="flex items-center justify-between text-xs bg-neutral-900 rounded p-2">
+                    <div>
+                      <span className="text-white font-medium">{c.template_name}</span>
+                      <span className="text-neutral-500 ml-2">{c.target_segment}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-400">{c.sent_count} sent</span>
+                      {c.failed_count > 0 && <span className="text-red-400">{c.failed_count} failed</span>}
+                      <Badge className={c.status === "completed" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>{c.status}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Settings */}
-      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setIsEnabled(!isEnabled)}
-            className={`w-12 h-6 rounded-full transition-colors ${isEnabled ? "bg-green-500" : "bg-neutral-600"} relative`}
-            data-testid="wa-toggle">
-            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform ${isEnabled ? "translate-x-6" : "translate-x-0.5"}`} />
-          </button>
-          <span className="text-sm text-white">Auto cart reminders {isEnabled ? "enabled" : "disabled"}</span>
-        </div>
-
-        <div>
-          <label className="text-xs text-neutral-400 mb-1 block">Reminder Delay (hours after cart abandonment)</label>
-          <Input type="number" value={delayHours} onChange={e => setDelayHours(parseInt(e.target.value) || 24)}
-            className="bg-neutral-900 border-neutral-700 text-white w-24" data-testid="wa-delay-input" />
-        </div>
-
-        <div>
-          <label className="text-xs text-neutral-400 mb-1 block">Message Template</label>
-          <textarea value={template} onChange={e => setTemplate(e.target.value)} rows={3}
-            className="w-full text-sm border border-neutral-700 bg-neutral-900 rounded-md px-3 py-2 text-white resize-none focus:ring-2 focus:ring-gold/50"
-            placeholder="Use {name} and {cart_link} as placeholders" data-testid="wa-template-input" />
-          <p className="text-[10px] text-neutral-500 mt-1">Variables: {"{name}"}, {"{cart_link}"}</p>
-        </div>
-
-        <div className="flex gap-2">
-          <Button onClick={saveConfig} className="bg-gold text-black" data-testid="wa-save-btn">
-            <Check className="h-4 w-4 mr-1" /> Save Settings
-          </Button>
-          <Button onClick={testReminder} variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10" data-testid="wa-test-btn">
-            <Send className="h-4 w-4 mr-1" /> Test Reminder
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats & History */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center">
-          <p className="text-3xl font-bold text-white">{config?.reminders_sent || 0}</p>
-          <p className="text-xs text-neutral-400">Reminders Sent</p>
-        </div>
-        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 text-center">
-          <p className="text-3xl font-bold text-green-400">{config?.is_connected ? "Active" : "Inactive"}</p>
-          <p className="text-xs text-neutral-400">Connection Status</p>
-        </div>
-      </div>
-
-      {(config?.recent_reminders || []).length > 0 && (
-        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
-          <p className="text-sm font-medium text-white mb-3">Recent Reminders</p>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {(config?.recent_reminders || []).reverse().slice(0, 10).map(r => (
-              <div key={r.reminder_id} className="flex items-center justify-between text-xs bg-neutral-900 rounded p-2">
-                <div>
-                  <span className="text-white font-medium">{r.user_phone}</span>
-                  <span className="text-neutral-500 ml-2">{r.user_name}</span>
-                </div>
-                <Badge className="bg-yellow-500/20 text-yellow-400">{r.status}</Badge>
-              </div>
-            ))}
+      {activeSection === "settings" && settings && (
+        <div className="space-y-4">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-1" data-testid="wa-notification-settings">
+            <p className="text-sm font-medium text-white mb-3">Order Notifications</p>
+            <Toggle enabled={settings.order_placed_enabled} onToggle={() => toggleSetting("order_placed_enabled")} label="Order Placed" />
+            <Toggle enabled={settings.order_confirmed_enabled} onToggle={() => toggleSetting("order_confirmed_enabled")} label="Order Confirmed" />
+            <Toggle enabled={settings.order_shipped_enabled} onToggle={() => toggleSetting("order_shipped_enabled")} label="Order Shipped" />
+            <Toggle enabled={settings.order_delivered_enabled} onToggle={() => toggleSetting("order_delivered_enabled")} label="Order Delivered" />
           </div>
+
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-1" data-testid="wa-cod-settings">
+            <p className="text-sm font-medium text-white mb-3">COD & Recovery</p>
+            <Toggle enabled={settings.cod_confirmation_enabled} onToggle={() => toggleSetting("cod_confirmation_enabled")} label="COD Confirmation via WhatsApp" />
+            <Toggle enabled={settings.abandoned_cart_enabled} onToggle={() => toggleSetting("abandoned_cart_enabled")} label="Abandoned Cart Recovery" />
+            <div className="flex items-center gap-3 mt-3">
+              <label className="text-xs text-neutral-400">Cart abandonment delay (min)</label>
+              <Input type="number" value={settings.abandoned_cart_delay_minutes} onChange={e => updateDelay(parseInt(e.target.value) || 30)}
+                className="bg-neutral-900 border-neutral-700 text-white w-20 h-8 text-xs" data-testid="wa-delay-input" />
+            </div>
+            <div className="mt-3">
+              <Button onClick={triggerAbandonedCart} size="sm" variant="outline" className="border-green-500 text-green-400 hover:bg-green-500/10 text-xs" data-testid="wa-trigger-abandoned">
+                <Zap className="h-3 w-3 mr-1" /> Run Abandoned Cart Check Now
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Broadcast */}
+      {activeSection === "broadcast" && (
+        <div className="space-y-4">
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-3" data-testid="wa-broadcast-panel">
+            <p className="text-sm font-medium text-white">Send Broadcast Campaign</p>
+            <div>
+              <label className="text-xs text-neutral-400 mb-1 block">Template Name (must be approved in Interakt)</label>
+              <Input value={broadcastTemplate} onChange={e => setBroadcastTemplate(e.target.value)}
+                placeholder="e.g. sale_announcement"
+                className="bg-neutral-900 border-neutral-700 text-white" data-testid="wa-broadcast-template" />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-400 mb-1 block">Body Values (comma separated)</label>
+              <Input value={broadcastBody} onChange={e => setBroadcastBody(e.target.value)}
+                placeholder="e.g. 50% OFF, FLASH50"
+                className="bg-neutral-900 border-neutral-700 text-white" data-testid="wa-broadcast-body" />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-400 mb-1 block">Target Segment</label>
+              <select value={broadcastSegment} onChange={e => setBroadcastSegment(e.target.value)}
+                className="w-full text-sm bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-white" data-testid="wa-broadcast-segment">
+                <option value="all">All Customers</option>
+                <option value="recent_buyers">Recent Buyers (30 days)</option>
+                <option value="cod_customers">COD Customers</option>
+                <option value="custom">Custom Phone Numbers</option>
+              </select>
+            </div>
+            {broadcastSegment === "custom" && (
+              <div>
+                <label className="text-xs text-neutral-400 mb-1 block">Phone Numbers (comma separated, with +91)</label>
+                <textarea value={broadcastPhones} onChange={e => setBroadcastPhones(e.target.value)} rows={2}
+                  className="w-full text-sm border border-neutral-700 bg-neutral-900 rounded-md px-3 py-2 text-white resize-none"
+                  placeholder="+919625992057, +919876543210" data-testid="wa-broadcast-phones" />
+              </div>
+            )}
+            <Button onClick={sendBroadcast} disabled={broadcasting} className="bg-green-600 text-white hover:bg-green-700" data-testid="wa-send-broadcast">
+              <Send className="h-4 w-4 mr-1" /> {broadcasting ? "Sending..." : "Send Broadcast"}
+            </Button>
+          </div>
+
+          {/* Campaign History */}
+          {campaigns.length > 0 && (
+            <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4">
+              <p className="text-sm font-medium text-white mb-3">Campaign History</p>
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-neutral-700">
+                    <TableHead className="text-neutral-400">Template</TableHead>
+                    <TableHead className="text-neutral-400">Segment</TableHead>
+                    <TableHead className="text-neutral-400">Sent</TableHead>
+                    <TableHead className="text-neutral-400">Failed</TableHead>
+                    <TableHead className="text-neutral-400">Status</TableHead>
+                    <TableHead className="text-neutral-400">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaigns.map(c => (
+                    <TableRow key={c.campaign_id} className="border-neutral-700">
+                      <TableCell className="text-white text-xs">{c.template_name}</TableCell>
+                      <TableCell className="text-neutral-400 text-xs">{c.target_segment}</TableCell>
+                      <TableCell className="text-green-400 text-xs">{c.sent_count}</TableCell>
+                      <TableCell className="text-red-400 text-xs">{c.failed_count}</TableCell>
+                      <TableCell><Badge className={c.status === "completed" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}>{c.status}</Badge></TableCell>
+                      <TableCell className="text-neutral-500 text-xs">{new Date(c.created_at).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Messages Log */}
+      {activeSection === "messages" && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4" data-testid="wa-messages-log">
+          <p className="text-sm font-medium text-white mb-3">Message Log ({messages.length})</p>
+          {messages.length === 0 ? (
+            <p className="text-xs text-neutral-500 text-center py-4">No messages sent yet</p>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {messages.map(m => (
+                <div key={m.message_id} className="flex items-center justify-between text-xs bg-neutral-900 rounded p-2.5">
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                    <div>
+                      <span className="text-white font-medium">{m.phone}</span>
+                      <span className="text-neutral-500 ml-2">{m.message_type}</span>
+                      {m.order_id && <span className="text-neutral-600 ml-1">#{m.order_id?.slice(-6)}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={statusColor(m.delivery_status)}>{m.delivery_status}</Badge>
+                    <span className="text-neutral-600 text-[10px]">{new Date(m.created_at).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Test */}
+      {activeSection === "test" && (
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 space-y-3" data-testid="wa-test-panel">
+          <p className="text-sm font-medium text-white">Send Test Message</p>
+          <p className="text-xs text-neutral-400">Send a test event to verify your Interakt connection.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-neutral-400 mb-1 block">Phone Number</label>
+              <Input value={testPhone} onChange={e => setTestPhone(e.target.value)} placeholder="+919625992057"
+                className="bg-neutral-900 border-neutral-700 text-white" data-testid="wa-test-phone" />
+            </div>
+            <div>
+              <label className="text-xs text-neutral-400 mb-1 block">Event Name</label>
+              <select value={testEvent} onChange={e => setTestEvent(e.target.value)}
+                className="w-full text-sm bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-white" data-testid="wa-test-event">
+                <option value="test_message">Test Message</option>
+                <option value="order_placed">Order Placed</option>
+                <option value="order_confirmed">Order Confirmed</option>
+                <option value="order_shipped">Order Shipped</option>
+                <option value="order_delivered">Order Delivered</option>
+                <option value="cod_confirmation_required">COD Confirmation</option>
+                <option value="cart_abandoned">Cart Abandoned</option>
+              </select>
+            </div>
+          </div>
+          <Button onClick={sendTest} disabled={sending} className="bg-green-600 text-white hover:bg-green-700" data-testid="wa-send-test">
+            <Send className="h-4 w-4 mr-1" /> {sending ? "Sending..." : "Send Test"}
+          </Button>
         </div>
       )}
     </div>
