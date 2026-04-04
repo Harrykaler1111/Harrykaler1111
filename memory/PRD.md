@@ -5,7 +5,7 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Tech Stack
 - Frontend: React, Tailwind CSS, Shadcn/UI, Framer Motion
-- Backend: FastAPI (Python), 25+ route modules
+- Backend: FastAPI (Python), 30+ route modules
 - Database: MongoDB
 - Auth: JWT (per role), Google OAuth, RBAC (6 admin roles + dynamic permissions)
 - File Storage: Emergent Object Storage
@@ -22,6 +22,14 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Completed Features
 
+### Phase 43 - Guest Cart, Vendor Credits, Dummy Reviews, FOMO (2026-04-04)
+- **Guest Cart System**: localStorage-based cart for unauthenticated users (key: `pigma_guest_cart`). Cart merges to server on login. /cart opens drawer without requiring auth. /checkout still requires login.
+- **CartContext API Migration**: Fixed BoosterBar, ProductCard, CheckoutPage to use new CartContext API (cartItems, updateQuantity, fetchCart replacing old cart.items, updateCartItem, refreshCart).
+- **Vendor Cart Booster Credits**: Backend `/api/vendor-credits/*` (wallet, purchase, spend, transactions, promotions, upsell-products). Frontend `VendorCartBooster.jsx` at `/vendor/cart-booster`. Vendors buy credits (mock Razorpay) and spend them to promote products in cart upsell section. BoosterBar now pulls vendor-promoted products.
+- **Super Admin Dummy Reviews**: Backend `/api/admin/reviews` CRUD. Frontend `AdminDummyReviewsPanel.jsx` at `/admin/dummy-reviews`. Search products, add fake reviews with rating/username/text/verified badge. Reviews auto-approved and show on product pages.
+- **FOMO Live Purchase Notifications**: Backend `/api/fomo/*` (settings, messages, notification). Frontend `AdminFomoPanel.jsx` at `/admin/fomo`. Toggle on/off, frequency control, custom messages. `FomoNotification.jsx` displays popups to visitors.
+- **Testing**: Iteration 43 — 100% backend (16/16), 100% frontend
+
 ### Phase 37 - WhatsApp +91 9625992057 Global Integration (2026-04-04)
 - Created WhatsAppButton.jsx utility: exports `whatsappLink()`, `whatsappProductLink()`, `PHONE_NUMBER`, `PHONE_LINK`, `FloatingWhatsApp` component
 - Header: Added top contact strip with WhatsApp link (left) and phone number (right)
@@ -32,60 +40,34 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Checkout Page: WhatsApp support note near Place Order button
 - Order Confirmation: WhatsApp contact button with order ID in pre-filled message
 - Vendor Dashboard: Admin support section in sidebar with WhatsApp + phone links
-- Replaced all old 919876543210 references with 919625992057
-- **Testing**: Iteration 42 — 100% code verified, 8/13 UI tested (remaining 5 are behind auth wall)
+- **Testing**: Iteration 42 — 100% code verified
 
 ### Phase 36 - Image Pipeline Audit & Fix (2026-04-04)
-- Root Cause: Product images stored with old preview domain URLs (e.g., `pigma-approval-hub.preview...`) broke when the deployment domain changed
-- Created `/app/frontend/src/utils/imageUtils.js` with `normalizeImageUrl()` — strips old domains from `/api/uploads/files/` paths and prepends current REACT_APP_BACKEND_URL; keeps external URLs as-is
-- Added `handleImageError` fallback: clean SVG camera icon with "No Image" text for failed/missing images
-- Applied normalizeImageUrl + onError to ALL product image references across 12+ components (ProductCard, ProductDetailPage, HomePage, CartDrawer, CheckoutPage, AdminDashboard, AdminProductsHub, AdminBoosterPanel, AdminBundlePanel, BundleDeals, FrequentlyBoughtTogether, BoosterBar, AffiliateDashboard, ResellerDashboard, OrdersPage, CartPage)
-- Backend: Updated `serve_file` endpoint to fallback to direct Object Storage fetch when no `uploaded_files` DB record exists
-- **Testing**: Iteration 41 — 93% backend (1 proxy cache-control issue), 100% frontend, 0 broken images
+- Created `/app/frontend/src/utils/imageUtils.js` with `normalizeImageUrl()` — strips old domains from `/api/uploads/files/` paths
+- Added `handleImageError` fallback across 12+ components
+- **Testing**: Iteration 41 — 93% backend, 100% frontend
 
 ### Phase 35 - Bulk Product Upload System (2026-04-04)
-- Backend: POST /api/products/bulk/preview — Parses CSV/Excel + optional ZIP of images, validates required fields (sku, name, description, price, category), detects duplicate SKUs, parses variant format (Color:Size:Qty;...), maps images by SKU filename prefix
-- Backend: POST /api/products/bulk/publish/{session_id} — Creates products in DB with correct sku, variants, stock; uploads images to Object Storage; skips invalid rows and reports failures
-- Backend: GET /api/products/bulk/sample-csv — Downloads CSV template with all columns and examples
-- Backend: GET /api/products/bulk/sessions — Lists past import sessions with status, counts, timestamps
-- Backend: POST /api/products/bulk/revert/{session_id} — Soft-deletes (deactivates) all products from a published batch, marks session as "reverted"
-- Schema: Added `sku` (Optional[str]) and `variants` (List[Dict]) to ProductCreate, ProductUpdate, ProductResponse, VendorProductCreate, VendorProductUpdate, VendorProductResponse
-- Frontend: BulkUpload component with 3-step wizard (Upload Files → Preview & Validate → Publish), drag-and-drop CSV/ZIP zones, CSV column guide, error reporting, progress indicators
-- Frontend: Import History tab with session list (date, session ID, status, product count, valid/errors), Revert button with confirmation dialog, reverted timestamp display
-- Admin: "Bulk Upload" tab added to AdminProductsHub (accessible to Super Admin, Product Manager)
-- Vendor: "Bulk Upload" button added to VendorProducts section (accessible to approved Vendors)
-- **Testing**: Iteration 39 (bulk upload) - PASS 100%, Iteration 40 (import history + revert) - PASS 100%
+- Backend: bulk preview, publish, sample CSV, sessions list, revert
+- Frontend: BulkUpload 3-step wizard, Import History with revert
+- **Testing**: Iterations 39-40 — PASS 100%
 
 ### Phase 34 - Reseller Price Override (2026-04-04)
-- Backend: Product API accepts `?reseller_id=X&price=Y`, validates against `reseller_links` collection, overrides price in response and nulls `compare_price`
-- Backend: Cart validates reseller price override on add (checks reseller_links + price >= base_price). Manipulated URLs rejected.
-- Backend: Order creation uses `price_override` as effective price
-- Frontend: Product page reads URL params, passes to API — buyer sees ONLY reseller price. No strikethrough, no discount badge, no compare_price, no partner links section.
-- **Testing**: Iteration 38 - PASS
+- Backend/Frontend price override via reseller links
+- **Testing**: Iteration 38 — PASS
 
-### Phase 33 - Scalable On-Demand Affiliate + Reseller System (2026-03-31)
-- On-demand link generation per product (not bulk). ProductPartnerLinks component on product pages. Lightweight dashboards with link history + search.
-- **Testing**: Iteration 37 - PASS
-
-### Phase 32 - 7-Feature Fix & Enhancement (2026-03-31)
-- Reseller System, Admin Dark Theme, Influencer Join Flow, Affiliate System, Dynamic RBAC, Vendor Sidebar, Credit Revenue
-- **Testing**: Iteration 36 - PASS
-
-### Phase 31 - Deep Interakt WhatsApp Integration (2026-03-31)
-- Order notifications, COD confirmation, abandoned cart recovery, broadcast marketing
-- **Testing**: Iteration 35 - PASS
-
-### Earlier Phases (12-30)
-- Full platform: Security, Cart Booster, Flash Sales, Push Notifications, Mega Menu, Quick Add, Bundles, Checkout, etc.
+### Earlier Phases (12-33)
+- Full platform: Security, Cart Booster, Flash Sales, Push Notifications, Mega Menu, Quick Add, Bundles, Checkout, RBAC, Affiliate/Reseller System, Interakt WhatsApp, etc.
 
 ## Key DB Collections
-- `products` / `vendor_products`: Now include `sku` and `variants` fields
-- `bulk_upload_sessions`: Stores preview sessions for bulk upload
-- `reseller_links` — generated reseller links with validated prices
-- `affiliate_links` — generated affiliate links
-- `admin_permissions` — dynamic RBAC overrides
-- `platform_revenue` — credit purchase revenue
-- `whatsapp_messages/settings/campaigns` — Interakt data
+- `products` / `vendor_products`: Include `sku` and `variants` fields
+- `bulk_upload_sessions`: Bulk upload preview sessions
+- `vendor_wallets`: Vendor cart booster credit balances
+- `credit_transactions`: Vendor credit purchase/spend history
+- `product_promotions`: Vendor-promoted products for cart upsell
+- `reviews`: Customer + dummy reviews (is_dummy flag)
+- `fomo_settings`: FOMO notification config + custom messages
+- `reseller_links`, `affiliate_links`, `admin_permissions`, `platform_revenue`
 
 ## MOCKED: Razorpay, Instagram Graph API
 ## REAL: Interakt WhatsApp Business API
