@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Pencil, Package, Tag, Search, Filter,
-  Save, X, ChevronDown, ChevronRight, Eye, EyeOff, ExternalLink
+  Save, X, ChevronDown, ChevronRight, Eye, EyeOff, ExternalLink, Upload
 } from "lucide-react";
+import { BulkUpload } from "@/components/BulkUpload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,8 @@ export const AdminProductsHub = () => {
   const tabs = [
     { key: "products", label: "All Products", icon: Package },
     { key: "add", label: "Add Product", icon: Plus },
-    { key: "categories", label: "Categories & Sub-Categories", icon: Tag },
+    { key: "bulk", label: "Bulk Upload", icon: Upload },
+    { key: "categories", label: "Categories", icon: Tag },
   ];
 
   return (
@@ -80,6 +82,11 @@ export const AdminProductsHub = () => {
         {activeTab === "edit" && editingProduct && (
           <motion.div key="edit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <ProductForm product={editingProduct} onDone={() => { setEditingProduct(null); setActiveTab("products"); }} />
+          </motion.div>
+        )}
+        {activeTab === "bulk" && (
+          <motion.div key="bulk" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <BulkUpload mode="admin" />
           </motion.div>
         )}
         {activeTab === "categories" && (

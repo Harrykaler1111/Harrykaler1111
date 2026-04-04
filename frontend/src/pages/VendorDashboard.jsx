@@ -20,6 +20,7 @@ import {
   BarChart3, TrendingUp
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
+import { BulkUpload } from "@/components/BulkUpload";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -319,6 +320,7 @@ const VendorProducts = ({ vendor }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
   const [editingStock, setEditingStock] = useState(null);
   const [editingPrice, setEditingPrice] = useState(null);
   const [newStockVal, setNewStockVal] = useState("");
@@ -405,9 +407,15 @@ const VendorProducts = ({ vendor }) => {
       <div className="flex justify-between items-center flex-wrap gap-3">
         <h2 className="font-serif text-2xl font-bold text-white">My Products</h2>
         {vendor.status === "approved" && (
-          <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => setShowForm(!showForm)} data-testid="add-product-btn">
-            <Plus className="h-4 w-4 mr-2" /> Add Product
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="border-neutral-600 text-neutral-300 hover:text-white bg-transparent"
+              onClick={() => { setShowBulk(!showBulk); setShowForm(false); }} data-testid="vendor-bulk-upload-btn">
+              <Upload className="h-4 w-4 mr-2" /> Bulk Upload
+            </Button>
+            <Button className="bg-gold text-black hover:bg-gold/90" onClick={() => { setShowForm(!showForm); setShowBulk(false); }} data-testid="add-product-btn">
+              <Plus className="h-4 w-4 mr-2" /> Add Product
+            </Button>
+          </div>
         )}
       </div>
 
@@ -416,6 +424,13 @@ const VendorProducts = ({ vendor }) => {
           <p className="text-yellow-300 text-sm">Your vendor account must be approved to add products.</p>
         </div>
       )}
+
+      {showBulk && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+          <BulkUpload mode="vendor" />
+        </motion.div>
+      )}
+
 
       {showForm && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}

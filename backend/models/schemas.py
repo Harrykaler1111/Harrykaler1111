@@ -76,11 +76,13 @@ class ProductCreate(BaseModel):
     price: float
     compare_price: Optional[float] = None
     category: str
+    sku: Optional[str] = None
     sizes: List[str] = []
     colors: List[str] = []
     images: List[str] = []
     videos: List[str] = []
     stock: int = 0
+    variants: List[Dict] = []
     is_limited_edition: bool = False
     drop_date: Optional[str] = None
     tags: List[str] = []
@@ -92,11 +94,13 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     compare_price: Optional[float] = None
     category: Optional[str] = None
+    sku: Optional[str] = None
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     images: Optional[List[str]] = None
     videos: Optional[List[str]] = None
     stock: Optional[int] = None
+    variants: Optional[List[Dict]] = None
     is_limited_edition: Optional[bool] = None
     drop_date: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -111,11 +115,13 @@ class ProductResponse(BaseModel):
     price: float
     compare_price: Optional[float] = None
     category: str
+    sku: Optional[str] = None
     sizes: List[str]
     colors: List[str]
     images: List[str]
     videos: List[str] = []
     stock: int
+    variants: List[Dict] = []
     is_limited_edition: bool
     drop_date: Optional[str] = None
     tags: List[str]
@@ -402,11 +408,13 @@ class VendorProductCreate(BaseModel):
     price: float
     compare_price: Optional[float] = None
     category: str
+    sku: Optional[str] = None
     sizes: List[str] = []
     colors: List[str] = []
     images: List[str] = []
     videos: List[str] = []
     stock: int = 0
+    variants: List[Dict] = []
     tags: List[str] = []
     is_limited_edition: bool = False
 
@@ -417,11 +425,13 @@ class VendorProductUpdate(BaseModel):
     price: Optional[float] = None
     compare_price: Optional[float] = None
     category: Optional[str] = None
+    sku: Optional[str] = None
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     images: Optional[List[str]] = None
     videos: Optional[List[str]] = None
     stock: Optional[int] = None
+    variants: Optional[List[Dict]] = None
     tags: Optional[List[str]] = None
     is_limited_edition: Optional[bool] = None
 
@@ -435,11 +445,13 @@ class VendorProductResponse(BaseModel):
     price: float
     compare_price: Optional[float] = None
     category: str
+    sku: Optional[str] = None
     sizes: List[str]
     colors: List[str]
     images: List[str]
     videos: List[str] = []
     stock: int
+    variants: List[Dict] = []
     tags: List[str]
     is_limited_edition: bool
     approval_status: str
