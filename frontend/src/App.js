@@ -34,6 +34,7 @@ import { Header } from "@/components/layout/Header";
 import { FlashSaleToast } from "@/components/NotificationSystem";
 import { Footer } from "@/components/layout/Footer";
 import { ChatWidget } from "@/components/ChatWidget";
+import { FloatingWhatsApp } from "@/components/WhatsAppButton";
 import { TrackingPixels } from "@/components/TrackingPixels";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { BoosterBar } from "@/components/BoosterBar";
@@ -167,6 +168,7 @@ const LayoutWrapper = ({ children }) => {
       {!hideChrome && <BoosterBar />}
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
+      {!hideChrome && <FloatingWhatsApp />}
       {!hideChrome && <ChatWidget />}
       {!hideChrome && <CartDrawer />}
       <TrackingPixels />

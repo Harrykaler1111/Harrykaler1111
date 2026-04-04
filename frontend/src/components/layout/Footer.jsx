@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Mail, Phone, MessageCircle, Instagram, Shield, CreditCard, Truck, RefreshCw } from "lucide-react";
 import { API } from "@/App";
 import axios from "axios";
+import { PHONE_NUMBER, PHONE_LINK, whatsappLink } from "@/components/WhatsAppButton";
 
 export const Footer = () => {
   const [policies, setPolicies] = useState([]);
@@ -45,7 +46,7 @@ export const Footer = () => {
               <a href="https://instagram.com/thepigma" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full border border-neutral-700 flex items-center justify-center hover:border-gold hover:text-gold transition-colors" data-testid="footer-instagram">
                 <Instagram className="h-3.5 w-3.5" />
               </a>
-              <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full border border-neutral-700 flex items-center justify-center hover:border-green-400 hover:text-green-400 transition-colors" data-testid="footer-whatsapp">
+              <a href={whatsappLink()} target="_blank" rel="noopener noreferrer" className="w-8 h-8 rounded-full border border-neutral-700 flex items-center justify-center hover:border-green-400 hover:text-green-400 transition-colors" data-testid="footer-whatsapp">
                 <MessageCircle className="h-3.5 w-3.5" />
               </a>
               <a href="mailto:support@thepigma.com" className="w-8 h-8 rounded-full border border-neutral-700 flex items-center justify-center hover:border-blue-400 hover:text-blue-400 transition-colors" data-testid="footer-email">
@@ -94,8 +95,13 @@ export const Footer = () => {
               <li><Link to="/contact" className="text-sm text-neutral-300 hover:text-gold transition-colors">Contact Us</Link></li>
               <li><Link to="/support" className="text-sm text-neutral-300 hover:text-gold transition-colors">Help & Support</Link></li>
               <li>
-                <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-300 hover:text-green-400 transition-colors flex items-center gap-1.5">
+                <a href={whatsappLink()} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-300 hover:text-green-400 transition-colors flex items-center gap-1.5">
                   <MessageCircle className="h-3 w-3" /> WhatsApp
+                </a>
+              </li>
+              <li>
+                <a href={PHONE_LINK} className="text-sm text-neutral-300 hover:text-green-400 transition-colors flex items-center gap-1.5">
+                  <Phone className="h-3 w-3" /> {PHONE_NUMBER}
                 </a>
               </li>
               <li>
