@@ -164,7 +164,7 @@ export const CartDrawer = () => {
 
   const handleCheckout = () => {
     closeCart();
-    navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } });
+    navigate("/cart-page");
   };
 
   // Lock body scroll when open

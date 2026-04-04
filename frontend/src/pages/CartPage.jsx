@@ -3,18 +3,18 @@ import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Trash2, Plus, Minus, ArrowRight, Tag, ShoppingBag,
-  Gift, Sparkles
+  Gift, Sparkles, Shield, Truck, RotateCcw, AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
+import { CheckoutAuthModal } from "@/components/CheckoutAuthModal";
 import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 import { whatsappLink } from "@/components/WhatsAppButton";
 
-// ============== MAIN CART PAGE ==============
 export const CartPage = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
@@ -23,19 +23,13 @@ export const CartPage = () => {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [slabs, setSlabs] = useState([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const localTotal = cartTotal || 0;
   const shipping = localTotal >= 2999 ? 0 : 199;
 
-  // Fetch cart slabs for booster discounts
   useEffect(() => {
-    const fetchSlabs = async () => {
-      try {
-        const res = await axios.get(`${API}/cart-booster/slabs`);
-        setSlabs(res.data || []);
-      } catch { /* ignore */ }
-    };
-    fetchSlabs();
+    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
   }, []);
 
   const getActiveSlab = useCallback((total) => {
@@ -74,14 +68,28 @@ export const CartPage = () => {
     }
   };
 
+  const handleCheckout = () => {
+    if (!token) {
+      setShowAuthModal(true);
+    } else {
+      navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } });
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    setTimeout(() => {
+      navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } });
+    }, 500);
+  };
+
   const isEmpty = !cartItems?.length;
 
   return (
     <div className="min-h-screen pt-20 md:pt-24 bg-neutral-50 pb-24 lg:pb-8" data-testid="cart-page">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
         <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="font-serif text-3xl md:text-4xl font-bold mb-8"
         >
           Shopping Cart
@@ -100,48 +108,72 @@ export const CartPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item, idx) => (
-                <motion.div key={`${item.product_id}-${item.size}-${item.color}-${idx}`}
-                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="bg-white rounded-xl p-4 md:p-5 shadow-sm flex gap-4"
-                  data-testid={`cart-item-${item.product_id}`}>
-                  <Link to={`/product/${item.product_id}`} className="shrink-0 w-20 h-24 md:w-24 md:h-28 bg-neutral-100 rounded-lg overflow-hidden">
-                    <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE} alt={item.product?.name}
-                      className="w-full h-full object-cover" onError={handleImageError} />
-                  </Link>
+              {cartItems.map((item, idx) => {
+                const stock = item.product?.stock;
+                const lowStock = stock && stock > 0 && stock <= 5;
+                return (
+                  <motion.div key={`${item.product_id}-${item.size}-${item.color}-${idx}`}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    className="bg-white rounded-xl p-4 md:p-5 shadow-sm flex gap-4"
+                    data-testid={`cart-item-${item.product_id}`}>
+                    <Link to={`/product/${item.product_id}`} className="shrink-0 w-20 h-24 md:w-24 md:h-28 bg-neutral-100 rounded-lg overflow-hidden">
+                      <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE} alt={item.product?.name}
+                        className="w-full h-full object-cover" onError={handleImageError} />
+                    </Link>
 
-                  <div className="flex-1 flex flex-col justify-between min-w-0">
-                    <div>
-                      <Link to={`/product/${item.product_id}`} className="font-medium text-sm md:text-base hover:text-gold transition-colors line-clamp-1">
-                        {item.product?.name || "Product"}
-                      </Link>
-                      <p className="text-xs text-neutral-500 mt-0.5">Size: {item.size} | Color: {item.color}</p>
-                      <p className="font-bold text-lg mt-1">Rs.{(item.product?.price || 0).toLocaleString()}</p>
-                    </div>
+                    <div className="flex-1 flex flex-col justify-between min-w-0">
+                      <div>
+                        <Link to={`/product/${item.product_id}`} className="font-medium text-sm md:text-base hover:text-gold transition-colors line-clamp-1">
+                          {item.product?.name || "Product"}
+                        </Link>
+                        <p className="text-xs text-neutral-500 mt-0.5">Size: {item.size} | Color: {item.color}</p>
+                        <p className="font-bold text-lg mt-1">Rs.{(item.product?.price || 0).toLocaleString()}</p>
+                        {lowStock && (
+                          <div className="flex items-center gap-1 mt-1" data-testid={`low-stock-${item.product_id}`}>
+                            <AlertTriangle className="h-3 w-3 text-red-500" />
+                            <span className="text-[11px] font-semibold text-red-600">Only {stock} left in stock!</span>
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center bg-neutral-100 rounded-lg overflow-hidden">
-                        <button onClick={() => handleUpdateQty(item, item.quantity - 1)}
-                          className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`decrease-qty-${item.product_id}`}>
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                        <button onClick={() => handleUpdateQty(item, item.quantity + 1)}
-                          className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`increase-qty-${item.product_id}`}>
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-neutral-700">Rs.{((item.product?.price || 0) * item.quantity).toLocaleString()}</span>
-                        <button onClick={() => handleRemove(item)} className="text-neutral-400 hover:text-red-500 transition-colors p-1" data-testid={`remove-item-${item.product_id}`}>
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center bg-neutral-100 rounded-lg overflow-hidden">
+                          <button onClick={() => handleUpdateQty(item, item.quantity - 1)}
+                            className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`decrease-qty-${item.product_id}`}>
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                          <button onClick={() => handleUpdateQty(item, item.quantity + 1)}
+                            className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`increase-qty-${item.product_id}`}>
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-neutral-700">Rs.{((item.product?.price || 0) * item.quantity).toLocaleString()}</span>
+                          <button onClick={() => handleRemove(item)} className="text-neutral-400 hover:text-red-500 transition-colors p-1" data-testid={`remove-item-${item.product_id}`}>
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  </motion.div>
+                );
+              })}
+
+              {/* Trust Badges */}
+              <div className="grid grid-cols-3 gap-3" data-testid="cart-trust-badges">
+                {[
+                  { icon: Shield, label: "COD Available", color: "text-green-600", bg: "bg-green-50" },
+                  { icon: Truck, label: "Fast Delivery", color: "text-blue-600", bg: "bg-blue-50" },
+                  { icon: RotateCcw, label: "Easy Returns", color: "text-amber-600", bg: "bg-amber-50" },
+                ].map(({ icon: Icon, label, color, bg }) => (
+                  <div key={label} className={`${bg} rounded-lg py-3 px-2 flex flex-col items-center gap-1.5 text-center`}>
+                    <Icon className={`h-4 w-4 ${color}`} />
+                    <span className={`text-[10px] font-semibold ${color} uppercase tracking-wider`}>{label}</span>
                   </div>
-                </motion.div>
-              ))}
+                ))}
+              </div>
 
               {/* WhatsApp Help */}
               <a href={whatsappLink("Hi, I have a question about my cart")} target="_blank" rel="noopener noreferrer"
@@ -158,7 +190,6 @@ export const CartPage = () => {
                 className="bg-white rounded-xl p-6 shadow-sm sticky top-24">
                 <h3 className="font-serif text-lg font-bold mb-4">Order Summary</h3>
 
-                {/* Cart booster progress */}
                 {nextSlab && (
                   <div className="bg-gradient-to-r from-amber-50 to-gold/10 border border-gold/20 rounded-lg p-3 mb-4" data-testid="cart-booster-progress">
                     <div className="flex items-center gap-2 mb-1">
@@ -182,7 +213,6 @@ export const CartPage = () => {
                   </div>
                 )}
 
-                {/* Coupon */}
                 <div className="flex gap-2 mb-4">
                   <Input placeholder="Coupon code" value={couponCode} onChange={e => setCouponCode(e.target.value)}
                     className="text-sm" data-testid="coupon-input" />
@@ -214,21 +244,28 @@ export const CartPage = () => {
 
                 <Button
                   className="w-full mt-6 bg-black text-white hover:bg-neutral-800 uppercase tracking-widest py-6 font-bold"
-                  onClick={() => navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } })}
+                  onClick={handleCheckout}
                   disabled={isEmpty}
                   data-testid="checkout-btn"
                 >
-                  {token ? "Proceed to Checkout" : "Login & Checkout"} <ArrowRight className="ml-2 h-4 w-4" />
+                  Proceed to Checkout <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
 
                 {!token && (
-                  <p className="text-xs text-neutral-400 text-center mt-2">You'll need to sign in to complete your purchase</p>
+                  <p className="text-xs text-neutral-400 text-center mt-2">You'll sign in at checkout — quick & easy</p>
                 )}
               </motion.div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Auth Modal */}
+      <CheckoutAuthModal
+        open={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };

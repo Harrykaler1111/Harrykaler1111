@@ -14,7 +14,60 @@ import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
+import { CheckoutAuthModal } from "@/components/CheckoutAuthModal";
 import { whatsappLink, PHONE_NUMBER } from "@/components/WhatsAppButton";
+
+// ========== GPS LOCATION BUTTON ==========
+const GpsLocationButton = ({ onFill }) => {
+  const [loading, setLoading] = useState(false);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("GPS not supported by your browser");
+      return;
+    }
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await axios.get(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const addr = res.data.address || {};
+          onFill({
+            address: [addr.road, addr.neighbourhood, addr.suburb].filter(Boolean).join(", ") || "",
+            city: addr.city || addr.town || addr.village || addr.county || "",
+            state: addr.state || "",
+            pincode: addr.postcode || "",
+          });
+          toast.success("Location detected!");
+        } catch {
+          toast.error("Could not detect address. Please enter manually.");
+        } finally { setLoading(false); }
+      },
+      () => {
+        toast.error("Location permission denied. Please enter address manually.");
+        setLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={detectLocation}
+      disabled={loading}
+      className="flex items-center gap-1.5 text-xs text-gold hover:text-gold/80 transition-colors disabled:opacity-50"
+      data-testid="gps-detect-btn"
+    >
+      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MapPin className="h-3 w-3" />}
+      {loading ? "Detecting..." : "Use GPS Location"}
+    </button>
+  );
+};
 
 // ========== PIN CODE INPUT WITH AUTO-FILL ==========
 const PincodeInput = ({ value, onChange, onAutoFill }) => {
@@ -144,6 +197,7 @@ export const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("prepaid");
   const [codEligibility, setCodEligibility] = useState(null);
   const [showBreakdown, setShowBreakdown] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const couponCode = location.state?.coupon;
   const couponDiscount = location.state?.discount || 0;
@@ -152,9 +206,9 @@ export const CheckoutPage = () => {
   const refCode = searchParams.get("ref") || localStorage.getItem("pigma_ref") || "";
 
   const [form, setForm] = useState({
-    fullName: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
+    fullName: "",
+    email: "",
+    phone: "",
     address: "",
     city: "",
     state: "",
@@ -162,8 +216,31 @@ export const CheckoutPage = () => {
     country: "India"
   });
 
+  // Show auth modal if not logged in
+  useEffect(() => {
+    if (!token) {
+      setShowAuthModal(true);
+      setLoading(false);
+    }
+  }, [token]);
+
+  // Pre-fill form with user data when available
+  useEffect(() => {
+    if (user) {
+      setForm(f => ({
+        ...f,
+        fullName: f.fullName || user.name || "",
+        email: f.email || user.email || "",
+        phone: f.phone || user.phone || "",
+      }));
+    }
+  }, [user]);
+
+  // Fetch cart + settings when token available
   useEffect(() => {
     const fetchAll = async () => {
+      if (!token) return;
+      setLoading(true);
       try {
         const [cartRes, settingsRes] = await Promise.all([
           axios.get(`${API}/cart`, { headers: { Authorization: `Bearer ${token}` } }),
@@ -172,25 +249,29 @@ export const CheckoutPage = () => {
         setCart(cartRes.data);
         setCheckoutSettings(settingsRes.data);
         if (!cartRes.data?.items?.length) navigate("/");
-
-        // Check COD eligibility
         try {
           const eligRes = await axios.get(`${API}/checkout/cod-eligibility`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           setCodEligibility(eligRes.data);
         } catch {}
-      } catch {
-        navigate("/");
-      } finally {
-        setLoading(false);
-      }
+      } catch { navigate("/"); }
+      finally { setLoading(false); }
     };
-    if (token) fetchAll();
-    else navigate("/auth", { state: { from: "/checkout" } });
+    fetchAll();
   }, [token, navigate]);
 
   const handleInput = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleGpsFill = useCallback((data) => {
+    setForm(f => ({
+      ...f,
+      address: data.address || f.address,
+      city: data.city || f.city,
+      state: data.state || f.state,
+      pincode: data.pincode || f.pincode,
+    }));
+  }, []);
 
   const handlePinAutoFill = useCallback((city, state) => {
     setForm(f => ({
@@ -308,9 +389,12 @@ export const CheckoutPage = () => {
           <div className="lg:col-span-3 space-y-6">
             {/* SHIPPING */}
             <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-5 md:p-6" data-testid="shipping-section">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-7 h-7 bg-gold text-black rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                <h2 className="font-semibold text-white">Shipping Address</h2>
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 bg-gold text-black rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <h2 className="font-semibold text-white">Shipping Address</h2>
+                </div>
+                <GpsLocationButton onFill={handleGpsFill} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -638,6 +722,13 @@ export const CheckoutPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal for unauthenticated users */}
+      <CheckoutAuthModal
+        open={showAuthModal}
+        onClose={() => { if (!token) navigate("/cart-page"); else setShowAuthModal(false); }}
+        onSuccess={() => setShowAuthModal(false)}
+      />
     </div>
   );
 };

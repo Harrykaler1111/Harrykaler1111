@@ -9,6 +9,7 @@ import { HomePage } from "@/pages/HomePage";
 import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { CheckoutPage } from "@/pages/CheckoutPage";
+import { CartPage } from "@/pages/CartPage";
 import { AuthPage } from "@/pages/AuthPage";
 import { AuthCallback } from "@/pages/AuthCallback";
 import { ProfilePage } from "@/pages/ProfilePage";
@@ -213,14 +214,8 @@ const AppRouter = () => {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/cart" element={<CartRedirect />} />
-      <Route
-        path="/checkout"
-        element={
-          <ProtectedRoute>
-            <CheckoutPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/cart-page" element={<CartPage />} />
+      <Route path="/checkout" element={<CheckoutPage />} />
       <Route
         path="/profile"
         element={
