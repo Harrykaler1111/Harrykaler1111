@@ -435,13 +435,16 @@ async def bulk_publish(session_id: str, uploader: Dict = Depends(get_uploader)):
             failed.append({"sku": sku, "reason": str(e)})
 
     # Update session status
+    created_product_ids = [c["product_id"] for c in created]
     await db.bulk_upload_sessions.update_one(
         {"session_id": session_id},
         {"$set": {
             "status": "published",
             "published_at": datetime.now(timezone.utc).isoformat(),
             "created_count": len(created),
-            "failed_count": len(failed)
+            "failed_count": len(failed),
+            "created_product_ids": created_product_ids,
+            "is_vendor": is_vendor
         }}
     )
 
@@ -464,5 +467,46 @@ async def list_sessions(uploader: Dict = Depends(get_uploader)):
     sessions = await db.bulk_upload_sessions.find(
         {"uploader_id": uploader["id"]},
         {"_id": 0, "products": 0, "sku_image_paths": 0, "session_dir": 0}
-    ).sort("created_at", -1).limit(20).to_list(20)
+    ).sort("created_at", -1).limit(50).to_list(50)
     return sessions
+
+
+@router.post("/revert/{session_id}")
+async def revert_bulk_upload(session_id: str, uploader: Dict = Depends(get_uploader)):
+    """Revert a published bulk upload — deletes all products created in that batch."""
+    session = await db.bulk_upload_sessions.find_one(
+        {"session_id": session_id, "uploader_id": uploader["id"], "status": "published"},
+        {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Published session not found or already reverted")
+
+    product_ids = session.get("created_product_ids", [])
+    if not product_ids:
+        raise HTTPException(status_code=400, detail="No products to revert in this session")
+
+    is_vendor = session.get("is_vendor", False)
+    collection = db.vendor_products if is_vendor else db.products
+
+    # Soft-delete (deactivate) all products from this batch
+    result = await collection.update_many(
+        {"product_id": {"$in": product_ids}},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    # Update session status
+    await db.bulk_upload_sessions.update_one(
+        {"session_id": session_id},
+        {"$set": {
+            "status": "reverted",
+            "reverted_at": datetime.now(timezone.utc).isoformat(),
+            "reverted_count": result.modified_count
+        }}
+    )
+
+    return {
+        "session_id": session_id,
+        "reverted_count": result.modified_count,
+        "total_in_batch": len(product_ids),
+        "message": f"Reverted {result.modified_count} products"
+    }

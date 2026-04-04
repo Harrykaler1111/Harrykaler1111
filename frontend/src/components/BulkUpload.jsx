@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, FileSpreadsheet, Archive, CheckCircle2, XCircle, AlertTriangle,
-  Download, Loader2, Eye, Trash2, Package, ArrowRight, RefreshCw
+  Download, Loader2, Eye, Trash2, Package, ArrowRight, RefreshCw, History, Undo2, Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import axios from "axios";
 
 export const BulkUpload = ({ mode = "admin" }) => {
+  const [view, setView] = useState("upload"); // upload | history
   const [step, setStep] = useState("upload"); // upload | preview | publishing | done
   const [csvFile, setCsvFile] = useState(null);
   const [zipFile, setZipFile] = useState(null);
@@ -127,21 +128,47 @@ export const BulkUpload = ({ mode = "admin" }) => {
           <p className="text-sm text-neutral-400 mt-1">Upload products via CSV/Excel with optional image ZIP</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm"
-            className="border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-400 bg-transparent"
-            onClick={handleDownloadTemplate} data-testid="download-template-btn">
-            <Download className="h-3.5 w-3.5 mr-1.5" /> Download Template
-          </Button>
-          {step !== "upload" && (
-            <Button variant="outline" size="sm"
-              className="border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-400 bg-transparent"
-              onClick={reset} data-testid="reset-bulk-btn">
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Start Over
-            </Button>
+          <div className="flex bg-neutral-800/50 border border-neutral-700 rounded-lg p-0.5">
+            <button
+              onClick={() => setView("upload")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                view === "upload" ? "bg-gold text-black" : "text-neutral-400 hover:text-white"
+              }`}
+              data-testid="bulk-tab-upload"
+            >
+              <Upload className="h-3.5 w-3.5" /> Upload
+            </button>
+            <button
+              onClick={() => setView("history")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                view === "history" ? "bg-gold text-black" : "text-neutral-400 hover:text-white"
+              }`}
+              data-testid="bulk-tab-history"
+            >
+              <History className="h-3.5 w-3.5" /> Import History
+            </button>
+          </div>
+          {view === "upload" && (
+            <>
+              <Button variant="outline" size="sm"
+                className="border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-400 bg-transparent"
+                onClick={handleDownloadTemplate} data-testid="download-template-btn">
+                <Download className="h-3.5 w-3.5 mr-1.5" /> Download Template
+              </Button>
+              {step !== "upload" && (
+                <Button variant="outline" size="sm"
+                  className="border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-400 bg-transparent"
+                  onClick={reset} data-testid="reset-bulk-btn">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Start Over
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
 
+      {view === "upload" && (
+        <>
       {/* Progress Steps */}
       <div className="flex items-center gap-2">
         {["Upload Files", "Preview & Validate", "Publish"].map((s, i) => {
@@ -527,6 +554,151 @@ export const BulkUpload = ({ mode = "admin" }) => {
           </motion.div>
         )}
       </AnimatePresence>
+        </>
+      )}
+
+      {view === "history" && <ImportHistory mode={mode} />}
+    </div>
+  );
+};
+
+// ==================== IMPORT HISTORY ====================
+const ImportHistory = ({ mode }) => {
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [reverting, setReverting] = useState(null);
+
+  const getHeaders = () => {
+    const tokenKey = mode === "vendor" ? "pigma_vendor_token" : "pigma_admin_token";
+    const token = localStorage.getItem(tokenKey);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/products/bulk/sessions`, { headers: getHeaders() });
+      setSessions(res.data || []);
+    } catch { toast.error("Failed to load import history"); }
+    finally { setLoading(false); }
+  }, [mode]);
+
+  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const handleRevert = async (sessionId, createdCount) => {
+    if (!window.confirm(`This will deactivate ${createdCount} product(s) from this batch. Continue?`)) return;
+    setReverting(sessionId);
+    try {
+      const res = await axios.post(`${API}/products/bulk/revert/${sessionId}`, {}, { headers: getHeaders() });
+      toast.success(`Reverted ${res.data.reverted_count} products`);
+      fetchSessions();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Failed to revert");
+    } finally { setReverting(null); }
+  };
+
+  const statusConfig = {
+    published: { label: "Published", color: "bg-green-500/20 text-green-400", icon: CheckCircle2 },
+    reverted: { label: "Reverted", color: "bg-red-500/20 text-red-400", icon: Undo2 },
+    preview: { label: "Preview", color: "bg-amber-500/20 text-amber-400", icon: Eye },
+  };
+
+  const formatDate = (iso) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) +
+      " " + d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  if (loading) return <div className="py-12 text-center text-neutral-400"><Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />Loading history...</div>;
+
+  if (sessions.length === 0) {
+    return (
+      <div className="py-16 text-center">
+        <History className="h-10 w-10 text-neutral-600 mx-auto mb-3" />
+        <p className="text-neutral-400 font-medium">No import history yet</p>
+        <p className="text-xs text-neutral-500 mt-1">Your bulk uploads will appear here</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4" data-testid="import-history-section">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-neutral-400">{sessions.length} import session{sessions.length !== 1 ? "s" : ""}</p>
+        <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white" onClick={() => { setLoading(true); fetchSessions(); }}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
+        </Button>
+      </div>
+
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-neutral-700 hover:bg-transparent">
+              <TableHead className="text-neutral-400 font-semibold">Date</TableHead>
+              <TableHead className="text-neutral-400 font-semibold">Session</TableHead>
+              <TableHead className="text-neutral-400 font-semibold">Status</TableHead>
+              <TableHead className="text-neutral-400 font-semibold">Products</TableHead>
+              <TableHead className="text-neutral-400 font-semibold">Valid / Errors</TableHead>
+              <TableHead className="text-neutral-400 font-semibold text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sessions.map(s => {
+              const cfg = statusConfig[s.status] || statusConfig.preview;
+              const StatusIcon = cfg.icon;
+              return (
+                <TableRow key={s.session_id} className="border-neutral-700 hover:bg-neutral-700/30" data-testid={`history-row-${s.session_id}`}>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-300">
+                      <Clock className="h-3.5 w-3.5 text-neutral-500" />
+                      {formatDate(s.published_at || s.created_at)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <code className="text-[10px] font-mono text-neutral-400 bg-neutral-700 px-1.5 py-0.5 rounded">{s.session_id}</code>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`text-[10px] border-0 ${cfg.color}`}>
+                      <StatusIcon className="h-3 w-3 mr-1" /> {cfg.label}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm font-semibold text-white">{s.created_count || s.total || 0}</span>
+                    {s.reverted_at && (
+                      <span className="text-xs text-red-400 ml-1.5">({s.reverted_count || 0} reverted)</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-green-400 text-sm">{s.valid_count || 0}</span>
+                    <span className="text-neutral-600 mx-1">/</span>
+                    <span className={`text-sm ${s.error_count > 0 ? "text-red-400" : "text-neutral-500"}`}>{s.error_count || 0}</span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {s.status === "published" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        onClick={() => handleRevert(s.session_id, s.created_count || 0)}
+                        disabled={reverting === s.session_id}
+                        data-testid={`revert-btn-${s.session_id}`}
+                      >
+                        {reverting === s.session_id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                          : <Undo2 className="h-3.5 w-3.5 mr-1" />}
+                        Revert
+                      </Button>
+                    )}
+                    {s.status === "reverted" && (
+                      <span className="text-xs text-neutral-500 italic">Reverted {formatDate(s.reverted_at)}</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
