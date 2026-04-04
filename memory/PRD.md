@@ -20,66 +20,48 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Completed Features
 
+### Phase 34 - Reseller Price Override (2026-04-04)
+- Backend: Product API accepts `?reseller_id=X&price=Y`, validates against `reseller_links` collection, overrides price in response and nulls `compare_price`
+- Backend: Cart validates reseller price override on add (checks reseller_links + price >= base_price). Manipulated URLs rejected.
+- Backend: Order creation uses `price_override` as effective price
+- Frontend: Product page reads URL params, passes to API — buyer sees ONLY reseller price. No strikethrough, no discount badge, no compare_price, no partner links section.
+- Cart shows reseller price cleanly without base price exposure
+- **Testing**: Iteration 38 - PASS (100% backend, 100% frontend)
+
 ### Phase 33 - Scalable On-Demand Affiliate + Reseller System (2026-03-31)
-**Architecture**: Amazon+Meesho model — links generated PER PRODUCT on-demand, not bulk-loaded.
-
-**Backend Changes:**
-- `POST /api/affiliates/generate-link` — generate affiliate link for one product (stores in `affiliate_links` collection)
-- `GET /api/affiliates/my-links` — paginated history of generated links only
-- `GET /api/affiliates/check-product/{product_id}` — check if link exists for a product
-- `POST /api/resellers/generate-link` — generate reseller link with custom margin
-- `GET /api/resellers/my-links` — paginated history of generated reseller links
-- `GET /api/resellers/check-product/{product_id}` — check if link exists
-- **REMOVED**: Bulk `/api/affiliates/product-links` and `/api/resellers/products` endpoints
-
-**Frontend Changes:**
-- `ProductPartnerLinks` component on every product page — inline affiliate/reseller link generation
-- Affiliate Dashboard: lightweight with My Links + Find Products (search) tabs
-- Reseller Dashboard: lightweight with Overview + My Links + Find Products + Wallet tabs
-- No bulk product loading anywhere — supports 10K+ products efficiently
-
-**Link Structure:**
-- Affiliate: `?aff_id=USER_ID`
-- Reseller: `?reseller_id=USER_ID&price=CUSTOM_PRICE`
-
-**Testing**: Iteration 37 - PASS (17/17 backend, 100% frontend)
+- On-demand link generation per product (not bulk). ProductPartnerLinks component on product pages. Lightweight dashboards with link history + search.
+- Link structure: `?aff_id=USER_ID` (affiliate), `?reseller_id=USER_ID&price=CUSTOM_PRICE` (reseller)
+- **Testing**: Iteration 37 - PASS
 
 ### Phase 32 - 7-Feature Fix & Enhancement (2026-03-31)
-- Reseller System Fix, Admin Dark Theme, Influencer Join Flow, Affiliate System, Dynamic RBAC, Vendor Scrollable Sidebar, Credit Revenue Tracking
-- Testing: Iteration 36 - PASS
+- Reseller System, Admin Dark Theme, Influencer Join Flow, Affiliate System, Dynamic RBAC, Vendor Sidebar, Credit Revenue
+- **Testing**: Iteration 36 - PASS
 
 ### Phase 31 - Deep Interakt WhatsApp Integration (2026-03-31)
-- Interakt API connected, order notifications, COD confirmation, abandoned cart recovery, broadcast marketing
-- Testing: Iteration 35 - PASS
+- Order notifications, COD confirmation, abandoned cart recovery, broadcast marketing
+- **Testing**: Iteration 35 - PASS
 
-### Phase 30 - Security & Super Admin Control System
-- Credential cleanup, Super Admin user management, activity logging
-- Testing: Iteration 34 - PASS
+### Earlier Phases (12-30)
+- Full platform: Security, Cart Booster, Flash Sales, Push Notifications, Mega Menu, Quick Add, Bundles, Checkout, etc.
 
-### Earlier Phases (12-29)
-- Full platform: Cart Booster, Flash Sales, Push Notifications, Mega Menu, Compact Grid, Quick Add, Bundles, Advanced Checkout, etc.
+## Key DB Collections
+- `reseller_links` — generated reseller links with validated prices
+- `affiliate_links` — generated affiliate links
+- `admin_permissions` — dynamic RBAC overrides
+- `platform_revenue` — credit purchase revenue
+- `whatsapp_messages/settings/campaigns` — Interakt data
 
-## Key DB Collections (New)
-- `affiliate_links` — generated affiliate links (one per user+product)
-- `reseller_links` — generated reseller links (one per user+product)
-- `admin_permissions` — custom permission overrides per admin
-- `platform_revenue` — credit purchase revenue records
-- `whatsapp_messages/settings/campaigns/webhooks` — Interakt data
-
-## MOCKED Integrations
-- Razorpay, Instagram Graph API
-
-## REAL Integrations
-- Interakt WhatsApp Business API (Growth Plan)
+## MOCKED: Razorpay, Instagram Graph API
+## REAL: Interakt WhatsApp Business API
 
 ## Remaining Tasks
-### P1 - Upcoming
-- "Testing Mode" for Orders (dummy order flow)
-- Real Instagram Graph API (when credentials provided)
-- Track affiliate/reseller link clicks and conversions on product page
+### P1
+- Track affiliate/reseller link clicks and conversions
+- "Testing Mode" for Orders
+- Real Instagram Graph API
 
-### P2 - Future/Backlog
-- AdminDashboard.jsx refactoring (3500+ lines)
+### P2
+- AdminDashboard.jsx refactoring
 - Vendor email digest notifications
 - A/B testing for hero videos
 - Real Razorpay live keys
