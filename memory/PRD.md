@@ -22,6 +22,14 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Completed Features
 
+### Phase 36 - Image Pipeline Audit & Fix (2026-04-04)
+- Root Cause: Product images stored with old preview domain URLs (e.g., `pigma-approval-hub.preview...`) broke when the deployment domain changed
+- Created `/app/frontend/src/utils/imageUtils.js` with `normalizeImageUrl()` — strips old domains from `/api/uploads/files/` paths and prepends current REACT_APP_BACKEND_URL; keeps external URLs as-is
+- Added `handleImageError` fallback: clean SVG camera icon with "No Image" text for failed/missing images
+- Applied normalizeImageUrl + onError to ALL product image references across 12+ components (ProductCard, ProductDetailPage, HomePage, CartDrawer, CheckoutPage, AdminDashboard, AdminProductsHub, AdminBoosterPanel, AdminBundlePanel, BundleDeals, FrequentlyBoughtTogether, BoosterBar, AffiliateDashboard, ResellerDashboard, OrdersPage, CartPage)
+- Backend: Updated `serve_file` endpoint to fallback to direct Object Storage fetch when no `uploaded_files` DB record exists
+- **Testing**: Iteration 41 — 93% backend (1 proxy cache-control issue), 100% frontend, 0 broken images
+
 ### Phase 35 - Bulk Product Upload System (2026-04-04)
 - Backend: POST /api/products/bulk/preview — Parses CSV/Excel + optional ZIP of images, validates required fields (sku, name, description, price, category), detects duplicate SKUs, parses variant format (Color:Size:Qty;...), maps images by SKU filename prefix
 - Backend: POST /api/products/bulk/publish/{session_id} — Creates products in DB with correct sku, variants, stock; uploads images to Object Storage; skips invalid rows and reports failures
