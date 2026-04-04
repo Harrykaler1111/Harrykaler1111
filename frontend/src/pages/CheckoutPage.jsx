@@ -187,6 +187,7 @@ export const CheckoutPage = () => {
       }
     };
     if (token) fetchAll();
+    else navigate("/auth", { state: { from: "/checkout" } });
   }, [token, navigate]);
 
   const handleInput = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));

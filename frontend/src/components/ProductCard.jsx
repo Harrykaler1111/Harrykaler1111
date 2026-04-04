@@ -22,19 +22,18 @@ export const ProductCard = ({ product }) => {
   const handleQuickAdd = useCallback(async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user) { toast.error("Please sign in first"); navigate("/auth"); return; }
     if (product.stock <= 0) return;
 
     setAdding(true);
     const defaultSize = product.sizes?.[0] || "M";
     const defaultColor = product.colors?.[0] || "Default";
-    const ok = await addToCart(product.product_id, 1, defaultSize, defaultColor);
+    const ok = await addToCart(product.product_id, 1, defaultSize, defaultColor, product);
     if (ok) {
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1200);
     }
     setAdding(false);
-  }, [user, product, addToCart, navigate]);
+  }, [product, addToCart]);
 
   const handleIncrease = useCallback(async (e) => {
     e.preventDefault();

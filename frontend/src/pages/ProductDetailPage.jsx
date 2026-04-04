@@ -217,16 +217,13 @@ export const ProductDetailPage = () => {
   }, [productId, navigate, urlResellerId, urlPrice]);
 
   const handleAddToCart = async () => {
-    if (!user) { toast.error("Please sign in to add to cart"); navigate("/auth"); return; }
     if (!selectedSize || !selectedColor) { toast.error("Please select size and color"); return; }
     setAddingToCart(true);
     try {
       const ok = await addToCart(
-        product.product_id, quantity, selectedSize, selectedColor,
-        isResellerView ? urlResellerId : null,
-        isResellerView ? urlPrice : null
+        product.product_id, quantity, selectedSize, selectedColor, product
       );
-      if (ok) { toast.success("Added to cart!"); openCart(); }
+      if (ok) { openCart(); }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to add to cart");
     } finally { setAddingToCart(false); }

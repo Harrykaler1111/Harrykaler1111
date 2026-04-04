@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import {
@@ -79,17 +79,39 @@ export const CartDrawer = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const {
-    cart, cartTotal, cartCount, refreshCart, addToCart,
-    getActiveSlab, isCartOpen, closeCart
+    cartItems, cartTotal, cartCount, addToCart,
+    updateQuantity: ctxUpdateQty, removeFromCart, fetchCart
   } = useCart();
 
+  const [isOpen, setIsOpen] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [recommendations, setRecommendations] = useState([]);
   const [recsLoading, setRecsLoading] = useState(false);
   const [showBillDetails, setShowBillDetails] = useState(false);
+  const [slabs, setSlabs] = useState([]);
   const scrollRef = useRef(null);
+
+  // Cart open/close via custom event
+  useEffect(() => {
+    const openHandler = () => setIsOpen(true);
+    window.addEventListener("open-cart", openHandler);
+    return () => window.removeEventListener("open-cart", openHandler);
+  }, []);
+
+  const closeCart = () => setIsOpen(false);
+
+  // Fetch slabs
+  useEffect(() => {
+    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
+  }, []);
+
+  const getActiveSlab = useCallback((total) => {
+    const active = slabs.filter(s => s.is_active && total >= s.min_amount).sort((a, b) => b.min_amount - a.min_amount)[0] || null;
+    const next = slabs.filter(s => s.is_active && total < s.min_amount).sort((a, b) => a.min_amount - b.min_amount)[0] || null;
+    return { active, next };
+  }, [slabs]);
 
   const total = cartTotal || 0;
   const { active: activeSlab } = getActiveSlab(total);
@@ -103,37 +125,26 @@ export const CartDrawer = () => {
 
   // Fetch "You May Also Like" products
   useEffect(() => {
-    if (!isCartOpen || !token) return;
+    if (!isOpen) return;
     setRecsLoading(true);
     axios.get(`${API}/cart/upsell-suggestions?max_price=5000`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
     }).then(r => setRecommendations(r.data || []))
       .catch(() => {})
       .finally(() => setRecsLoading(false));
-  }, [isCartOpen, token, cartCount]);
+  }, [isOpen, token, cartCount]);
 
   const updateQuantity = async (item, newQty) => {
     if (newQty < 1) return;
-    try {
-      await axios.put(`${API}/cart/update`, { ...item, quantity: newQty }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      refreshCart();
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    await ctxUpdateQty(item.product_id, newQty, item.size, item.color);
   };
 
   const removeItem = async (item) => {
-    try {
-      await axios.delete(`${API}/cart/item/${item.product_id}?size=${item.size}&color=${item.color}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      toast.success("Removed");
-      refreshCart();
-    } catch { toast.error("Failed to remove"); }
+    await removeFromCart(item.product_id, item.size, item.color);
   };
 
   const handleAddRecommended = async (product) => {
-    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default");
+    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product);
     if (ok) toast.success(`${product.name} added!`);
   };
 
@@ -158,19 +169,19 @@ export const CartDrawer = () => {
 
   // Lock body scroll when open
   useEffect(() => {
-    if (isCartOpen) {
+    if (isOpen) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [isCartOpen]);
+  }, [isOpen]);
 
-  const items = cart?.items || [];
+  const items = cartItems || [];
 
   return (
     <AnimatePresence>
-      {isCartOpen && (
+      {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div

@@ -135,15 +135,14 @@ export const FrequentlyBoughtTogether = ({ productId, currentProduct }) => {
   const itemCount = 1 + selectedProducts.length;
 
   const handleAddAll = async () => {
-    if (!user) { toast.error("Please sign in to add to cart"); return; }
     setAdding(true);
     let added = 0;
     try {
-      // Add current product
       const ok1 = await addToCart(
         currentProduct.product_id, 1,
         currentProduct.sizes?.[0] || "M",
-        currentProduct.colors?.[0] || "Default"
+        currentProduct.colors?.[0] || "Default",
+        currentProduct
       );
       if (ok1) added++;
 

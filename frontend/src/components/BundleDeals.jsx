@@ -339,12 +339,11 @@ export const BundleDetailPage = () => {
   }, [bundleId, navigate]);
 
   const handleAddBundle = async () => {
-    if (!user) { toast.error("Please sign in"); return; }
     setAdding(true);
     let added = 0;
     try {
       for (const p of (bundle.products || [])) {
-        const ok = await addToCart(p.product_id, 1, p.sizes?.[0] || "M", p.colors?.[0] || "Default");
+        const ok = await addToCart(p.product_id, 1, p.sizes?.[0] || "M", p.colors?.[0] || "Default", p);
         if (ok) added++;
       }
       if (added > 0) {

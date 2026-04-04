@@ -34,7 +34,6 @@ from routes.collaboration_routes import router as collab_router
 from routes.action_history_routes import router as action_history_router
 from routes.referral_manager_routes import router as referral_manager_router
 from routes.upload_routes import router as upload_router
-from routes.support_ticket_routes import router as ticket_router
 from routes.reward_routes import router as reward_router
 from routes.return_routes import router as return_router
 from routes.site_settings_routes import router as site_settings_router
@@ -46,6 +45,9 @@ from routes.bundle_routes import router as bundle_router
 from routes.notification_routes import router as notification_router
 from routes.whatsapp_routes import router as whatsapp_router
 from routes.bulk_upload_routes import router as bulk_upload_router
+from routes.dummy_review_routes import router as dummy_review_router
+from routes.fomo_routes import router as fomo_router
+from routes.vendor_credit_routes import router as vendor_credit_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -75,7 +77,6 @@ app.include_router(collab_router, prefix="/api")
 app.include_router(action_history_router, prefix="/api")
 app.include_router(referral_manager_router, prefix="/api")
 app.include_router(upload_router, prefix="/api")
-app.include_router(ticket_router, prefix="/api")
 app.include_router(reward_router, prefix="/api")
 app.include_router(return_router, prefix="/api")
 app.include_router(site_settings_router, prefix="/api")
@@ -87,6 +88,9 @@ app.include_router(bundle_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(whatsapp_router, prefix="/api")
 app.include_router(bulk_upload_router, prefix="/api")
+app.include_router(dummy_review_router, prefix="/api")
+app.include_router(fomo_router, prefix="/api")
+app.include_router(vendor_credit_router, prefix="/api")
 
 # Serve uploaded files
 from fastapi.staticfiles import StaticFiles

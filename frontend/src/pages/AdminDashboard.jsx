@@ -3467,7 +3467,6 @@ export const AdminDashboard = () => {
     { path: "/admin/resellers", icon: <TrendingUp className="h-5 w-5" />, label: "Resellers", permission: ["resellers", "view"] },
     { path: "/admin/action-history", icon: <AlertTriangle className="h-5 w-5" />, label: "Action History", permission: ["analytics", "view"] },
     { path: "/admin/managers", icon: <Shield className="h-5 w-5" />, label: "Managers", permission: ["admin_users", "view"] },
-    { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/returns", icon: <Package className="h-5 w-5" />, label: "Returns & Disputes", permission: ["orders", "view"] },
     { path: "/admin/settings", icon: <Settings className="h-5 w-5" />, label: "Settings", permission: ["platform_settings", "view"] },
     { path: "/admin/hero-video", icon: <Eye className="h-5 w-5" />, label: "Hero Video", permission: ["platform_settings", "edit"] },
@@ -3567,7 +3566,6 @@ export const AdminDashboard = () => {
             <Route path="suspension-history" element={<SuspensionHistoryPage />} />
             <Route path="action-history" element={<ActionHistoryPage />} />
             <Route path="managers" element={<ManagersPage />} />
-            <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="returns" element={<ReturnsManagement />} />
             <Route path="settings" element={<CommissionSettings />} />
             <Route path="hero-video" element={<HeroVideoManagement />} />

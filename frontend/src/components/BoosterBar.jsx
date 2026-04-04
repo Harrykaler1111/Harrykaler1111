@@ -237,17 +237,30 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
 // ============== MAIN STICKY BOOSTER BAR ==============
 export const BoosterBar = () => {
   const navigate = useNavigate();
-  const { cartTotal, cartCount, slabs, messages, getActiveSlab, lastAddedAmount, newSlabUnlocked, openCart } = useCart();
+  const { cartTotal, cartCount, openCart } = useCart();
   const [showUpsell, setShowUpsell] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [slabs, setSlabs] = useState([]);
+  const [messages, setMessages] = useState({});
 
-  const enabledSlabs = slabs.filter(s => s.is_enabled).sort((a, b) => a.min_cart_value - b.min_cart_value);
+  useEffect(() => {
+    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
+    axios.get(`${API}/cart-booster/messages`).then(r => setMessages(r.data || {})).catch(() => {});
+  }, []);
+
+  const enabledSlabs = slabs.filter(s => s.is_enabled || s.is_active).sort((a, b) => (a.min_cart_value || a.min_amount || 0) - (b.min_cart_value || b.min_amount || 0));
   if (enabledSlabs.length === 0) return null;
 
+  const getActiveSlab = (total) => {
+    const active = enabledSlabs.filter(s => total >= (s.min_cart_value || s.min_amount || 0)).sort((a, b) => (b.min_cart_value || b.min_amount || 0) - (a.min_cart_value || a.min_amount || 0))[0] || null;
+    const next = enabledSlabs.filter(s => total < (s.min_cart_value || s.min_amount || 0)).sort((a, b) => (a.min_cart_value || a.min_amount || 0) - (b.min_cart_value || b.min_amount || 0))[0] || null;
+    return { active, next };
+  };
+
   const { active, next } = getActiveSlab(cartTotal);
-  const maxThreshold = enabledSlabs[enabledSlabs.length - 1]?.min_cart_value || 1;
+  const maxThreshold = (enabledSlabs[enabledSlabs.length - 1]?.min_cart_value || enabledSlabs[enabledSlabs.length - 1]?.min_amount) || 1;
   const progress = Math.min((cartTotal / maxThreshold) * 100, 100);
-  const amountToNext = next ? next.min_cart_value - cartTotal : 0;
+  const amountToNext = next ? (next.min_cart_value || next.min_amount || 0) - cartTotal : 0;
   const nearNext = next && amountToNext <= 300 && amountToNext > 0;
 
   const msgCfg = messages || {};
@@ -257,7 +270,7 @@ export const BoosterBar = () => {
 
   return (
     <>
-      <ConfettiBurst show={!!newSlabUnlocked} />
+      <ConfettiBurst show={false} />
       <UpsellModal
         open={showUpsell}
         onClose={() => setShowUpsell(false)}
@@ -326,17 +339,12 @@ export const BoosterBar = () => {
                 </div>
               </div>
 
-              <AddedPopup amount={lastAddedAmount} />
+              <AddedPopup amount={0} />
 
               {/* Message */}
               <div className="shrink-0 text-right min-w-[200px]">
                 <AnimatePresence mode="wait">
-                  {newSlabUnlocked ? (
-                    <motion.p key="unlocked" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }}
-                      className="text-green-400 text-sm font-bold flex items-center gap-1 justify-end" data-testid="slab-unlocked-msg">
-                      <Gift className="h-4 w-4" /> {newSlabUnlocked.reward_label} {msgCfg.unlocked_text || "Unlocked!"}
-                    </motion.p>
-                  ) : active && !next ? (
+                  {active && !next ? (
                     <motion.p key="max" initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }}
                       className="text-gold text-sm font-bold" data-testid="max-unlocked-msg">
                       {msgCfg.max_unlocked_text || "Maximum reward unlocked!"}

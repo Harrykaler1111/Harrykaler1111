@@ -12,53 +12,52 @@ import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
+import { whatsappLink } from "@/components/WhatsAppButton";
 
 // ============== MAIN CART PAGE ==============
 export const CartPage = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { cartTotal, getActiveSlab, refreshCart } = useCart();
-  const [cart, setCart] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { cartItems, cartTotal, updateQuantity: ctxUpdateQty, removeFromCart, fetchCart } = useCart();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [slabs, setSlabs] = useState([]);
 
-  const localTotal = cart?.total || 0;
-  const { active: activeSlab } = getActiveSlab(localTotal);
+  const localTotal = cartTotal || 0;
+  const shipping = localTotal >= 2999 ? 0 : 199;
+
+  // Fetch cart slabs for booster discounts
+  useEffect(() => {
+    const fetchSlabs = async () => {
+      try {
+        const res = await axios.get(`${API}/cart-booster/slabs`);
+        setSlabs(res.data || []);
+      } catch { /* ignore */ }
+    };
+    fetchSlabs();
+  }, []);
+
+  const getActiveSlab = useCallback((total) => {
+    const active = slabs.filter(s => s.is_active && total >= s.min_amount).sort((a, b) => b.min_amount - a.min_amount)[0] || null;
+    const next = slabs.filter(s => s.is_active && total < s.min_amount).sort((a, b) => a.min_amount - b.min_amount)[0] || null;
+    return { active, next };
+  }, [slabs]);
+
+  const { active: activeSlab, next: nextSlab } = getActiveSlab(localTotal);
   const slabDiscount = activeSlab?.reward_type === "fixed" ? activeSlab.reward_value
     : activeSlab?.reward_type === "percentage" ? Math.round(localTotal * activeSlab.reward_value / 100)
     : 0;
   const totalDiscount = slabDiscount + couponDiscount;
-  const shipping = localTotal >= 2999 ? 0 : 199;
   const finalTotal = Math.max(localTotal - totalDiscount + shipping, 0);
 
-  const fetchCart = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API}/cart`, { headers: { Authorization: `Bearer ${token}` } });
-      setCart(res.data);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, [token]);
-
-  useEffect(() => { fetchCart(); }, [token]);
-
-  const updateQuantity = async (item, newQty) => {
+  const handleUpdateQty = async (item, newQty) => {
     if (newQty < 1) return;
-    try {
-      await axios.put(`${API}/cart/update`, { ...item, quantity: newQty }, { headers: { Authorization: `Bearer ${token}` } });
-      fetchCart();
-      refreshCart();
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    await ctxUpdateQty(item.product_id, newQty, item.size, item.color);
   };
 
-  const removeItem = async (item) => {
-    try {
-      await axios.delete(`${API}/cart/item/${item.product_id}?size=${item.size}&color=${item.color}`, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success("Item removed");
-      fetchCart();
-      refreshCart();
-    } catch { toast.error("Failed to remove item"); }
+  const handleRemove = async (item) => {
+    await removeFromCart(item.product_id, item.size, item.color);
   };
 
   const applyCoupon = async () => {
@@ -75,15 +74,7 @@ export const CartPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen pt-24 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold" />
-      </div>
-    );
-  }
-
-  const isEmpty = !cart?.items?.length;
+  const isEmpty = !cartItems?.length;
 
   return (
     <div className="min-h-screen pt-20 md:pt-24 bg-neutral-50 pb-24 lg:pb-8" data-testid="cart-page">
@@ -107,154 +98,133 @@ export const CartPage = () => {
           </motion.div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-            {/* Left Column - Cart Items */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Cart Items */}
-              <div className="space-y-3">
-                <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">{cart.items.length} item{cart.items.length !== 1 ? "s" : ""} in cart</p>
-                {cart.items.map((item, index) => (
-                  <motion.div
-                    key={`${item.product_id}-${item.size}-${item.color}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="bg-white rounded-xl p-4 md:p-5 flex gap-4 md:gap-6 shadow-sm hover:shadow-md transition-shadow"
-                    data-testid={`cart-item-${item.product_id}`}
-                  >
-                    <Link to={`/product/${item.product_id}`} className="w-20 md:w-28 flex-shrink-0">
-                      <div className="aspect-[3/4] bg-neutral-100 rounded-lg overflow-hidden">
-                        <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE} alt={item.product?.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                      </div>
-                    </Link>
+            {/* Cart Items */}
+            <div className="lg:col-span-2 space-y-4">
+              {cartItems.map((item, idx) => (
+                <motion.div key={`${item.product_id}-${item.size}-${item.color}-${idx}`}
+                  initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="bg-white rounded-xl p-4 md:p-5 shadow-sm flex gap-4"
+                  data-testid={`cart-item-${item.product_id}`}>
+                  <Link to={`/product/${item.product_id}`} className="shrink-0 w-20 h-24 md:w-24 md:h-28 bg-neutral-100 rounded-lg overflow-hidden">
+                    <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE} alt={item.product?.name}
+                      className="w-full h-full object-cover" onError={handleImageError} />
+                  </Link>
 
-                    <div className="flex-1 flex flex-col justify-between min-w-0">
-                      <div>
-                        <Link to={`/product/${item.product_id}`} className="font-medium text-sm md:text-base hover:text-gold transition-colors line-clamp-1">
-                          {item.product?.name || "Product"}
-                        </Link>
-                        <p className="text-xs text-neutral-500 mt-0.5">Size: {item.size} | Color: {item.color}</p>
-                        <p className="font-bold text-lg mt-1">Rs.{(item.product?.price || 0).toLocaleString()}</p>
-                      </div>
+                  <div className="flex-1 flex flex-col justify-between min-w-0">
+                    <div>
+                      <Link to={`/product/${item.product_id}`} className="font-medium text-sm md:text-base hover:text-gold transition-colors line-clamp-1">
+                        {item.product?.name || "Product"}
+                      </Link>
+                      <p className="text-xs text-neutral-500 mt-0.5">Size: {item.size} | Color: {item.color}</p>
+                      <p className="font-bold text-lg mt-1">Rs.{(item.product?.price || 0).toLocaleString()}</p>
+                    </div>
 
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center bg-neutral-100 rounded-lg overflow-hidden">
-                          <button onClick={() => updateQuantity(item, item.quantity - 1)}
-                            className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`decrease-qty-${item.product_id}`}>
-                            <Minus className="h-3 w-3" />
-                          </button>
-                          <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item, item.quantity + 1)}
-                            className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`increase-qty-${item.product_id}`}>
-                            <Plus className="h-3 w-3" />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold text-neutral-700">Rs.{((item.product?.price || 0) * item.quantity).toLocaleString()}</span>
-                          <button onClick={() => removeItem(item)} className="text-neutral-400 hover:text-red-500 transition-colors p-1" data-testid={`remove-item-${item.product_id}`}>
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <div className="flex items-center bg-neutral-100 rounded-lg overflow-hidden">
+                        <button onClick={() => handleUpdateQty(item, item.quantity - 1)}
+                          className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`decrease-qty-${item.product_id}`}>
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                        <button onClick={() => handleUpdateQty(item, item.quantity + 1)}
+                          className="w-8 h-8 flex items-center justify-center hover:bg-neutral-200 transition-colors" data-testid={`increase-qty-${item.product_id}`}>
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-neutral-700">Rs.{((item.product?.price || 0) * item.quantity).toLocaleString()}</span>
+                        <button onClick={() => handleRemove(item)} className="text-neutral-400 hover:text-red-500 transition-colors p-1" data-testid={`remove-item-${item.product_id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
+                  </div>
+                </motion.div>
+              ))}
+
+              {/* WhatsApp Help */}
+              <a href={whatsappLink("Hi, I have a question about my cart")} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-2.5 text-xs text-neutral-400 hover:text-green-500 transition-colors rounded-lg border border-neutral-200 hover:border-green-300"
+                data-testid="cart-whatsapp-help">
+                <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                Need help? Chat on WhatsApp
+              </a>
             </div>
 
-            {/* Right Column - Order Summary */}
+            {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl p-6 sticky top-28 shadow-sm">
-                <h2 className="font-serif text-xl font-bold mb-6">Order Summary</h2>
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-xl p-6 shadow-sm sticky top-24">
+                <h3 className="font-serif text-lg font-bold mb-4">Order Summary</h3>
+
+                {/* Cart booster progress */}
+                {nextSlab && (
+                  <div className="bg-gradient-to-r from-amber-50 to-gold/10 border border-gold/20 rounded-lg p-3 mb-4" data-testid="cart-booster-progress">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Gift className="h-3.5 w-3.5 text-gold" />
+                      <span className="text-xs font-bold text-amber-800">
+                        Add Rs.{(nextSlab.min_amount - localTotal).toLocaleString()} more for {nextSlab.reward_type === "fixed" ? `Rs.${nextSlab.reward_value} off` : `${nextSlab.reward_value}% off`}
+                      </span>
+                    </div>
+                    <div className="w-full bg-neutral-200 rounded-full h-1.5 mt-2">
+                      <div className="bg-gold rounded-full h-1.5 transition-all" style={{ width: `${Math.min((localTotal / nextSlab.min_amount) * 100, 100)}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {activeSlab && (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3 mb-4" data-testid="active-slab-discount">
+                    <Sparkles className="h-4 w-4 text-green-600" />
+                    <span className="text-xs font-bold text-green-700">
+                      Cart reward: {activeSlab.reward_type === "fixed" ? `Rs.${activeSlab.reward_value}` : `${activeSlab.reward_value}%`} off applied!
+                    </span>
+                  </div>
+                )}
 
                 {/* Coupon */}
-                <div className="mb-6">
-                  <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-2 block">Discount Code</label>
-                  <div className="flex gap-2">
-                    <Input value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      placeholder="Enter code" className="uppercase text-sm" data-testid="coupon-input" />
-                    <Button onClick={applyCoupon} variant="outline" className="flex-shrink-0" data-testid="apply-coupon-btn">
-                      <Tag className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {appliedCoupon && (
-                    <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> {appliedCoupon.code} applied! -Rs.{couponDiscount.toLocaleString()}
-                    </p>
-                  )}
+                <div className="flex gap-2 mb-4">
+                  <Input placeholder="Coupon code" value={couponCode} onChange={e => setCouponCode(e.target.value)}
+                    className="text-sm" data-testid="coupon-input" />
+                  <Button onClick={applyCoupon} variant="outline" size="sm" className="shrink-0" data-testid="apply-coupon-btn">
+                    <Tag className="h-3.5 w-3.5 mr-1" /> Apply
+                  </Button>
                 </div>
 
-                {/* Totals */}
-                <div className="space-y-3 pb-5 border-b border-neutral-100">
-                  <div className="flex justify-between text-sm">
+                <div className="space-y-3 text-sm border-t pt-4">
+                  <div className="flex justify-between">
                     <span className="text-neutral-500">Subtotal</span>
                     <span className="font-medium">Rs.{localTotal.toLocaleString()}</span>
                   </div>
-
-                  {/* Slab discount */}
-                  {slabDiscount > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      className="flex justify-between text-sm"
-                    >
-                      <span className="text-green-600 flex items-center gap-1"><Gift className="h-3 w-3" /> Cart Booster</span>
-                      <span className="text-green-600 font-medium" data-testid="slab-discount">-Rs.{slabDiscount.toLocaleString()}</span>
-                    </motion.div>
-                  )}
-
-                  {couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-green-600 flex items-center gap-1"><Tag className="h-3 w-3" /> Coupon</span>
-                      <span className="text-green-600 font-medium">-Rs.{couponDiscount.toLocaleString()}</span>
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Discount</span>
+                      <span className="font-medium">-Rs.{totalDiscount.toLocaleString()}</span>
                     </div>
                   )}
-
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between">
                     <span className="text-neutral-500">Shipping</span>
-                    <span className={shipping === 0 ? "text-green-600 font-medium" : ""}>
-                      {shipping === 0 ? "Free" : `Rs.${shipping}`}
-                    </span>
+                    <span className="font-medium">{shipping === 0 ? <span className="text-green-600">FREE</span> : `Rs.${shipping}`}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-3 text-lg font-bold">
+                    <span>Total</span>
+                    <span>Rs.{finalTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
-                {/* Total Savings Banner */}
-                {totalDiscount > 0 && (
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-green-50 border border-green-200 rounded-lg p-3 my-4 text-center"
-                    data-testid="savings-banner"
-                  >
-                    <p className="text-green-700 text-sm font-semibold">
-                      You're saving Rs.{totalDiscount.toLocaleString()} on this order!
-                    </p>
-                  </motion.div>
-                )}
-
-                <div className="flex justify-between py-5 text-lg font-bold">
-                  <span>Total</span>
-                  <span data-testid="cart-total">Rs.{finalTotal.toLocaleString()}</span>
-                </div>
-
                 <Button
+                  className="w-full mt-6 bg-black text-white hover:bg-neutral-800 uppercase tracking-widest py-6 font-bold"
                   onClick={() => navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } })}
-                  className="w-full bg-black text-white hover:bg-neutral-800 py-6 text-base font-semibold rounded-xl group"
+                  disabled={isEmpty}
                   data-testid="checkout-btn"
                 >
-                  Proceed to Checkout
-                  <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  {token ? "Proceed to Checkout" : "Login & Checkout"} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
 
-                <p className="text-[10px] text-neutral-400 text-center mt-4">
-                  Free shipping on orders over Rs.2,999
-                </p>
-
-                <Button onClick={() => navigate("/products")} variant="ghost" className="w-full mt-2 text-neutral-500 hover:text-gold text-sm">
-                  Continue Shopping
-                </Button>
-              </div>
+                {!token && (
+                  <p className="text-xs text-neutral-400 text-center mt-2">You'll need to sign in to complete your purchase</p>
+                )}
+              </motion.div>
             </div>
           </div>
         )}
@@ -262,3 +232,5 @@ export const CartPage = () => {
     </div>
   );
 };
+
+export default CartPage;
