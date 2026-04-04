@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner";
 import axios from "axios";
 import { API } from "@/App";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 import {
   Zap, Plus, Trash2, Edit2, Check, X, BarChart3,
   MessageSquare, Save, ToggleLeft, ToggleRight, Calendar, Gift
@@ -388,7 +389,7 @@ const UpsellProductsManager = () => {
             {upsellProducts.map((p, i) => (
               <div key={p.product_id} className="flex items-center gap-3 bg-neutral-900 rounded-lg p-3 border border-neutral-700" data-testid={`upsell-product-${p.product_id}`}>
                 <span className="text-xs font-bold text-gold w-6 text-center">{i + 1}</span>
-                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-12 h-12 rounded object-cover border border-neutral-700" />}
+                {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} onError={handleImageError} alt="" className="w-12 h-12 rounded object-cover border border-neutral-700" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{p.name}</p>
                   <p className="text-xs text-neutral-400">{p.category} | Stock: {p.stock}</p>
@@ -422,7 +423,7 @@ const UpsellProductsManager = () => {
           <div className="max-h-[300px] overflow-y-auto space-y-1.5">
             {availableProducts.slice(0, 20).map(p => (
               <div key={p.product_id} className="flex items-center gap-3 bg-neutral-900 rounded-lg p-2.5 border border-neutral-700 hover:border-gold/30 transition-colors">
-                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-10 h-10 rounded object-cover" />}
+                {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} onError={handleImageError} alt="" className="w-10 h-10 rounded object-cover" />}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-neutral-200 truncate">{p.name}</p>
                   <p className="text-[10px] text-neutral-500">{p.category} | Rs.{p.price?.toLocaleString()} | Stock: {p.stock}</p>

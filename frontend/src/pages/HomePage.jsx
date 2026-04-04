@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { BundleDealsSection } from "@/components/BundleDeals";
 import axios from "axios";
 import { API } from "@/App";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 export const HomePage = () => {
   const navigate = useNavigate();
@@ -437,9 +438,10 @@ export const HomePage = () => {
                   >
                     <div className="aspect-[3/4] bg-neutral-100 overflow-hidden mb-3 relative">
                       <img
-                        src={product.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80"}
+                        src={normalizeImageUrl(product.images?.[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80"}
                         alt={product.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={handleImageError}
                       />
                       {product.total_sold > 0 && (
                         <div className="absolute top-3 left-3 bg-black/80 text-white text-[10px] font-mono uppercase tracking-wider px-2.5 py-1">

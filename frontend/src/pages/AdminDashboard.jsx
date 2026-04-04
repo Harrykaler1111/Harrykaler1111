@@ -32,6 +32,7 @@ import { AdminProductsHub } from "@/components/AdminProductsHub";
 import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 import { AdminBundlePanel } from "@/components/AdminBundlePanel";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
@@ -2135,7 +2136,7 @@ export const AdminDashboard = () => {
           {products.map((p) => (
             <div key={p.product_id} className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5 flex gap-4">
               {p.images?.[0] && (
-                <img src={p.images[0]} alt={p.name} className="w-20 h-20 rounded-lg object-cover" />
+                <img src={normalizeImageUrl(p.images[0])} alt={p.name} className="w-20 h-20 rounded-lg object-cover" onError={handleImageError} />
               )}
               <div className="flex-1">
                 <div className="flex justify-between items-start">

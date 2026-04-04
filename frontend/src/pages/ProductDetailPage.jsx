@@ -15,6 +15,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 // ====== Image with Zoom on Hover ======
 const ZoomableImage = ({ src, alt }) => {
@@ -48,6 +49,7 @@ const ZoomableImage = ({ src, alt }) => {
           transformOrigin: origin,
         }}
         draggable={false}
+        onError={handleImageError}
         data-testid="product-main-image"
       />
       {/* Zoom hint - shows on hover before zoom activates */}
@@ -253,10 +255,10 @@ export const ProductDetailPage = () => {
 
   // Build media array
   const allMedia = [
-    ...(product.images || []).map(u => ({ url: u, type: "image" })),
+    ...(product.images || []).map(u => ({ url: normalizeImageUrl(u), type: "image" })),
     ...(product.videos || []).map(u => ({ url: u, type: "video" })),
   ];
-  if (allMedia.length === 0) allMedia.push({ url: "https://via.placeholder.com/800x1000", type: "image" });
+  if (allMedia.length === 0) allMedia.push({ url: FALLBACK_IMAGE, type: "image" });
   const current = allMedia[activeImage] || allMedia[0];
 
   const goMedia = (dir) => {
@@ -347,7 +349,7 @@ export const ProductDetailPage = () => {
                         <div className="w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-l-[10px] border-l-white/70" />
                       </div>
                     ) : (
-                      <img src={m.url} alt="" className="w-full h-full object-cover" />
+                      <img src={m.url} alt="" className="w-full h-full object-cover" onError={handleImageError} />
                     )}
                   </button>
                 ))}

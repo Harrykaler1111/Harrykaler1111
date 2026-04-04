@@ -7,6 +7,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 // ========== COUNTDOWN TIMER ==========
 const CountdownTimer = ({ endTime, variant = "default" }) => {
@@ -118,8 +119,8 @@ export const BundleDealsSection = () => {
                     <div className="flex -space-x-2 shrink-0">
                       {fb.products?.slice(0, 3).map((p, i) => (
                         <div key={i} className="w-12 h-14 bg-neutral-800 rounded-lg overflow-hidden border-2 border-neutral-900">
-                          <img src={p.images?.[0] || ""} alt="" className="w-full h-full object-cover"
-                            onError={e => { e.target.style.display = "none"; }} />
+                          <img src={normalizeImageUrl(p.images?.[0])} alt="" className="w-full h-full object-cover"
+                            onError={handleImageError} />
                         </div>
                       ))}
                     </div>
@@ -184,10 +185,10 @@ export const BundleDealsSection = () => {
                       {bundle.products?.slice(0, 3).map((p, idx) => (
                         <div key={idx} className="aspect-[3/4] bg-neutral-900 overflow-hidden">
                           <img
-                            src={p.images?.[0] || ""}
+                            src={normalizeImageUrl(p.images?.[0])}
                             alt={p.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            onError={e => { e.target.style.display = "none"; }}
+                            onError={handleImageError}
                           />
                         </div>
                       ))}
@@ -418,10 +419,10 @@ export const BundleDetailPage = () => {
                 <div className="bg-neutral-50 rounded-xl overflow-hidden border border-neutral-100 hover:border-gold/30 hover:shadow-lg transition-all duration-300">
                   <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative">
                     <img
-                      src={p.images?.[0] || ""}
+                      src={normalizeImageUrl(p.images?.[0])}
                       alt={p.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      onError={e => { e.target.style.display = "none"; }}
+                      onError={handleImageError}
                     />
                     {discount > 0 && (
                       <span className="absolute top-2 right-2 bg-black text-white text-[9px] font-bold px-2 py-0.5 rounded-sm">

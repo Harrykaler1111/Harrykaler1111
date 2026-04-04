@@ -189,12 +189,10 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), user_id: st
 
 @router.get("/files/{path:path}")
 async def serve_file(path: str, auth: Optional[str] = Query(None)):
-    """Serve uploaded file"""
+    """Serve uploaded file — checks DB record first, falls back to direct storage fetch"""
     record = await db.uploaded_files.find_one(
         {"storage_path": path, "is_deleted": False}, {"_id": 0}
     )
-    if not record:
-        raise HTTPException(status_code=404, detail="File not found")
 
     try:
         data, content_type = get_object(path)
@@ -203,7 +201,7 @@ async def serve_file(path: str, auth: Optional[str] = Query(None)):
 
     return Response(
         content=data,
-        media_type=record.get("content_type", content_type),
+        media_type=record.get("content_type", content_type) if record else content_type,
         headers={"Cache-Control": "public, max-age=86400"}
     )
 

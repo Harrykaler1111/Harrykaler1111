@@ -11,6 +11,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 // ============== MAIN CART PAGE ==============
 export const CartPage = () => {
@@ -123,7 +124,7 @@ export const CartPage = () => {
                   >
                     <Link to={`/product/${item.product_id}`} className="w-20 md:w-28 flex-shrink-0">
                       <div className="aspect-[3/4] bg-neutral-100 rounded-lg overflow-hidden">
-                        <img src={item.product?.images?.[0] || "https://via.placeholder.com/200x300"} alt={item.product?.name}
+                        <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE} alt={item.product?.name}
                           className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                       </div>
                     </Link>

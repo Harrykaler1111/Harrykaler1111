@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth } from "@/App";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 // Confetti burst
 const ConfettiBurst = ({ show }) => {
@@ -156,9 +157,9 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
                     >
                       <div className="aspect-[4/5] bg-neutral-800 overflow-hidden relative">
                         <img
-                          src={p.images?.[0] || "/placeholder-product.svg"}
+                          src={normalizeImageUrl(p.images?.[0])}
                           alt={p.name}
-                          onError={e => { e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect fill='%23262626' width='200' height='200'/%3E%3Ctext fill='%23666' x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E"; }}
+                          onError={handleImageError}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                         />
                         {qty > 0 && (

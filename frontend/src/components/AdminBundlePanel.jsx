@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import { API } from "@/App";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 import {
   Package, Plus, Trash2, Save, Search, ToggleLeft, ToggleRight,
   Percent, DollarSign, X, Edit2, ChevronDown, ChevronUp, Tag, Gift,
@@ -55,7 +56,7 @@ const ProductPicker = ({ selectedIds, onAdd, onRemove }) => {
               data-testid={`picker-product-${p.product_id}`}
             >
               <div className="w-8 h-10 bg-neutral-800 rounded overflow-hidden shrink-0">
-                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-full h-full object-cover" />}
+                {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} onError={handleImageError} alt="" className="w-full h-full object-cover" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white truncate">{p.name}</p>
@@ -178,7 +179,7 @@ const BundleForm = ({ bundle, onSave, onCancel }) => {
             <div key={p.product_id} className="flex items-center gap-2 bg-neutral-900 rounded-lg px-3 py-2">
               <span className="text-[10px] text-neutral-500 w-4">{i + 1}.</span>
               <div className="w-7 h-8 bg-neutral-800 rounded overflow-hidden shrink-0">
-                {p.images?.[0] && <img src={p.images[0]} alt="" className="w-full h-full object-cover" />}
+                {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} onError={handleImageError} alt="" className="w-full h-full object-cover" />}
               </div>
               <span className="text-xs text-white flex-1 truncate">{p.name}</span>
               <span className="text-xs text-gold font-medium">Rs.{p.price?.toLocaleString()}</span>
@@ -487,7 +488,7 @@ export const AdminBundlePanel = () => {
                       <div key={i} className="flex items-center gap-1">
                         {i > 0 && <Plus className="h-3 w-3 text-neutral-600" />}
                         <div className="w-10 h-12 bg-neutral-900 rounded overflow-hidden" title={p.name}>
-                          {p.images?.[0] && <img src={p.images[0]} alt="" className="w-full h-full object-cover" />}
+                          {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} onError={handleImageError} alt="" className="w-full h-full object-cover" />}
                         </div>
                       </div>
                     ))}

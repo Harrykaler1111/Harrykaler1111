@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 export const AffiliateDashboard = () => {
   const navigate = useNavigate();
@@ -245,7 +246,7 @@ export const AffiliateDashboard = () => {
               <div className="space-y-2">
                 {searchResults.map(p => (
                   <div key={p.product_id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center gap-3" data-testid={`search-result-${p.product_id}`}>
-                    {p.images?.[0] && <img src={p.images[0]} alt="" className="w-12 h-12 rounded object-cover shrink-0" />}
+                    {p.images?.[0] && <img src={normalizeImageUrl(p.images[0])} alt="" className="w-12 h-12 rounded object-cover shrink-0" onError={handleImageError} />}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{p.name}</p>
                       <p className="text-xs text-neutral-400">₹{p.price?.toLocaleString()} | {p.category}</p>

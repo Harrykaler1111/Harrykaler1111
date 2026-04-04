@@ -5,6 +5,7 @@ import {
   Save, X, ChevronDown, ChevronRight, Eye, EyeOff, ExternalLink, Upload
 } from "lucide-react";
 import { BulkUpload } from "@/components/BulkUpload";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -195,7 +196,7 @@ const ProductsTable = ({ onEdit, onAddInCategory }) => {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     {p.images?.[0] && (
-                      <img src={p.images[0]} alt="" className="w-10 h-10 rounded object-cover border border-neutral-700" />
+                      <img src={normalizeImageUrl(p.images[0])} alt="" className="w-10 h-10 rounded object-cover border border-neutral-700" onError={handleImageError} />
                     )}
                     <div>
                       <p className="font-semibold text-sm text-white">{p.name}</p>
@@ -277,7 +278,7 @@ const ProductForm = ({ product, onDone }) => {
   });
   const [media, setMedia] = useState(
     product ? [
-      ...(product.images || []).map(url => ({ url, type: "image" })),
+      ...(product.images || []).map(url => ({ url: normalizeImageUrl(url), type: "image" })),
       ...(product.videos || []).map(url => ({ url, type: "video" }))
     ] : []
   );

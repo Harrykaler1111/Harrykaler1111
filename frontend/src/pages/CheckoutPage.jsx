@@ -13,6 +13,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 // ========== PIN CODE INPUT WITH AUTO-FILL ==========
 const PincodeInput = ({ value, onChange, onAutoFill }) => {
@@ -488,9 +489,9 @@ export const CheckoutPage = () => {
                   <div key={`${item.product_id}-${item.size}-${item.color}`} className="flex gap-3">
                     <div className="w-14 h-16 bg-neutral-800 rounded-lg shrink-0 overflow-hidden">
                       <img
-                        src={item.product?.images?.[0] || ""}
+                        src={normalizeImageUrl(item.product?.images?.[0])}
                         alt="" className="w-full h-full object-cover"
-                        onError={e => { e.target.style.display = "none"; }}
+                        onError={handleImageError}
                       />
                     </div>
                     <div className="flex-1 min-w-0">

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth, API } from "@/App";
 import { OrderTimeline } from "@/components/OrderTimeline";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 export const OrdersPage = () => {
   const navigate = useNavigate();
@@ -136,9 +137,10 @@ export const OrdersPage = () => {
                     <div key={idx} className="flex gap-4">
                       <div className="w-16 h-20 bg-neutral-100 flex-shrink-0 overflow-hidden">
                         <img
-                          src={item.product_image || "https://via.placeholder.com/100"}
+                          src={normalizeImageUrl(item.product_image) || FALLBACK_IMAGE}
                           alt=""
                           className="w-full h-full object-cover"
+                          onError={handleImageError}
                         />
                       </div>
                       <div>

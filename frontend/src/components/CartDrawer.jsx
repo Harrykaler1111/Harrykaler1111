@@ -12,6 +12,7 @@ import { useCart } from "@/context/CartContext";
 import { FrequentlyBoughtTogetherCompact } from "@/components/FrequentlyBoughtTogether";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 // UPI Logo SVGs
 const PaytmLogo = () => (
@@ -51,9 +52,10 @@ const RecommendedCard = ({ product, onAdd }) => (
   >
     <div className="aspect-square bg-neutral-100 overflow-hidden">
       <img
-        src={product.images?.[0] || "https://via.placeholder.com/200"}
+        src={normalizeImageUrl(product.images?.[0]) || FALLBACK_IMAGE}
         alt={product.name}
         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+        onError={handleImageError}
       />
     </div>
     <div className="p-2">
@@ -237,9 +239,10 @@ export const CartDrawer = () => {
                         {/* Thumbnail */}
                         <Link to={`/product/${item.product_id}`} onClick={closeCart}
                           className="w-16 h-20 flex-shrink-0 bg-neutral-50 rounded-lg overflow-hidden">
-                          <img src={item.product?.images?.[0] || "https://via.placeholder.com/100x120"}
+                          <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE}
                             alt={item.product?.name}
-                            className="w-full h-full object-cover" />
+                            className="w-full h-full object-cover"
+                            onError={handleImageError} />
                         </Link>
 
                         {/* Details */}

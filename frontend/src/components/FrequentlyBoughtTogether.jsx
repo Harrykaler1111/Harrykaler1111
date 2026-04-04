@@ -7,6 +7,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 // ========== PRODUCT CARD IN BUNDLE ==========
 const BundleProductCard = ({ product, selected, onToggle, isSource }) => {
@@ -49,10 +50,10 @@ const BundleProductCard = ({ product, selected, onToggle, isSource }) => {
       {/* Image */}
       <div className="aspect-[3/4] bg-neutral-50 overflow-hidden">
         <img
-          src={product.images?.[0] || ""}
+          src={normalizeImageUrl(product.images?.[0])}
           alt={product.name}
           className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-          onError={e => { e.target.style.display = "none"; }}
+          onError={handleImageError}
         />
       </div>
 
@@ -300,8 +301,8 @@ export const FrequentlyBoughtTogetherCompact = ({ cartItems }) => {
             data-testid={`fbt-compact-${p.product_id}`}
           >
             <div className="w-10 h-12 bg-neutral-100 rounded-md overflow-hidden shrink-0">
-              <img src={p.images?.[0] || ""} alt="" className="w-full h-full object-cover"
-                onError={e => { e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 96'%3E%3Crect fill='%23f5f5f5' width='80' height='96'/%3E%3Ctext fill='%23ccc' x='50%25' y='50%25' text-anchor='middle' dy='.3em' font-size='10'%3ENo Img%3C/text%3E%3C/svg%3E"; }} />
+              <img src={normalizeImageUrl(p.images?.[0])} alt="" className="w-full h-full object-cover"
+                onError={handleImageError} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-medium text-neutral-700 truncate">{p.name}</p>

@@ -6,6 +6,7 @@ import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
 import axios from "axios";
+import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 export const ProductCard = ({ product }) => {
   const navigate = useNavigate();
@@ -78,10 +79,11 @@ export const ProductCard = ({ product }) => {
     >
       <div className={`relative aspect-[4/5] overflow-hidden rounded-lg bg-neutral-100 ${isOutOfStock ? "opacity-60" : ""}`}>
         <img
-          src={product.images?.[0] || "https://via.placeholder.com/400x600"}
+          src={normalizeImageUrl(product.images?.[0]) || FALLBACK_IMAGE}
           alt={product.name}
           className="w-full h-full object-cover product-image"
           loading="lazy"
+          onError={handleImageError}
         />
 
         {/* Badges */}
