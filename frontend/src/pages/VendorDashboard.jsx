@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { BulkUpload } from "@/components/BulkUpload";
+import { VendorCartBooster } from "@/components/VendorCartBooster";
 import { whatsappLink, PHONE_NUMBER, PHONE_LINK } from "@/components/WhatsAppButton";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -69,6 +70,7 @@ export const VendorDashboard = () => {
     { path: "/vendor/wallet", icon: Wallet, label: "Wallet" },
     { path: "/vendor/offers", icon: Tag, label: "Offers" },
     { path: "/vendor/promotions", icon: Megaphone, label: "Promotions" },
+    { path: "/vendor/cart-booster", icon: Zap, label: "Cart Booster" },
     { path: "/vendor/analytics", icon: BarChart3, label: "Analytics" },
     { path: "/vendor/influencers", icon: Users, label: "Influencers" },
     { path: "/vendor/support", icon: LifeBuoy, label: "Support" },
@@ -150,6 +152,7 @@ export const VendorDashboard = () => {
             <Route path="wallet" element={<VendorWallet vendor={vendor} />} />
             <Route path="offers" element={<VendorOffers vendor={vendor} />} />
             <Route path="promotions" element={<VendorPromotions vendor={vendor} />} />
+            <Route path="cart-booster" element={<VendorCartBooster vendor={vendor} />} />
             <Route path="analytics" element={<VendorAnalytics vendor={vendor} />} />
             <Route path="influencers" element={<VendorInfluencers vendor={vendor} />} />
             <Route path="support" element={<VendorSupport vendor={vendor} />} />

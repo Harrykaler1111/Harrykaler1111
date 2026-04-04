@@ -38,9 +38,12 @@ async def create_dummy_review(data: DummyReviewCreate, admin: Dict = Depends(get
         "rating": data.rating,
         "comment": data.review_text,
         "verified_purchase": data.verified,
+        "is_verified_purchase": data.verified,
         "is_dummy": True,
         "is_active": True,
+        "status": "approved",
         "images": [],
+        "helpful_count": 0,
         "admin_id": admin["admin_id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()

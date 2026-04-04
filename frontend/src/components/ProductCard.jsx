@@ -11,12 +11,12 @@ import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/ima
 export const ProductCard = ({ product }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
-  const { cart, addToCart, updateCartItem, removeFromCart } = useCart();
+  const { cartItems, addToCart, updateQuantity, removeFromCart } = useCart();
   const [adding, setAdding] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
 
   // Find this product in cart
-  const cartItem = cart?.items?.find(i => i.product_id === product.product_id);
+  const cartItem = cartItems?.find(i => i.product_id === product.product_id);
   const cartQty = cartItem?.quantity || 0;
 
   const handleQuickAdd = useCallback(async (e) => {
@@ -40,8 +40,8 @@ export const ProductCard = ({ product }) => {
     e.stopPropagation();
     if (!cartItem) return;
     if (cartQty >= product.stock) { toast.error("Max stock reached"); return; }
-    await updateCartItem(product.product_id, cartQty + 1, cartItem.size, cartItem.color);
-  }, [cartItem, cartQty, product, updateCartItem]);
+    await updateQuantity(product.product_id, cartQty + 1, cartItem.size, cartItem.color);
+  }, [cartItem, cartQty, product, updateQuantity]);
 
   const handleDecrease = useCallback(async (e) => {
     e.preventDefault();
@@ -50,9 +50,9 @@ export const ProductCard = ({ product }) => {
     if (cartQty <= 1) {
       await removeFromCart(product.product_id, cartItem.size, cartItem.color);
     } else {
-      await updateCartItem(product.product_id, cartQty - 1, cartItem.size, cartItem.color);
+      await updateQuantity(product.product_id, cartQty - 1, cartItem.size, cartItem.color);
     }
-  }, [cartItem, cartQty, product, updateCartItem, removeFromCart]);
+  }, [cartItem, cartQty, product, updateQuantity, removeFromCart]);
 
   const handleAddToWishlist = async (e) => {
     e.preventDefault();

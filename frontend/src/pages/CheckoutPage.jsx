@@ -136,7 +136,7 @@ export const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
-  const { refreshCart } = useCart();
+  const { fetchCart } = useCart();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -271,7 +271,7 @@ export const CheckoutPage = () => {
         );
       }
 
-      refreshCart();
+      fetchCart();
       toast.success("Order placed successfully!");
       navigate(`/order-success?id=${orderId}&method=${paymentMethod}${codAdvanceRequired ? "&advance=" + codAdvanceAmount : ""}`);
     } catch (error) {

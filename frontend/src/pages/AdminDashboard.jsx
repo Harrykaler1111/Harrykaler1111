@@ -6,7 +6,7 @@ import {
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
   Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
-  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star
+  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,8 @@ import { AdminProductsHub } from "@/components/AdminProductsHub";
 import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 import { AdminBundlePanel } from "@/components/AdminBundlePanel";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
+import { AdminFomoPanel } from "@/components/AdminFomoPanel";
+import { AdminDummyReviewsPanel } from "@/components/AdminDummyReviewsPanel";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -3478,6 +3480,8 @@ export const AdminDashboard = () => {
     { path: "/admin/bundles", icon: <Package className="h-5 w-5" />, label: "Bundle Deals", permission: ["platform_settings", "edit"] },
     { path: "/admin/policies", icon: <BookOpen className="h-5 w-5" />, label: "Policies", permission: ["platform_settings", "edit"] },
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
+    { path: "/admin/dummy-reviews", icon: <Star className="h-5 w-5" />, label: "Dummy Reviews", permission: ["products", "edit"] },
+    { path: "/admin/fomo", icon: <Bell className="h-5 w-5" />, label: "FOMO Popups", permission: ["platform_settings", "edit"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
     { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
   ];
@@ -3577,6 +3581,8 @@ export const AdminDashboard = () => {
             <Route path="bundles" element={<AdminBundlePanel />} />
             <Route path="policies" element={<AdminPoliciesPanel token={localStorage.getItem("pigma_admin_token")} />} />
             <Route path="reviews" element={<AdminReviewsPanel />} />
+            <Route path="dummy-reviews" element={<AdminDummyReviewsPanel />} />
+            <Route path="fomo" element={<AdminFomoPanel />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="permissions" element={<PermissionsPanel />} />
             <Route path="*" element={<DashboardOverview />} />

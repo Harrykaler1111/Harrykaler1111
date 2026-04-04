@@ -54,35 +54,49 @@ const AddedPopup = ({ amount }) => (
 const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { cart, addToCart, updateCartItem, removeFromCart, refreshCart } = useCart();
+  const { cartItems, addToCart, updateQuantity, removeFromCart, fetchCart } = useCart();
   const { token } = useAuth();
 
   useEffect(() => {
-    if (!open || !token) return;
+    if (!open) return;
     setLoading(true);
-    axios.get(`${API}/cart/upsell-suggestions?max_price=500`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(r => setProducts(r.data || [])).catch(() => {}).finally(() => setLoading(false));
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    Promise.all([
+      axios.get(`${API}/cart/upsell-suggestions?max_price=500`, { headers }).catch(() => ({ data: [] })),
+      axios.get(`${API}/vendor-credits/upsell-products`).catch(() => ({ data: [] }))
+    ]).then(([suggestRes, promoRes]) => {
+      const suggestions = suggestRes.data || [];
+      const promoted = promoRes.data || [];
+      // Merge: promoted first, then suggestions, deduplicate by product_id
+      const seen = new Set();
+      const merged = [];
+      for (const p of [...promoted, ...suggestions]) {
+        if (!seen.has(p.product_id)) {
+          seen.add(p.product_id);
+          merged.push(p);
+        }
+      }
+      setProducts(merged);
+    }).finally(() => setLoading(false));
   }, [open, token]);
 
   const getCartQty = useCallback((productId) => {
-    return cart?.items?.find(i => i.product_id === productId)?.quantity || 0;
-  }, [cart]);
+    return cartItems?.find(i => i.product_id === productId)?.quantity || 0;
+  }, [cartItems]);
 
   const getCartItem = useCallback((productId) => {
-    return cart?.items?.find(i => i.product_id === productId);
-  }, [cart]);
+    return cartItems?.find(i => i.product_id === productId);
+  }, [cartItems]);
 
   const handleAdd = async (product) => {
-    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default");
-    if (ok) refreshCart();
+    await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product);
   };
 
   const handleIncrease = async (product) => {
     const item = getCartItem(product.product_id);
     if (!item) return handleAdd(product);
     if (item.quantity >= product.stock) return;
-    await updateCartItem(product.product_id, item.quantity + 1, item.size, item.color);
+    await updateQuantity(product.product_id, item.quantity + 1, item.size, item.color);
   };
 
   const handleDecrease = async (product) => {
@@ -91,7 +105,7 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
     if (item.quantity <= 1) {
       await removeFromCart(product.product_id, item.size, item.color);
     } else {
-      await updateCartItem(product.product_id, item.quantity - 1, item.size, item.color);
+      await updateQuantity(product.product_id, item.quantity - 1, item.size, item.color);
     }
   };
 

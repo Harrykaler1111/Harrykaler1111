@@ -210,14 +210,7 @@ const AppRouter = () => {
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route
-        path="/cart"
-        element={
-          <ProtectedRoute>
-            <CartRedirect />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/cart" element={<CartRedirect />} />
       <Route
         path="/checkout"
         element={
