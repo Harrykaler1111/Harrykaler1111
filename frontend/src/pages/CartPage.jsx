@@ -29,7 +29,7 @@ export const CartPage = () => {
   const shipping = localTotal >= 2999 ? 0 : 199;
 
   useEffect(() => {
-    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
+    axios.get(`${API}/booster/slabs`).then(r => setSlabs(r.data?.slabs || r.data || [])).catch(() => {});
   }, []);
 
   const getActiveSlab = useCallback((total) => {

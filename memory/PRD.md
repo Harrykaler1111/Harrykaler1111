@@ -1,13 +1,13 @@
-# Pigma Multi-Vendor E-commerce & Influencer Marketplace - PRD
+# Pigma Multi-Vendor E-commerce Platform - PRD
 
 ## Original Problem Statement
-Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace platform "Pigma" with vendor management, influencer collaboration, admin RBAC, commission auto-settlement, reviews, credit-based promotions, referral commissions, support tickets, reward campaigns, payment enforcement, returns/disputes, marketing tools, and gamified cart experience.
+Build a full-stack AI-powered multi-vendor e-commerce platform "Pigma" with vendor management, influencer collaboration, admin RBAC, reviews, credit-based promotions, referral commissions, WhatsApp-driven support, gamified cart experience, and maximum conversion-focused checkout flow.
 
 ## Tech Stack
 - Frontend: React, Tailwind CSS, Shadcn/UI, Framer Motion
 - Backend: FastAPI (Python), 30+ route modules
 - Database: MongoDB
-- Auth: JWT (per role), Google OAuth, RBAC (6 admin roles + dynamic permissions)
+- Auth: JWT (per role), Google OAuth, WhatsApp OTP, RBAC (6 admin roles + dynamic permissions)
 - File Storage: Emergent Object Storage
 - Payments: Razorpay (mocked until API keys configured)
 - WhatsApp: Interakt Business API (REAL - Growth Plan)
@@ -18,36 +18,35 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Marketing: marketing@pigma.com / marketing123
 - Product Manager: products@pigma.com / products123
 - Vendor: testvendor@example.com / vendor123
-- Customer/Affiliate/Reseller: admin@pigma.com / admin123
+- Customer: admin@pigma.com / admin123
 
 ## Completed Features
 
-### Phase 44 - WhatsApp-Based Ticket/Support System (2026-04-04)
-- **Support Page Rewrite**: Removed standalone ticket creation form. New page shows WhatsApp CTA ("Chat & Raise Ticket on WhatsApp"), 6 quick issue categories, phone number, and read-only ticket history for logged-in users.
-- **ChatWidget Rewrite**: Replaced ticket form + AI chat with WhatsApp support widget. "Chat on WhatsApp" primary CTA + category selector with pre-filled messages. No forms, no AI.
-- **Vendor Support Rewrite**: Removed ticket creation form. WhatsApp CTA + ticket history. Vendors contact support via WhatsApp.
-- **Backend Auto-Ticket from WhatsApp**: Enhanced Interakt webhook (`handle_customer_reply`) to auto-create tickets when WhatsApp messages arrive. Parses context (order ID, product, category). De-duplicates within 5-min window. COD confirmations filtered out.
-- **Admin Panel Enhancement**: Added WhatsApp source badge to ticket table and detail view. Shows phone number for WhatsApp tickets.
-- **Guest Access**: /support and /cart pages no longer require authentication.
-- **Testing**: Iteration 44 — 100% backend (12/12), 100% frontend
+### Phase 45 - Cart & Checkout Flow Redesign (2026-04-04)
+- **Smart Add-to-Cart Popup**: `AddToCartPopup.jsx` replaces toast. Shows "Added to cart!" with product image/name/price, "Continue Shopping" + "Go to Cart" buttons. No page reload.
+- **Full Cart Page** (`/cart-page`): Product images, sizes, colors, quantity +/- controls, per-item price, total amount. "Only X left in stock!" urgency messages. Trust badges (COD Available, Fast Delivery, Easy Returns). WhatsApp help link. Cart Booster progress bar. Coupon code input.
+- **Checkout Auth Modal** (`CheckoutAuthModal.jsx`): When guest clicks "Proceed to Checkout", a modal appears (NOT a redirect). Supports WhatsApp OTP login (primary), Email login (secondary), and Signup. OTP is 6-digit with auto-verify. Demo mode shows OTP for testing.
+- **Checkout Page Redesign**: No longer behind ProtectedRoute. Shows auth modal inline for guests. GPS location detect button (browser geolocation → reverse geocode). Address auto-fill from GPS. Trust elements preserved.
+- **CartDrawer Update**: Checkout button now goes to `/cart-page` (full cart) instead of directly to `/checkout`.
+- **Testing**: Iteration 45 — 100% frontend, 93% backend (minor pre-existing issue fixed)
+
+### Phase 44 - WhatsApp-Based Support System (2026-04-04)
+- Support Page rewrite, ChatWidget → WhatsApp widget, Vendor WhatsApp support, Auto-ticket from webhook
+- Testing: Iteration 44 — 100%
 
 ### Phase 43 - Guest Cart, Vendor Credits, Dummy Reviews, FOMO (2026-04-04)
-- Guest Cart System (localStorage), CartContext API migration, Vendor Cart Booster Credits, Admin Dummy Reviews, FOMO Notifications
-- Testing: Iteration 43 — 100% pass
+- Guest Cart (localStorage), CartContext migration, Vendor Cart Booster Credits, Admin Dummy Reviews, FOMO Notifications
+- Testing: Iteration 43 — 100%
 
-### Phase 37-42 - WhatsApp Integration, Image Fix, Bulk Upload, Reseller Override
-- Interakt WhatsApp global integration, Image pipeline audit, Bulk product upload, Reseller price override
+### Earlier Phases (12-42)
+- Bulk Product Upload, Image Pipeline Fix, WhatsApp Global Integration, Reseller Price Override, Interakt, RBAC, Affiliate/Reseller System, Flash Sales, Cart Booster, Mega Menu, Quick Add, Bundles, etc.
 
-### Earlier Phases (12-36)
-- Full platform: Security, Cart Booster, Flash Sales, Mega Menu, Quick Add, Bundles, Checkout, RBAC, Affiliate/Reseller System, etc.
+## Key User Flows
+1. **Guest → Cart → Login → Checkout**: Browse → Add to cart (popup) → /cart-page → Checkout → Auth Modal → Login (OTP/Email) → Address (GPS) → COD/Prepaid → Place Order
+2. **Returning User**: Login → Browse → Add to cart → /cart-page → Checkout (skip auth) → Address → Place Order
 
-## Key DB Collections
-- `products`, `vendor_products`, `bulk_upload_sessions`, `vendor_wallets`, `credit_transactions`, `product_promotions`
-- `reviews` (customer + dummy), `fomo_settings`, `tickets` (now includes WhatsApp-sourced tickets with `source: "whatsapp"`)
-- `whatsapp_webhooks`, `whatsapp_messages`, `reseller_links`, `affiliate_links`, `admin_permissions`
-
-## MOCKED: Razorpay, Instagram Graph API, Interakt auto-reply (may fail without API key)
-## REAL: Interakt WhatsApp Business API (for order webhooks, COD confirmation, cart recovery)
+## MOCKED: Razorpay, WhatsApp OTP (demo mode), Instagram Graph API
+## REAL: Interakt WhatsApp Business API
 
 ## Remaining Tasks
 ### P1
@@ -60,3 +59,4 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Vendor email digest notifications
 - A/B testing for hero videos
 - Real Razorpay live keys
+- Real WhatsApp OTP via Interakt (replace demo mode)
