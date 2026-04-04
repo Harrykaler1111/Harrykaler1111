@@ -22,6 +22,19 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Completed Features
 
+### Phase 37 - WhatsApp +91 9625992057 Global Integration (2026-04-04)
+- Created WhatsAppButton.jsx utility: exports `whatsappLink()`, `whatsappProductLink()`, `PHONE_NUMBER`, `PHONE_LINK`, `FloatingWhatsApp` component
+- Header: Added top contact strip with WhatsApp link (left) and phone number (right)
+- Footer: Updated WhatsApp icon + added phone number display with correct wa.me link
+- Contact Page: Rewrote with correct WhatsApp (+91 9625992057) and phone number links
+- Floating WhatsApp Button: Green circle (bottom-right) on all pages with "Chat with us" tooltip on hover
+- Product Detail Page: "Chat on WhatsApp" green button with pre-filled message including product name + URL
+- Checkout Page: WhatsApp support note near Place Order button
+- Order Confirmation: WhatsApp contact button with order ID in pre-filled message
+- Vendor Dashboard: Admin support section in sidebar with WhatsApp + phone links
+- Replaced all old 919876543210 references with 919625992057
+- **Testing**: Iteration 42 — 100% code verified, 8/13 UI tested (remaining 5 are behind auth wall)
+
 ### Phase 36 - Image Pipeline Audit & Fix (2026-04-04)
 - Root Cause: Product images stored with old preview domain URLs (e.g., `pigma-approval-hub.preview...`) broke when the deployment domain changed
 - Created `/app/frontend/src/utils/imageUtils.js` with `normalizeImageUrl()` — strips old domains from `/api/uploads/files/` paths and prepends current REACT_APP_BACKEND_URL; keeps external URLs as-is
