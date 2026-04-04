@@ -26,11 +26,14 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 - Backend: POST /api/products/bulk/preview — Parses CSV/Excel + optional ZIP of images, validates required fields (sku, name, description, price, category), detects duplicate SKUs, parses variant format (Color:Size:Qty;...), maps images by SKU filename prefix
 - Backend: POST /api/products/bulk/publish/{session_id} — Creates products in DB with correct sku, variants, stock; uploads images to Object Storage; skips invalid rows and reports failures
 - Backend: GET /api/products/bulk/sample-csv — Downloads CSV template with all columns and examples
+- Backend: GET /api/products/bulk/sessions — Lists past import sessions with status, counts, timestamps
+- Backend: POST /api/products/bulk/revert/{session_id} — Soft-deletes (deactivates) all products from a published batch, marks session as "reverted"
 - Schema: Added `sku` (Optional[str]) and `variants` (List[Dict]) to ProductCreate, ProductUpdate, ProductResponse, VendorProductCreate, VendorProductUpdate, VendorProductResponse
 - Frontend: BulkUpload component with 3-step wizard (Upload Files → Preview & Validate → Publish), drag-and-drop CSV/ZIP zones, CSV column guide, error reporting, progress indicators
+- Frontend: Import History tab with session list (date, session ID, status, product count, valid/errors), Revert button with confirmation dialog, reverted timestamp display
 - Admin: "Bulk Upload" tab added to AdminProductsHub (accessible to Super Admin, Product Manager)
 - Vendor: "Bulk Upload" button added to VendorProducts section (accessible to approved Vendors)
-- **Testing**: Iteration 39 - PASS (100% backend, 100% frontend)
+- **Testing**: Iteration 39 (bulk upload) - PASS 100%, Iteration 40 (import history + revert) - PASS 100%
 
 ### Phase 34 - Reseller Price Override (2026-04-04)
 - Backend: Product API accepts `?reseller_id=X&price=Y`, validates against `reseller_links` collection, overrides price in response and nulls `compare_price`
