@@ -22,60 +22,37 @@ Build a full-stack AI-powered multi-vendor e-commerce and influencer marketplace
 
 ## Completed Features
 
+### Phase 44 - WhatsApp-Based Ticket/Support System (2026-04-04)
+- **Support Page Rewrite**: Removed standalone ticket creation form. New page shows WhatsApp CTA ("Chat & Raise Ticket on WhatsApp"), 6 quick issue categories, phone number, and read-only ticket history for logged-in users.
+- **ChatWidget Rewrite**: Replaced ticket form + AI chat with WhatsApp support widget. "Chat on WhatsApp" primary CTA + category selector with pre-filled messages. No forms, no AI.
+- **Vendor Support Rewrite**: Removed ticket creation form. WhatsApp CTA + ticket history. Vendors contact support via WhatsApp.
+- **Backend Auto-Ticket from WhatsApp**: Enhanced Interakt webhook (`handle_customer_reply`) to auto-create tickets when WhatsApp messages arrive. Parses context (order ID, product, category). De-duplicates within 5-min window. COD confirmations filtered out.
+- **Admin Panel Enhancement**: Added WhatsApp source badge to ticket table and detail view. Shows phone number for WhatsApp tickets.
+- **Guest Access**: /support and /cart pages no longer require authentication.
+- **Testing**: Iteration 44 — 100% backend (12/12), 100% frontend
+
 ### Phase 43 - Guest Cart, Vendor Credits, Dummy Reviews, FOMO (2026-04-04)
-- **Guest Cart System**: localStorage-based cart for unauthenticated users (key: `pigma_guest_cart`). Cart merges to server on login. /cart opens drawer without requiring auth. /checkout still requires login.
-- **CartContext API Migration**: Fixed BoosterBar, ProductCard, CheckoutPage to use new CartContext API (cartItems, updateQuantity, fetchCart replacing old cart.items, updateCartItem, refreshCart).
-- **Vendor Cart Booster Credits**: Backend `/api/vendor-credits/*` (wallet, purchase, spend, transactions, promotions, upsell-products). Frontend `VendorCartBooster.jsx` at `/vendor/cart-booster`. Vendors buy credits (mock Razorpay) and spend them to promote products in cart upsell section. BoosterBar now pulls vendor-promoted products.
-- **Super Admin Dummy Reviews**: Backend `/api/admin/reviews` CRUD. Frontend `AdminDummyReviewsPanel.jsx` at `/admin/dummy-reviews`. Search products, add fake reviews with rating/username/text/verified badge. Reviews auto-approved and show on product pages.
-- **FOMO Live Purchase Notifications**: Backend `/api/fomo/*` (settings, messages, notification). Frontend `AdminFomoPanel.jsx` at `/admin/fomo`. Toggle on/off, frequency control, custom messages. `FomoNotification.jsx` displays popups to visitors.
-- **Testing**: Iteration 43 — 100% backend (16/16), 100% frontend
+- Guest Cart System (localStorage), CartContext API migration, Vendor Cart Booster Credits, Admin Dummy Reviews, FOMO Notifications
+- Testing: Iteration 43 — 100% pass
 
-### Phase 37 - WhatsApp +91 9625992057 Global Integration (2026-04-04)
-- Created WhatsAppButton.jsx utility: exports `whatsappLink()`, `whatsappProductLink()`, `PHONE_NUMBER`, `PHONE_LINK`, `FloatingWhatsApp` component
-- Header: Added top contact strip with WhatsApp link (left) and phone number (right)
-- Footer: Updated WhatsApp icon + added phone number display with correct wa.me link
-- Contact Page: Rewrote with correct WhatsApp (+91 9625992057) and phone number links
-- Floating WhatsApp Button: Green circle (bottom-right) on all pages with "Chat with us" tooltip on hover
-- Product Detail Page: "Chat on WhatsApp" green button with pre-filled message including product name + URL
-- Checkout Page: WhatsApp support note near Place Order button
-- Order Confirmation: WhatsApp contact button with order ID in pre-filled message
-- Vendor Dashboard: Admin support section in sidebar with WhatsApp + phone links
-- **Testing**: Iteration 42 — 100% code verified
+### Phase 37-42 - WhatsApp Integration, Image Fix, Bulk Upload, Reseller Override
+- Interakt WhatsApp global integration, Image pipeline audit, Bulk product upload, Reseller price override
 
-### Phase 36 - Image Pipeline Audit & Fix (2026-04-04)
-- Created `/app/frontend/src/utils/imageUtils.js` with `normalizeImageUrl()` — strips old domains from `/api/uploads/files/` paths
-- Added `handleImageError` fallback across 12+ components
-- **Testing**: Iteration 41 — 93% backend, 100% frontend
-
-### Phase 35 - Bulk Product Upload System (2026-04-04)
-- Backend: bulk preview, publish, sample CSV, sessions list, revert
-- Frontend: BulkUpload 3-step wizard, Import History with revert
-- **Testing**: Iterations 39-40 — PASS 100%
-
-### Phase 34 - Reseller Price Override (2026-04-04)
-- Backend/Frontend price override via reseller links
-- **Testing**: Iteration 38 — PASS
-
-### Earlier Phases (12-33)
-- Full platform: Security, Cart Booster, Flash Sales, Push Notifications, Mega Menu, Quick Add, Bundles, Checkout, RBAC, Affiliate/Reseller System, Interakt WhatsApp, etc.
+### Earlier Phases (12-36)
+- Full platform: Security, Cart Booster, Flash Sales, Mega Menu, Quick Add, Bundles, Checkout, RBAC, Affiliate/Reseller System, etc.
 
 ## Key DB Collections
-- `products` / `vendor_products`: Include `sku` and `variants` fields
-- `bulk_upload_sessions`: Bulk upload preview sessions
-- `vendor_wallets`: Vendor cart booster credit balances
-- `credit_transactions`: Vendor credit purchase/spend history
-- `product_promotions`: Vendor-promoted products for cart upsell
-- `reviews`: Customer + dummy reviews (is_dummy flag)
-- `fomo_settings`: FOMO notification config + custom messages
-- `reseller_links`, `affiliate_links`, `admin_permissions`, `platform_revenue`
+- `products`, `vendor_products`, `bulk_upload_sessions`, `vendor_wallets`, `credit_transactions`, `product_promotions`
+- `reviews` (customer + dummy), `fomo_settings`, `tickets` (now includes WhatsApp-sourced tickets with `source: "whatsapp"`)
+- `whatsapp_webhooks`, `whatsapp_messages`, `reseller_links`, `affiliate_links`, `admin_permissions`
 
-## MOCKED: Razorpay, Instagram Graph API
-## REAL: Interakt WhatsApp Business API
+## MOCKED: Razorpay, Instagram Graph API, Interakt auto-reply (may fail without API key)
+## REAL: Interakt WhatsApp Business API (for order webhooks, COD confirmation, cart recovery)
 
 ## Remaining Tasks
 ### P1
 - Track affiliate/reseller link clicks and conversions
-- "Testing Mode" for Orders (dummy order flow to trigger real-time admin alerts)
+- "Testing Mode" for Orders (dummy order flow for admin alerts)
 - Real Instagram Meta API integration
 
 ### P2
