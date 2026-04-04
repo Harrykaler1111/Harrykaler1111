@@ -270,7 +270,7 @@ export const ProductDetailPage = () => {
   };
 
   return (
-    <div className="min-h-screen pt-28 md:pt-32 pb-12 bg-white" data-testid="product-detail-page">
+    <div className="min-h-screen pt-24 md:pt-28 pb-12 bg-white" data-testid="product-detail-page">
       <div className="max-w-6xl mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
 

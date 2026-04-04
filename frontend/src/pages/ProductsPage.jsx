@@ -97,7 +97,7 @@ export const ProductsPage = () => {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen pt-24 md:pt-[100px]" data-testid="products-page">
+    <div className="min-h-screen pt-16 md:pt-[68px]" data-testid="products-page">
       {/* Header */}
       <div className="bg-black text-white py-6 md:py-10">
         <div className="max-w-7xl mx-auto px-4 md:px-8">
