@@ -131,6 +131,8 @@ class CartItem(BaseModel):
     quantity: int = 1
     size: str
     color: str
+    reseller_id: Optional[str] = None
+    price_override: Optional[float] = None
 
 
 class CartResponse(BaseModel):

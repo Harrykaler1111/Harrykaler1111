@@ -129,7 +129,9 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         if product["stock"] < item["quantity"]:
             raise HTTPException(status_code=400, detail=f"Insufficient stock for {product['name']}")
 
-        item_total = product["price"] * item["quantity"]
+        # Use reseller price override if validated, otherwise base price
+        effective_price = item.get("price_override") or product["price"]
+        item_total = effective_price * item["quantity"]
         subtotal += item_total
 
         item_vendor_id = product.get("vendor_id")
@@ -143,11 +145,13 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
             **item,
             "product_name": product["name"],
             "product_image": product["images"][0] if product["images"] else None,
-            "price": product["price"],
+            "price": effective_price,
+            "base_price": product["price"],
             "item_total": item_total,
             "vendor_id": item_vendor_id,
             "vendor_name": item_vendor_name,
-            "is_vendor_product": product.get("is_vendor_product", False)
+            "is_vendor_product": product.get("is_vendor_product", False),
+            "reseller_id": item.get("reseller_id"),
         })
 
     # ============== COD VALIDATION ==============

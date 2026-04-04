@@ -252,7 +252,9 @@ export const CartDrawer = () => {
                             {item.size} | {item.color}
                           </p>
                           <div className="flex items-center justify-between mt-2">
-                            <span className="text-sm font-bold">₹{(item.product?.price || 0).toLocaleString()}</span>
+                            <span className="text-sm font-bold">
+                              ₹{(item.price_override || item.product?.price || 0).toLocaleString()}
+                            </span>
                             {/* Qty Controls */}
                             <div className="flex items-center gap-0 border border-neutral-200 rounded-lg overflow-hidden">
                               <button onClick={() => updateQuantity(item, item.quantity - 1)}

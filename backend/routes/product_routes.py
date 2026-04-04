@@ -178,10 +178,28 @@ async def get_frequently_bought_together(product_id: str, limit: int = 4):
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(product_id: str):
+async def get_product(product_id: str, reseller_id: Optional[str] = None, price: Optional[float] = None):
     product = await db.products.find_one({"product_id": product_id, "is_active": True}, {"_id": 0})
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Reseller price override: validate and replace price completely
+    if reseller_id and price is not None:
+        link = await db.reseller_links.find_one(
+            {"user_id": reseller_id, "product_id": product_id, "reseller_price": price},
+            {"_id": 0}
+        )
+        reseller = await db.resellers.find_one(
+            {"user_id": reseller_id, "status": "approved"},
+            {"_id": 0, "name": 1}
+        ) if link else None
+
+        if link and reseller and price >= product["price"]:
+            # Override price completely — buyer never sees base price
+            product["price"] = price
+            product["compare_price"] = None
+            product["reseller_view"] = True
+
     return ProductResponse(**product)
 
 

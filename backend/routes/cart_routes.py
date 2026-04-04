@@ -26,7 +26,9 @@ async def get_cart(user: Dict = Depends(get_current_user)):
         product = await db.products.find_one({"product_id": item["product_id"]}, {"_id": 0})
         if product:
             item["product"] = product
-            total += product["price"] * item["quantity"]
+            # Use reseller price override if present, otherwise base price
+            effective_price = item.get("price_override") or product["price"]
+            total += effective_price * item["quantity"]
 
     cart["total"] = total
     return CartResponse(**cart)
@@ -40,6 +42,19 @@ async def add_to_cart(item: CartItem, user: Dict = Depends(get_current_user)):
 
     if product["stock"] < item.quantity:
         raise HTTPException(status_code=400, detail="Insufficient stock")
+
+    # Validate reseller price override (prevents URL manipulation)
+    validated_override = None
+    validated_reseller_id = None
+    if item.reseller_id and item.price_override:
+        reseller_link = await db.reseller_links.find_one({
+            "user_id": item.reseller_id,
+            "product_id": item.product_id,
+            "reseller_price": item.price_override
+        }, {"_id": 0})
+        if reseller_link and item.price_override >= product["price"]:
+            validated_override = item.price_override
+            validated_reseller_id = item.reseller_id
 
     cart = await db.carts.find_one({"user_id": user["user_id"]})
     if not cart:
@@ -57,11 +72,22 @@ async def add_to_cart(item: CartItem, user: Dict = Depends(get_current_user)):
             existing_item["size"] == item.size and
             existing_item["color"] == item.color):
             existing_item["quantity"] += item.quantity
+            # Update reseller override if present
+            if validated_override:
+                existing_item["reseller_id"] = validated_reseller_id
+                existing_item["price_override"] = validated_override
             item_exists = True
             break
 
     if not item_exists:
-        cart["items"].append(item.model_dump())
+        item_data = item.model_dump()
+        if validated_override:
+            item_data["reseller_id"] = validated_reseller_id
+            item_data["price_override"] = validated_override
+        else:
+            item_data.pop("reseller_id", None)
+            item_data.pop("price_override", None)
+        cart["items"].append(item_data)
 
     await db.carts.update_one(
         {"user_id": user["user_id"]},

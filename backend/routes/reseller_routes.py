@@ -113,6 +113,31 @@ async def generate_reseller_link(body: GenerateResellerLinkRequest, reseller: Di
     }
 
 
+@router.get("/validate-price/{product_id}")
+async def validate_reseller_price(product_id: str, reseller_id: str, price: float):
+    """Public endpoint — validates that a reseller price is legitimate (no auth needed for buyers)."""
+    link = await db.reseller_links.find_one(
+        {"user_id": reseller_id, "product_id": product_id, "reseller_price": price},
+        {"_id": 0, "user_id": 1, "reseller_price": 1, "margin": 1, "product_price": 1}
+    )
+    if not link:
+        return {"valid": False}
+
+    reseller = await db.resellers.find_one(
+        {"user_id": reseller_id, "status": "approved"}, {"_id": 0, "name": 1}
+    )
+    if not reseller:
+        return {"valid": False}
+
+    return {
+        "valid": True,
+        "reseller_name": reseller.get("name", ""),
+        "reseller_price": link["reseller_price"],
+        "base_price": link["product_price"],
+        "margin": link["margin"]
+    }
+
+
 @router.get("/my-links")
 async def get_my_reseller_links(
     reseller: Dict = Depends(get_current_reseller),

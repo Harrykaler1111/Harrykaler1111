@@ -90,12 +90,15 @@ export const CartProvider = ({ children }) => {
     } catch { /* ignore */ }
   }, [token, boosterConfig, getActiveSlab]);
 
-  const addToCart = useCallback(async (productId, quantity = 1, size = "M", color = "Default") => {
+  const addToCart = useCallback(async (productId, quantity = 1, size = "M", color = "Default", resellerId = null, priceOverride = null) => {
     if (!token) return false;
     try {
-      const res = await axios.post(`${API}/cart/add`, {
-        product_id: productId, quantity, size, color
-      }, { headers: { Authorization: `Bearer ${token}` } });
+      const body = { product_id: productId, quantity, size, color };
+      if (resellerId && priceOverride) {
+        body.reseller_id = resellerId;
+        body.price_override = priceOverride;
+      }
+      const res = await axios.post(`${API}/cart/add`, body, { headers: { Authorization: `Bearer ${token}` } });
       const newTotal = res.data.total || 0;
       const diff = newTotal - prevTotalRef.current;
       if (diff > 0) setLastAddedAmount(diff);

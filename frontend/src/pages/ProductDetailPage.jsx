@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus,
@@ -173,6 +173,7 @@ const ProductVideo = ({ src }) => {
 
 export const ProductDetailPage = () => {
   const { productId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart, openCart } = useCart();
@@ -185,10 +186,20 @@ export const ProductDetailPage = () => {
   const [activeImage, setActiveImage] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
 
+  // Reseller price override from URL
+  const urlResellerId = searchParams.get("reseller_id");
+  const urlPrice = parseFloat(searchParams.get("price"));
+  const isResellerView = !!(urlResellerId && urlPrice && !isNaN(urlPrice));
+
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await axios.get(`${API}/products/${productId}`);
+        // Pass reseller params to API — backend overrides price in response
+        let url = `${API}/products/${productId}`;
+        if (urlResellerId && urlPrice && !isNaN(urlPrice)) {
+          url += `?reseller_id=${urlResellerId}&price=${urlPrice}`;
+        }
+        const response = await axios.get(url);
         setProduct(response.data);
         if (response.data.sizes?.length > 0) setSelectedSize(response.data.sizes[0]);
         if (response.data.colors?.length > 0) setSelectedColor(response.data.colors[0]);
@@ -200,14 +211,18 @@ export const ProductDetailPage = () => {
       }
     };
     fetchProduct();
-  }, [productId, navigate]);
+  }, [productId, navigate, urlResellerId, urlPrice]);
 
   const handleAddToCart = async () => {
     if (!user) { toast.error("Please sign in to add to cart"); navigate("/auth"); return; }
     if (!selectedSize || !selectedColor) { toast.error("Please select size and color"); return; }
     setAddingToCart(true);
     try {
-      const ok = await addToCart(product.product_id, quantity, selectedSize, selectedColor);
+      const ok = await addToCart(
+        product.product_id, quantity, selectedSize, selectedColor,
+        isResellerView ? urlResellerId : null,
+        isResellerView ? urlPrice : null
+      );
       if (ok) { toast.success("Added to cart!"); openCart(); }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to add to cart");
@@ -300,7 +315,7 @@ export const ProductDetailPage = () => {
                     Limited
                   </span>
                 )}
-                {discount > 0 && (
+                {discount > 0 && !isResellerView && (
                   <span className="text-[9px] font-bold uppercase tracking-wider bg-black text-white px-2.5 py-1 rounded-sm">
                     -{discount}%
                   </span>
@@ -376,20 +391,22 @@ export const ProductDetailPage = () => {
             )}
 
             {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-2xl font-bold" data-testid="product-price">
-                Rs.{product.price.toLocaleString()}
-              </span>
-              {product.compare_price && (
-                <>
-                  <span className="text-base text-neutral-400 line-through">
-                    Rs.{product.compare_price.toLocaleString()}
-                  </span>
-                  <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                    Save {discount}%
-                  </span>
-                </>
-              )}
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-3">
+                <span className="text-2xl font-bold" data-testid="product-price">
+                  Rs.{product.price.toLocaleString()}
+                </span>
+                {product.compare_price && (
+                  <>
+                    <span className="text-base text-neutral-400 line-through">
+                      Rs.{product.compare_price.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                      Save {discount}%
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Description */}
@@ -565,8 +582,8 @@ export const ProductDetailPage = () => {
               </div>
             )}
 
-            {/* Partner Links (Affiliate / Reseller) — on-demand */}
-            <ProductPartnerLinks product={product} />
+            {/* Partner Links (Affiliate / Reseller) — hidden on reseller views */}
+            {!isResellerView && <ProductPartnerLinks product={product} />}
           </div>
         </div>
 
