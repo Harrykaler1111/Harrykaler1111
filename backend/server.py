@@ -44,6 +44,7 @@ from routes.checkout_settings_routes import router as checkout_settings_router
 from routes.bundle_routes import router as bundle_router
 from routes.notification_routes import router as notification_router
 from routes.whatsapp_routes import router as whatsapp_router
+from routes.support_ticket_routes import router as support_ticket_router
 from routes.bulk_upload_routes import router as bulk_upload_router
 from routes.dummy_review_routes import router as dummy_review_router
 from routes.fomo_routes import router as fomo_router
@@ -87,6 +88,7 @@ app.include_router(checkout_settings_router, prefix="/api")
 app.include_router(bundle_router, prefix="/api")
 app.include_router(notification_router, prefix="/api")
 app.include_router(whatsapp_router, prefix="/api")
+app.include_router(support_ticket_router, prefix="/api")
 app.include_router(bulk_upload_router, prefix="/api")
 app.include_router(dummy_review_router, prefix="/api")
 app.include_router(fomo_router, prefix="/api")

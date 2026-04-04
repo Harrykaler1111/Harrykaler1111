@@ -390,13 +390,14 @@ async def interakt_webhook(request: Request, background_tasks: BackgroundTasks):
 
 
 async def handle_customer_reply(payload: Dict):
-    """Handle incoming customer WhatsApp message (e.g., COD confirmation reply)."""
+    """Handle incoming customer WhatsApp message — COD confirmation + auto-ticket creation."""
     data = payload.get("data", {})
     customer = data.get("customer", {})
     message = data.get("message", {})
 
     phone = customer.get("channel_phone_number", "")
-    text = (message.get("message", "") or "").strip().lower()
+    raw_text = (message.get("message", "") or "").strip()
+    text = raw_text.lower()
     button_payload = message.get("meta_data", {}).get("button_payload", "")
 
     logger.info(f"Customer reply from {phone}: text='{text}', button='{button_payload}'")
@@ -439,7 +440,130 @@ async def handle_customer_reply(payload: Dict):
                 f"Customer responded '{text or button_payload}' via WhatsApp",
                 actor_type="customer"
             )
+            return  # COD handled, don't create a ticket
 
+    # ---- AUTO-TICKET CREATION FROM WHATSAPP MESSAGES ----
+    # Skip very short or non-support messages
+    if len(raw_text) < 3:
+        return
+
+    # Parse context from message text
+    ticket_category = "other"
+    linked_order_id = None
+    title = "WhatsApp Support Request"
+
+    import re as _re
+    # Detect order-related messages
+    order_match = _re.search(r'order\s*#?\s*([A-Za-z0-9_]+)', raw_text, _re.IGNORECASE)
+    if order_match:
+        linked_order_id = order_match.group(1)
+        ticket_category = "order"
+        title = f"Order Issue (#{linked_order_id})"
+    elif any(w in text for w in ["order", "delivery", "shipping", "track"]):
+        ticket_category = "order"
+        title = "Order / Delivery Query"
+    elif any(w in text for w in ["refund", "return", "money back"]):
+        ticket_category = "refund"
+        title = "Refund / Return Request"
+    elif any(w in text for w in ["payment", "pay", "transaction", "upi"]):
+        ticket_category = "payment"
+        title = "Payment Issue"
+    elif any(w in text for w in ["product", "item", "interested", "price", "stock"]):
+        ticket_category = "other"
+        title = "Product Inquiry"
+    elif any(w in text for w in ["support", "help", "ticket", "issue", "problem"]):
+        ticket_category = "other"
+        title = "General Support Request"
+    elif any(w in text for w in ["reseller", "resell", "partner"]):
+        ticket_category = "vendor_collaboration"
+        title = "Reseller / Partnership Inquiry"
+
+    # Try to find user by phone
+    clean_phone = phone[-10:] if phone else ""
+    user = None
+    if clean_phone:
+        user = await db.users.find_one(
+            {"phone": {"$regex": clean_phone}},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1}
+        )
+
+    # Check for recent duplicate (same phone, within 5 mins)
+    recent_ticket = await db.tickets.find_one(
+        {
+            "source": "whatsapp",
+            "source_phone": phone,
+            "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()}
+        },
+        sort=[("created_at", -1)]
+    )
+    if recent_ticket:
+        # Append message as reply to existing ticket instead of creating a new one
+        reply = {
+            "reply_id": generate_id("rpl_"),
+            "sender_id": user["user_id"] if user else f"wa_{clean_phone}",
+            "sender_type": "user",
+            "sender_name": user.get("name", f"WhatsApp User ({phone})") if user else f"WhatsApp User ({phone})",
+            "message": raw_text,
+            "attachments": [],
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.tickets.update_one(
+            {"ticket_id": recent_ticket["ticket_id"]},
+            {"$push": {"replies": reply}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        logger.info(f"Appended WhatsApp message to existing ticket {recent_ticket['ticket_id']}")
+        return
+
+    # Create new ticket
+    ticket = {
+        "ticket_id": generate_id("tkt_"),
+        "user_id": user["user_id"] if user else f"wa_{clean_phone}",
+        "user_type": "customer",
+        "user_name": user.get("name", "WhatsApp User") if user else "WhatsApp User",
+        "user_email": user.get("email", "") if user else "",
+        "user_phone": phone,
+        "source": "whatsapp",
+        "source_phone": phone,
+        "title": title,
+        "description": raw_text,
+        "category": ticket_category,
+        "priority": "medium",
+        "status": "open",
+        "assigned_to": None,
+        "assigned_name": None,
+        "attachments": [],
+        "linked_order_id": linked_order_id,
+        "sla_deadline": (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat(),
+        "escalated": False,
+        "escalated_at": None,
+        "replies": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "resolved_at": None,
+        "closed_at": None,
+    }
+    await db.tickets.insert_one(ticket)
+    ticket.pop("_id", None)
+    logger.info(f"Auto-created WhatsApp ticket {ticket['ticket_id']} from {phone}: {title}")
+
+    # Send auto-reply via Interakt
+    try:
+        from services.interakt_service import send_template_message, validate_indian_phone, parse_phone
+        if validate_indian_phone(phone):
+            country_code, number = parse_phone(phone)
+            # Send a simple notification via Interakt track event
+            from services.interakt_service import track_event
+            track_event(
+                phone=phone,
+                event="support_ticket_created",
+                traits={
+                    "ticket_id": ticket["ticket_id"],
+                    "name": ticket["user_name"],
+                    "message": f"Your support request has been received (Ticket: {ticket['ticket_id']}). Our team will contact you shortly."
+                }
+            )
+    except Exception as e:
+        logger.error(f"Failed to send auto-reply for ticket {ticket['ticket_id']}: {e}")
 
 async def update_message_status(payload: Dict):
     """Update delivery status of sent messages."""

@@ -17,7 +17,7 @@ import {
   LogOut, Plus, Trash2, Eye, ArrowUpRight, ArrowDownRight, Store,
   Upload, CheckCircle, XCircle, Clock, AlertCircle, AlertTriangle, IndianRupee,
   Megaphone, FolderOpen, Zap, Key, DollarSign, Check, Copy, LifeBuoy, Send, ArrowLeft,
-  BarChart3, TrendingUp
+  BarChart3, TrendingUp, ExternalLink, MessageSquare
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { BulkUpload } from "@/components/BulkUpload";
@@ -1791,121 +1791,58 @@ const VendorInfluencers = ({ vendor }) => {
 // ===== VENDOR SUPPORT =====
 const VendorSupport = ({ vendor }) => {
   const [tickets, setTickets] = useState([]);
-  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("list");
   const [activeTicket, setActiveTicket] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [form, setForm] = useState({ title: "", description: "", category: "", priority: "medium" });
-  const [attachments, setAttachments] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [reply, setReply] = useState("");
-  const [sending, setSending] = useState(false);
 
   const headers = getVendorHeaders();
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
     try {
-      const params = statusFilter ? `?status=${statusFilter}` : "";
-      const res = await axios.get(`${API}/vendors/tickets/me${params}`, { headers });
+      const res = await axios.get(`${API}/vendors/tickets/me`, { headers });
       setTickets(res.data.tickets || []);
-      setTotal(res.data.total || 0);
-    } catch { toast.error("Failed to load tickets"); }
+    } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
-  useEffect(() => { axios.get(`${API}/tickets/categories`).then(r => setCategories(r.data)).catch(() => {}); }, []);
 
   const openTicket = async (id) => {
     try {
       const res = await axios.get(`${API}/vendors/tickets/${id}`, { headers });
       setActiveTicket(res.data);
-      setView("detail");
     } catch { toast.error("Failed to load ticket"); }
   };
 
-  const createTicket = async (e) => {
-    e.preventDefault();
-    if (!form.title || !form.description || !form.category) { toast.error("Fill all required fields"); return; }
-    setSubmitting(true);
-    try {
-      await axios.post(`${API}/vendors/tickets`, {
-        ...form, attachments: attachments.map(a => typeof a === "string" ? a : a.url)
-      }, { headers });
-      toast.success("Ticket created!");
-      setForm({ title: "", description: "", category: "", priority: "medium" });
-      setAttachments([]);
-      setView("list");
-      fetchTickets();
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
-    finally { setSubmitting(false); }
-  };
-
-  const sendReply = async () => {
-    if (!reply.trim() || !activeTicket) return;
-    setSending(true);
-    try {
-      await axios.post(`${API}/vendors/tickets/${activeTicket.ticket_id}/reply`, { message: reply, attachments: [] }, { headers });
-      toast.success("Reply sent");
-      setReply("");
-      openTicket(activeTicket.ticket_id);
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
-    finally { setSending(false); }
-  };
-
-  const reopenTicket = async () => {
-    if (!activeTicket) return;
-    try {
-      await axios.put(`${API}/vendors/tickets/${activeTicket.ticket_id}/reopen`, {}, { headers });
-      toast.success("Ticket reopened");
-      openTicket(activeTicket.ticket_id);
-    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+  const openWhatsApp = (message) => {
+    window.open(whatsappLink(message), "_blank");
   };
 
   const sBadge = (s) => {
     const m = { open: "bg-blue-500/20 text-blue-400", assigned: "bg-purple-500/20 text-purple-400", in_progress: "bg-yellow-500/20 text-yellow-400", waiting_for_user: "bg-orange-500/20 text-orange-400", resolved: "bg-green-500/20 text-green-400", closed: "bg-neutral-500/20 text-neutral-400" };
     return m[s] || "";
   };
-  const pBadge = (p) => {
-    const m = { high: "bg-red-500/20 text-red-400", medium: "bg-yellow-500/20 text-yellow-400", low: "bg-green-500/20 text-green-400" };
-    return m[p] || "";
-  };
 
-  if (view === "detail" && activeTicket) {
-    const slaOver = activeTicket.sla_deadline && new Date() > new Date(activeTicket.sla_deadline) && !["resolved", "closed"].includes(activeTicket.status);
+  if (activeTicket) {
     return (
       <div className="space-y-4" data-testid="vendor-ticket-detail">
-        <button onClick={() => { setView("list"); setActiveTicket(null); }} className="text-gold text-sm hover:underline flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back to tickets
+        <button onClick={() => setActiveTicket(null)} className="text-gold text-sm hover:underline flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-5">
-          <div className="flex justify-between items-start">
-            <div>
-              <span className="font-mono text-xs text-neutral-500">{activeTicket.ticket_id}</span>
-              <h3 className="text-xl font-bold text-white mt-1">{activeTicket.title}</h3>
-            </div>
-            <div className="flex gap-2">
-              <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${pBadge(activeTicket.priority)}`}>{activeTicket.priority}</span>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${sBadge(activeTicket.status)}`}>{activeTicket.status.replace(/_/g, " ")}</span>
-            </div>
-          </div>
-          <p className="text-sm text-neutral-300 mt-3">{activeTicket.description}</p>
+          <span className="font-mono text-xs text-neutral-500">{activeTicket.ticket_id}</span>
+          <h3 className="text-xl font-bold text-white mt-1">{activeTicket.title}</h3>
+          <p className="text-sm text-neutral-300 mt-2">{activeTicket.description}</p>
           <div className="flex gap-4 mt-2 text-xs text-neutral-500">
-            <span>Category: {activeTicket.category.replace(/_/g, " ")}</span>
-            <span>Created: {new Date(activeTicket.created_at).toLocaleString()}</span>
-            {activeTicket.assigned_name && <span>Agent: {activeTicket.assigned_name}</span>}
-            {slaOver && <span className="text-red-400 font-medium">SLA Overdue</span>}
+            <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${sBadge(activeTicket.status)}`}>{(activeTicket.status || "").replace(/_/g, " ")}</span>
+            <span>{new Date(activeTicket.created_at).toLocaleString()}</span>
           </div>
         </div>
-
         <div className="space-y-2">
           {activeTicket.replies?.map(r => (
             <div key={r.reply_id} className={`p-3 rounded-lg border ${r.sender_type === "support" ? "bg-gold/5 border-gold/20 ml-6" : "bg-neutral-800/50 border-neutral-700 mr-6"}`}>
               <div className="flex justify-between mb-1">
-                <span className="text-sm font-medium text-white">{r.sender_name} <span className="text-neutral-500 text-xs">({r.sender_type})</span></span>
+                <span className="text-sm font-medium text-white">{r.sender_name}</span>
                 <span className="text-xs text-neutral-500">{new Date(r.created_at).toLocaleString()}</span>
               </div>
               <p className="text-sm text-neutral-300 whitespace-pre-wrap">{r.message}</p>
@@ -1913,121 +1850,69 @@ const VendorSupport = ({ vendor }) => {
           ))}
           {(!activeTicket.replies || activeTicket.replies.length === 0) && <p className="text-sm text-neutral-500 text-center py-4">No replies yet</p>}
         </div>
-
-        {["resolved", "closed"].includes(activeTicket.status) ? (
-          <div className="border border-neutral-700 rounded-xl p-4 text-center">
-            <CheckCircle className="h-6 w-6 text-green-500 mx-auto mb-2" />
-            <p className="text-sm text-neutral-400 mb-3">Ticket {activeTicket.status}</p>
-            <Button size="sm" variant="outline" onClick={reopenTicket} className="text-white border-neutral-600" data-testid="vendor-reopen-btn">Reopen</Button>
-          </div>
-        ) : (
-          <div className="flex gap-2 items-end">
-            <textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Type reply..."
-              rows={2} className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm resize-none" data-testid="vendor-reply-input" />
-            <Button onClick={sendReply} disabled={sending} className="bg-gold text-black" data-testid="vendor-reply-send">
-              <Send className="h-4 w-4 mr-1" /> Send
-            </Button>
-          </div>
+        {activeTicket.status !== "resolved" && activeTicket.status !== "closed" && (
+          <button onClick={() => openWhatsApp(`Hi, I'm vendor ${vendor.store_name || vendor.name}. I have an update on ticket ${activeTicket.ticket_id}: ${activeTicket.title}`)}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-medium text-sm hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: "#25D366" }}
+            data-testid="vendor-wa-followup-btn">
+            <MessageSquare className="h-4 w-4" /> Follow up on WhatsApp
+          </button>
         )}
       </div>
     );
   }
 
-  if (view === "create") {
-    return (
-      <div className="space-y-4" data-testid="vendor-create-ticket">
-        <button onClick={() => setView("list")} className="text-gold text-sm hover:underline flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
-        <h2 className="font-serif text-xl font-bold text-white">New Support Ticket</h2>
-        <form onSubmit={createTicket} className="space-y-4">
-          <div>
-            <label className="text-sm text-neutral-400 mb-1 block">Title *</label>
-            <Input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
-              className="bg-neutral-900 border-neutral-700 text-white" placeholder="Describe your issue" data-testid="vendor-ticket-title" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Category *</label>
-              <select value={form.category} onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
-                className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm" data-testid="vendor-ticket-category">
-                <option value="">Select</option>
-                {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm text-neutral-400 mb-1 block">Priority</label>
-              <select value={form.priority} onChange={(e) => setForm(f => ({ ...f, priority: e.target.value }))}
-                className="w-full h-10 px-3 bg-neutral-900 border border-neutral-700 text-white rounded-md text-sm" data-testid="vendor-ticket-priority">
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-sm text-neutral-400 mb-1 block">Description *</label>
-            <textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
-              rows={4} className="w-full bg-neutral-900 border border-neutral-700 text-white rounded-md px-3 py-2 text-sm resize-none" data-testid="vendor-ticket-description" />
-          </div>
-          <div>
-            <label className="text-sm text-neutral-400 mb-1 block">Attachments</label>
-            <MediaUploader value={attachments} onChange={setAttachments} maxFiles={5} userId={vendor.vendor_id} />
-          </div>
-          <Button type="submit" disabled={submitting} className="bg-gold text-black" data-testid="vendor-submit-ticket">
-            {submitting ? "Submitting..." : "Submit Ticket"}
-          </Button>
-        </form>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4" data-testid="vendor-support-page">
-      <div className="flex justify-between items-center">
-        <h2 className="font-serif text-xl font-bold text-white">Support Tickets</h2>
-        <Button className="bg-gold text-black" size="sm" onClick={() => setView("create")} data-testid="vendor-new-ticket-btn">
-          <Plus className="h-4 w-4 mr-1" /> New Ticket
-        </Button>
-      </div>
+    <div className="space-y-6" data-testid="vendor-support-page">
+      <h2 className="font-serif text-xl font-bold text-white">Support</h2>
 
-      <div className="flex gap-2 flex-wrap">
-        {["", "open", "in_progress", "waiting_for_user", "resolved", "closed"].map(s => (
-          <button key={s} onClick={() => setStatusFilter(s)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${statusFilter === s ? "bg-gold text-black border-gold" : "border-neutral-700 text-neutral-400 hover:border-neutral-500"}`}>
-            {s ? s.replace(/_/g, " ") : "All"}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gold mx-auto" /></div>
-      ) : tickets.length === 0 ? (
-        <div className="text-center py-16 border border-dashed border-neutral-700 rounded-xl">
-          <LifeBuoy className="h-12 w-12 text-neutral-600 mx-auto mb-3" />
-          <p className="text-neutral-400">No tickets yet</p>
+      {/* WhatsApp CTA */}
+      <button
+        onClick={() => openWhatsApp(`Hi, I am vendor "${vendor.store_name || vendor.name}" and I need help.`)}
+        className="w-full flex items-center gap-4 p-5 rounded-2xl text-left transition-all hover:opacity-90"
+        style={{ backgroundColor: "#25D366" }}
+        data-testid="vendor-wa-support-btn"
+      >
+        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+          <MessageSquare className="h-5 w-5 text-white" />
         </div>
-      ) : (
-        <div className="space-y-2">
-          {tickets.map(t => (
-            <div key={t.ticket_id} onClick={() => openTicket(t.ticket_id)}
-              className="border border-neutral-700 rounded-xl p-4 hover:border-neutral-500 cursor-pointer transition-colors"
-              data-testid={`vendor-ticket-${t.ticket_id}`}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="font-mono text-xs text-neutral-500">{t.ticket_id}</span>
-                  <h4 className="text-white font-medium mt-0.5">{t.title}</h4>
-                  <p className="text-xs text-neutral-500 mt-0.5">{t.category.replace(/_/g, " ")} - {new Date(t.created_at).toLocaleDateString()}</p>
-                </div>
-                <div className="flex gap-2">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${pBadge(t.priority)}`}>{t.priority}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${sBadge(t.status)}`}>{t.status.replace(/_/g, " ")}</span>
+        <div className="flex-1">
+          <p className="font-bold text-white">Chat & Raise Ticket on WhatsApp</p>
+          <p className="text-xs text-white/70 mt-0.5">Fastest way to get vendor support</p>
+        </div>
+        <ExternalLink className="h-4 w-4 text-white/60 shrink-0" />
+      </button>
+
+      {/* Ticket History */}
+      <div>
+        <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-3">Ticket History</h3>
+        {loading ? (
+          <div className="text-center py-8"><div className="animate-spin rounded-full h-6 w-6 border-t-2 border-gold mx-auto" /></div>
+        ) : tickets.length === 0 ? (
+          <div className="text-center py-10 border border-dashed border-neutral-700 rounded-xl">
+            <LifeBuoy className="h-10 w-10 text-neutral-600 mx-auto mb-2" />
+            <p className="text-neutral-500 text-sm">No tickets yet</p>
+            <p className="text-neutral-600 text-xs mt-1">Message us on WhatsApp — tickets are auto-created</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {tickets.map(t => (
+              <div key={t.ticket_id} onClick={() => openTicket(t.ticket_id)}
+                className="border border-neutral-700 rounded-xl p-4 hover:border-neutral-500 cursor-pointer transition-colors"
+                data-testid={`vendor-ticket-${t.ticket_id}`}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="font-mono text-xs text-neutral-500">{t.ticket_id}</span>
+                    {t.source === "whatsapp" && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 ml-2">WhatsApp</span>}
+                    <h4 className="text-white font-medium mt-0.5">{t.title}</h4>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${sBadge(t.status)}`}>{(t.status || "").replace(/_/g, " ")}</span>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -39,6 +39,7 @@ import { TrackingPixels } from "@/components/TrackingPixels";
 import { CartProvider, useCart } from "@/context/CartContext";
 import { BoosterBar } from "@/components/BoosterBar";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ChatWidget } from "@/components/ChatWidget";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -169,6 +170,7 @@ const LayoutWrapper = ({ children }) => {
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <FloatingWhatsApp />}
+      {!hideChrome && <ChatWidget />}
       {!hideChrome && <FomoNotification />}
       {!hideChrome && <CartDrawer />}
       <TrackingPixels />
@@ -251,14 +253,7 @@ const AppRouter = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/support"
-        element={
-          <ProtectedRoute>
-            <SupportPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/support" element={<SupportPage />} />
       <Route
         path="/returns"
         element={

@@ -3240,7 +3240,11 @@ export const AdminDashboard = () => {
               <div>
                 <span className="font-mono text-xs text-neutral-500">{selectedTicket.ticket_id}</span>
                 <h3 className="text-xl font-bold text-white mt-1">{selectedTicket.title}</h3>
-                <p className="text-sm text-neutral-400 mt-1">By {selectedTicket.user_name} ({selectedTicket.user_type}) - {selectedTicket.user_email}</p>
+                <p className="text-sm text-neutral-400 mt-1">
+                  By {selectedTicket.user_name} ({selectedTicket.user_type}) - {selectedTicket.user_email}
+                  {selectedTicket.source === "whatsapp" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-medium">via WhatsApp</span>}
+                  {selectedTicket.user_phone && <span className="ml-2 text-neutral-500">Ph: {selectedTicket.user_phone}</span>}
+                </p>
               </div>
               <div className="flex gap-2 flex-wrap">
                 <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase ${prioBadge(selectedTicket.priority)}`}>{selectedTicket.priority}</span>
@@ -3421,7 +3425,10 @@ export const AdminDashboard = () => {
                     <TableCell className="font-mono text-xs text-neutral-400">{t.ticket_id.slice(0, 12)}</TableCell>
                     <TableCell>
                       <p className="text-white text-sm truncate max-w-[200px]">{t.title}</p>
-                      <span className="text-xs text-neutral-500">{t.category.replace(/_/g, " ")}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-neutral-500">{t.category.replace(/_/g, " ")}</span>
+                        {t.source === "whatsapp" && <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-medium">WhatsApp</span>}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <p className="text-neutral-300 text-sm">{t.user_name}</p>
@@ -3482,6 +3489,7 @@ export const AdminDashboard = () => {
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/dummy-reviews", icon: <Star className="h-5 w-5" />, label: "Dummy Reviews", permission: ["products", "edit"] },
     { path: "/admin/fomo", icon: <Bell className="h-5 w-5" />, label: "FOMO Popups", permission: ["platform_settings", "edit"] },
+    { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
     { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
   ];
@@ -3583,6 +3591,7 @@ export const AdminDashboard = () => {
             <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="dummy-reviews" element={<AdminDummyReviewsPanel />} />
             <Route path="fomo" element={<AdminFomoPanel />} />
+            <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="permissions" element={<PermissionsPanel />} />
             <Route path="*" element={<DashboardOverview />} />
