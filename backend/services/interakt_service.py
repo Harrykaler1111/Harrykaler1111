@@ -214,6 +214,38 @@ def notify_abandoned_cart(phone: str, customer_name: str, cart_total: float, pro
     })
 
 
+def send_otp_via_whatsapp(phone: str, otp_code: str) -> Dict[str, Any]:
+    """Send OTP to user via WhatsApp. Tries template first, then event tracking.
+    
+    For template approach: Create an approved template named 'otp_verification' in Interakt dashboard.
+    For event approach: Create an automation triggered by 'otp_requested' event in Interakt dashboard
+    with message body: 'Your Pigma verification code is {{otp_code}}. Do not share this code.'
+    """
+    # Attempt 1: Template message (requires approved template in Interakt)
+    template_result = send_template_message(
+        phone=phone,
+        template_name="otp_verification",
+        language_code="en",
+        body_values=[otp_code]
+    )
+    if template_result.get("success"):
+        logger.info(f"OTP sent via template to {phone}")
+        return {"success": True, "method": "template"}
+
+    # Attempt 2: Event tracking (triggers Interakt automation)
+    event_result = track_event(phone, "otp_requested", {
+        "otp_code": otp_code,
+        "phone": phone,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+    if event_result.get("success"):
+        logger.info(f"OTP sent via event tracking to {phone}")
+        return {"success": True, "method": "event"}
+
+    logger.error(f"Failed to send OTP via any method to {phone}: template={template_result}, event={event_result}")
+    return {"success": False, "template_error": template_result, "event_error": event_result}
+
+
 def send_broadcast_message(
     phone: str,
     template_name: str,

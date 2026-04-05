@@ -123,7 +123,6 @@ export const VendorAuthPage = () => {
                       try {
                         const res = await axios.post(`${API}/auth/password/reset-request`, { email: resetEmail });
                         setResetStep(2); toast.success("OTP sent!");
-                        if (res.data.demo_otp) toast.info(`Demo OTP: ${res.data.demo_otp}`);
                       } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
                     }} className="w-full bg-gold hover:bg-gold/90 text-black" data-testid="vendor-send-otp-btn">Send Reset OTP</Button>
                   </div>

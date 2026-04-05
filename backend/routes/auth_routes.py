@@ -303,6 +303,17 @@ async def google_auth_callback(session_id: str):
 @router.post("/otp/send")
 async def send_otp(request: OTPRequest):
     clean_phone = validate_phone_number(request.phone)
+
+    # Rate limiting: prevent rapid resend (30s cooldown)
+    recent = await db.otp_verifications.find_one({"phone": clean_phone}, {"_id": 0})
+    if recent and recent.get("created_at"):
+        created = datetime.fromisoformat(recent["created_at"])
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - created).total_seconds()
+        if elapsed < 30:
+            raise HTTPException(status_code=429, detail=f"Please wait {int(30 - elapsed)} seconds before requesting a new OTP")
+
     otp = str(uuid.uuid4().int)[:6]
     await db.otp_verifications.update_one(
         {"phone": clean_phone},
@@ -314,8 +325,28 @@ async def send_otp(request: OTPRequest):
         }},
         upsert=True
     )
-    logger.info(f"OTP for {clean_phone}: {otp}")
-    return {"message": "OTP sent successfully"}
+
+    # Send OTP via Interakt WhatsApp API
+    otp_sent_via_whatsapp = False
+    try:
+        from services.interakt_service import send_otp_via_whatsapp, validate_indian_phone
+        if validate_indian_phone(clean_phone):
+            phone_digits = clean_phone.replace("+91", "")
+            result = send_otp_via_whatsapp(phone=phone_digits, otp_code=otp)
+            otp_sent_via_whatsapp = result.get("success", False)
+            if otp_sent_via_whatsapp:
+                logger.info(f"OTP delivered to {clean_phone} via {result.get('method')}")
+            else:
+                logger.error(f"OTP delivery failed for {clean_phone}: {result}")
+    except Exception as e:
+        logger.error(f"Failed to send OTP via Interakt: {e}")
+
+    logger.info(f"OTP generated for {clean_phone}: {otp} | WhatsApp delivered: {otp_sent_via_whatsapp}")
+
+    response = {"message": "OTP sent successfully"}
+    if not otp_sent_via_whatsapp:
+        response["warning"] = "WhatsApp delivery pending. Please check your messages."
+    return response
 
 
 @router.post("/otp/verify", response_model=Dict)

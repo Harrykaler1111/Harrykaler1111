@@ -50,7 +50,8 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
       toast.success("OTP sent to your WhatsApp!");
       setTimeout(() => otpRefs.current[0]?.focus(), 200);
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed to send OTP");
+      const detail = err.response?.data?.detail || "Failed to send OTP";
+      toast.error(detail);
     } finally { setLoading(false); }
   };
 

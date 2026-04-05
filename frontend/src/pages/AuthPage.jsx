@@ -99,13 +99,9 @@ export const AuthPage = () => {
     try {
       const response = await axios.post(`${API}/auth/otp/send`, { phone: otpPhone });
       setOtpSent(true);
-      toast.success("OTP sent to your phone");
-      // For demo, show the OTP
-      if (response.data.demo_otp) {
-        toast.info(`Demo OTP: ${response.data.demo_otp}`);
-      }
+      toast.success("OTP sent to your WhatsApp");
     } catch (error) {
-      toast.error("Failed to send OTP");
+      toast.error(error.response?.data?.detail || "Failed to send OTP");
     } finally {
       setIsLoading(false);
     }
@@ -142,7 +138,6 @@ export const AuthPage = () => {
       const res = await axios.post(`${API}/auth/password/reset-request`, { email: resetEmail });
       setResetStep(2);
       toast.success("Reset OTP sent to your email");
-      if (res.data.demo_otp) toast.info(`Demo OTP: ${res.data.demo_otp}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to send reset OTP");
     } finally {
