@@ -172,7 +172,7 @@ export const CartProvider = ({ children }) => {
     if (!token) {
       let guest = getGuestCart();
       guest = guest.filter(i =>
-        !(i.product_id === productId && i.size === size && i.color === color)
+        !(i.product_id === productId && (i.size || "") === (size || "") && (i.color || "") === (color || ""))
       );
       saveGuestCart(guest);
       setCartItems(guest);
@@ -182,7 +182,7 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      await axios.delete(`${API}/cart/remove/${productId}`, {
+      await axios.delete(`${API}/cart/item/${productId}`, {
         headers,
         params: { size, color }
       });
