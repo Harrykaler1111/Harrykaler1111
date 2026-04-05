@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, X, Image, Film, Loader2 } from "lucide-react";
+import { Upload, X, Image, Film, Loader2, Crop } from "lucide-react";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { toast } from "sonner";
 import axios from "axios";
@@ -13,6 +13,8 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
   const [cropQueue, setCropQueue] = useState([]);
   const [croppedFiles, setCroppedFiles] = useState([]);
   const [pendingVideos, setPendingVideos] = useState([]);
+  const [reCropIndex, setReCropIndex] = useState(null); // index of existing image being re-cropped
+  const [reCropSrc, setReCropSrc] = useState(null);
   const fileRef = useRef(null);
 
   const validateVideoDuration = (file) => {
@@ -164,6 +166,54 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
     onChange(value.filter((_, i) => i !== idx));
   };
 
+  // Re-crop an already uploaded image
+  const handleReCrop = (idx) => {
+    const item = value[idx];
+    const url = typeof item === "string" ? item : item.url;
+    setReCropIndex(idx);
+    setReCropSrc(url);
+  };
+
+  const handleReCropDone = useCallback(async (blob) => {
+    if (reCropIndex === null) return;
+    setUploading(true);
+    setProgress(0);
+
+    const file = new File([blob], `cropped_${Date.now()}.jpg`, { type: "image/jpeg" });
+    const formData = new FormData();
+    formData.append("files", file);
+
+    try {
+      const res = await axios.post(`${API}/uploads/multiple?user_id=${userId}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (e) => {
+          if (e.total) setProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+
+      const uploaded = res.data.uploaded || [];
+      if (uploaded.length > 0) {
+        const newUrl = `${process.env.REACT_APP_BACKEND_URL}${uploaded[0].url}`;
+        const updated = [...value];
+        updated[reCropIndex] = { url: newUrl, type: "image", filename: uploaded[0].filename };
+        onChange(updated);
+        toast.success("Image cropped & saved");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to upload cropped image");
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      setReCropIndex(null);
+      setReCropSrc(null);
+    }
+  }, [reCropIndex, value, onChange, userId]);
+
+  const handleReCropCancel = useCallback(() => {
+    setReCropIndex(null);
+    setReCropSrc(null);
+  }, []);
+
   const isVideo = (item) => {
     if (typeof item === "object" && item.type === "video") return true;
     const url = typeof item === "string" ? item : item.url;
@@ -174,13 +224,23 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
 
   return (
     <>
-      {/* Crop Modal */}
+      {/* Crop Modal — new uploads */}
       {cropQueue.length > 0 && (
         <ImageCropModal
           imageSrc={cropQueue[0].src}
           aspect={cropAspect}
           onCropDone={handleCropDone}
           onCancel={handleCropSkip}
+        />
+      )}
+
+      {/* Crop Modal — re-crop existing image */}
+      {reCropSrc && (
+        <ImageCropModal
+          imageSrc={reCropSrc}
+          aspect={cropAspect}
+          onCropDone={handleReCropDone}
+          onCancel={handleReCropCancel}
         />
       )}
 
@@ -241,7 +301,20 @@ export const MediaUploader = ({ value = [], onChange, maxFiles = 8, userId = "an
                 ) : (
                   <img src={getUrl(item)} alt="" className="w-full h-full object-cover" />
                 )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+                {!isVideo(item) && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleReCrop(idx); }}
+                    className="absolute bottom-1 left-1 bg-black/70 hover:bg-gold/90 hover:text-black rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all"
+                    title="Crop image"
+                    data-testid={`crop-media-${idx}`}
+                  >
+                    <Crop className="h-3 w-3 text-white" />
+                  </button>
+                )}
                 <button
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
                   className="absolute top-1 right-1 bg-black/70 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   data-testid={`remove-media-${idx}`}
