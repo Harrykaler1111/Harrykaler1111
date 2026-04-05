@@ -78,6 +78,13 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/otp/verify`, { phone: cleanPhone, otp: code || otp.join("") });
+      if (res.data.needs_registration) {
+        // Phone verified but no account — switch to signup tab with phone pre-filled
+        toast.success("Phone verified! Please complete your registration.");
+        setSignupPhone(cleanPhone);
+        setTab("signup");
+        return;
+      }
       login(res.data.user, res.data.token);
       toast.success("Logged in successfully!");
       onSuccess?.();
@@ -107,11 +114,12 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
   const handleSignup = async (e) => {
     e?.preventDefault();
     if (!signupName || !signupEmail || !signupPw) { toast.error("Fill all required fields"); return; }
+    if (!signupPhone) { toast.error("Phone number is required. Please verify via WhatsApp OTP first."); return; }
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/register`, {
         name: signupName, email: signupEmail, password: signupPw,
-        phone: signupPhone || undefined
+        phone: signupPhone
       });
       login(res.data.user, res.data.token);
       toast.success("Account created!");
@@ -287,9 +295,21 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
                     type="email" placeholder="your@email.com" className="h-11" data-testid="signup-email" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">Phone</label>
-                  <Input value={signupPhone} onChange={(e) => setSignupPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="10-digit number" className="h-11" data-testid="signup-phone" />
+                  <label className="text-xs font-medium text-neutral-500 mb-1 block">WhatsApp Number * {signupPhone && <span className="text-green-600 font-semibold">Verified</span>}</label>
+                  {signupPhone ? (
+                    <div className="flex items-center gap-2">
+                      <Input value={`+91 ${signupPhone}`} readOnly
+                        className="h-11 bg-green-50 border-green-200 text-green-800 font-medium" data-testid="signup-phone" />
+                      <span className="text-green-600 text-xs shrink-0">Verified</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-2">
+                        Please verify your WhatsApp number via OTP first.{" "}
+                        <button type="button" onClick={() => setMode("otp")} className="underline font-semibold">Verify now</button>
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-medium text-neutral-500 mb-1 block">Password *</label>

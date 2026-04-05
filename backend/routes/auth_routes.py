@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 import uuid
+import re
 import httpx
 import logging
 
@@ -12,6 +13,45 @@ from auth import generate_id, hash_password, verify_password, create_jwt_token, 
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# ============== VALIDATION HELPERS ==============
+
+DISPOSABLE_EMAIL_DOMAINS = {
+    "mailinator.com", "tempmail.com", "guerrillamail.com", "throwaway.email",
+    "yopmail.com", "10minutemail.com", "trashmail.com", "fakeinbox.com",
+    "sharklasers.com", "guerrillamailblock.com", "grr.la", "dispostable.com",
+    "getnada.com", "temp-mail.org", "mohmal.com", "emailondeck.com",
+    "maildrop.cc", "harakirimail.com", "mailsac.com", "tempinbox.com",
+    "burpcollaborator.net", "jetable.org", "trash-mail.com", "mailnesia.com",
+    "guerrillamail.info", "guerrillamail.net", "guerrillamail.de", "spam4.me",
+    "byom.de", "trashmail.me", "droptexts.com", "spamgourmet.com",
+}
+
+
+def validate_email_address(email: str) -> str:
+    """Validate email format and block disposable domains. Returns cleaned email."""
+    email = email.strip().lower()
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+    domain = email.split("@")[1]
+    if domain in DISPOSABLE_EMAIL_DOMAINS:
+        raise HTTPException(status_code=400, detail="Disposable/temporary email addresses are not allowed. Please use a real email.")
+    return email
+
+
+def validate_phone_number(phone: str) -> str:
+    """Validate Indian mobile number. Returns cleaned phone with +91 prefix."""
+    phone = phone.strip().replace(" ", "").replace("-", "")
+    # Remove leading + if present
+    if phone.startswith("+"):
+        phone = phone[1:]
+    # Remove leading 91 if present
+    if phone.startswith("91") and len(phone) == 12:
+        phone = phone[2:]
+    # Now should be 10 digits starting with 6-9
+    if not re.match(r'^[6-9]\d{9}$', phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number. Must be a valid Indian mobile number (10 digits starting with 6-9)")
+    return f"+91{phone}"
 
 
 async def log_action(user_id: str, user_type: str, action: str, details: str = ""):
@@ -27,19 +67,47 @@ async def log_action(user_id: str, user_type: str, action: str, details: str = "
 
 @router.post("/register", response_model=Dict)
 async def register_user(user: UserCreate):
-    existing = await db.users.find_one({"email": user.email})
+    # Validate email format and block disposable domains
+    clean_email = validate_email_address(user.email)
+
+    # Validate phone number format
+    clean_phone = validate_phone_number(user.phone) if user.phone else None
+    if not clean_phone:
+        raise HTTPException(status_code=400, detail="Phone number is required for registration")
+
+    # Check phone OTP was verified (must have a recent verification record)
+    phone_verified = await db.otp_verified_phones.find_one({"phone": clean_phone}, {"_id": 0})
+    if not phone_verified:
+        raise HTTPException(status_code=400, detail="Phone number must be verified via OTP before registration. Please verify your WhatsApp number first.")
+
+    # Check if verified recently (within 30 minutes)
+    verified_at = datetime.fromisoformat(phone_verified.get("verified_at", "2000-01-01T00:00:00+00:00"))
+    if verified_at.tzinfo is None:
+        verified_at = verified_at.replace(tzinfo=timezone.utc)
+    if (datetime.now(timezone.utc) - verified_at).total_seconds() > 1800:
+        raise HTTPException(status_code=400, detail="Phone verification expired. Please verify your number again.")
+
+    existing = await db.users.find_one({"email": clean_email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    existing_phone = await db.users.find_one({"phone": clean_phone})
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="Phone number already registered")
+
+    if len(user.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
     user_id = generate_id("user_")
     user_doc = {
         "user_id": user_id,
-        "email": user.email,
-        "name": user.name,
-        "phone": user.phone,
+        "email": clean_email,
+        "name": user.name.strip(),
+        "phone": clean_phone,
         "password": hash_password(user.password),
         "role": "customer",
         "avatar": None,
+        "phone_verified": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
@@ -51,6 +119,9 @@ async def register_user(user: UserCreate):
         "items": [],
         "updated_at": datetime.now(timezone.utc).isoformat()
     })
+
+    # Clean up verification record
+    await db.otp_verified_phones.delete_one({"phone": clean_phone})
 
     token = create_jwt_token(user_id, "customer")
     return {
@@ -231,24 +302,26 @@ async def google_auth_callback(session_id: str):
 
 @router.post("/otp/send")
 async def send_otp(request: OTPRequest):
+    clean_phone = validate_phone_number(request.phone)
     otp = str(uuid.uuid4().int)[:6]
     await db.otp_verifications.update_one(
-        {"phone": request.phone},
+        {"phone": clean_phone},
         {"$set": {
-            "phone": request.phone,
+            "phone": clean_phone,
             "otp": otp,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
         }},
         upsert=True
     )
-    logger.info(f"OTP for {request.phone}: {otp}")
+    logger.info(f"OTP for {clean_phone}: {otp}")
     return {"message": "OTP sent successfully", "demo_otp": otp}
 
 
 @router.post("/otp/verify", response_model=Dict)
 async def verify_otp(request: OTPVerify):
-    verification = await db.otp_verifications.find_one({"phone": request.phone}, {"_id": 0})
+    clean_phone = validate_phone_number(request.phone)
+    verification = await db.otp_verifications.find_one({"phone": clean_phone}, {"_id": 0})
     if not verification or verification["otp"] != request.otp:
         raise HTTPException(status_code=400, detail="Invalid OTP")
 
@@ -258,29 +331,25 @@ async def verify_otp(request: OTPVerify):
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="OTP expired")
 
-    user = await db.users.find_one({"phone": request.phone}, {"_id": 0})
-    if not user:
-        user_id = generate_id("user_")
-        user = {
-            "user_id": user_id,
-            "email": f"{request.phone}@phone.pigma.com",
-            "name": f"User {request.phone[-4:]}",
-            "phone": request.phone,
-            "password": None,
-            "role": "customer",
-            "avatar": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }
-        await db.users.insert_one(user)
-        await db.carts.insert_one({
-            "cart_id": generate_id("cart_"),
-            "user_id": user_id,
-            "items": [],
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        })
+    # Mark phone as verified (for registration flow)
+    await db.otp_verified_phones.update_one(
+        {"phone": clean_phone},
+        {"$set": {"phone": clean_phone, "verified_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
 
-    await db.otp_verifications.delete_one({"phone": request.phone})
+    user = await db.users.find_one({"phone": clean_phone}, {"_id": 0})
+    if not user:
+        # Phone verified but no account yet — return verification token for signup
+        await db.otp_verifications.delete_one({"phone": clean_phone})
+        return {
+            "phone_verified": True,
+            "needs_registration": True,
+            "phone": clean_phone,
+            "message": "Phone verified. Please complete registration."
+        }
+
+    await db.otp_verifications.delete_one({"phone": clean_phone})
 
     token = create_jwt_token(user["user_id"], user["role"])
     return {
