@@ -258,23 +258,25 @@ export const BoosterBar = () => {
   const [messages, setMessages] = useState({});
 
   useEffect(() => {
-    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
-    axios.get(`${API}/cart-booster/messages`).then(r => setMessages(r.data || {})).catch(() => {});
+    axios.get(`${API}/booster/config`).then(r => {
+      setSlabs(r.data?.slabs || []);
+      setMessages(r.data?.messages || {});
+    }).catch(() => {});
   }, []);
 
-  const enabledSlabs = slabs.filter(s => s.is_enabled || s.is_active).sort((a, b) => (a.min_cart_value || a.min_amount || 0) - (b.min_cart_value || b.min_amount || 0));
+  const enabledSlabs = slabs.filter(s => s.is_enabled).sort((a, b) => (a.min_cart_value || 0) - (b.min_cart_value || 0));
   if (enabledSlabs.length === 0) return null;
 
   const getActiveSlab = (total) => {
-    const active = enabledSlabs.filter(s => total >= (s.min_cart_value || s.min_amount || 0)).sort((a, b) => (b.min_cart_value || b.min_amount || 0) - (a.min_cart_value || a.min_amount || 0))[0] || null;
-    const next = enabledSlabs.filter(s => total < (s.min_cart_value || s.min_amount || 0)).sort((a, b) => (a.min_cart_value || a.min_amount || 0) - (b.min_cart_value || b.min_amount || 0))[0] || null;
+    const active = enabledSlabs.filter(s => total >= (s.min_cart_value || 0)).sort((a, b) => (b.min_cart_value || 0) - (a.min_cart_value || 0))[0] || null;
+    const next = enabledSlabs.filter(s => total < (s.min_cart_value || 0)).sort((a, b) => (a.min_cart_value || 0) - (b.min_cart_value || 0))[0] || null;
     return { active, next };
   };
 
   const { active, next } = getActiveSlab(cartTotal);
-  const maxThreshold = (enabledSlabs[enabledSlabs.length - 1]?.min_cart_value || enabledSlabs[enabledSlabs.length - 1]?.min_amount) || 1;
+  const maxThreshold = enabledSlabs[enabledSlabs.length - 1]?.min_cart_value || 1;
   const progress = Math.min((cartTotal / maxThreshold) * 100, 100);
-  const amountToNext = next ? (next.min_cart_value || next.min_amount || 0) - cartTotal : 0;
+  const amountToNext = next ? (next.min_cart_value || 0) - cartTotal : 0;
   const nearNext = next && amountToNext <= 300 && amountToNext > 0;
 
   const msgCfg = messages || {};

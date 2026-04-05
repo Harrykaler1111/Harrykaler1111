@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+import os
 from typing import Dict, List
 from datetime import datetime, timezone
 
@@ -150,10 +151,22 @@ async def clear_cart(user: Dict = Depends(get_current_user)):
 
 
 @router.get("/upsell-suggestions")
-async def get_upsell_suggestions(max_price: int = 500, user: Dict = Depends(get_current_user)):
-    """Get product suggestions for cart upsell — prioritizes admin-curated picks, then accessories"""
-    cart = await db.carts.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    cart_product_ids = [i["product_id"] for i in (cart.get("items", []) if cart else [])]
+async def get_upsell_suggestions(max_price: int = 500, request: Request = None):
+    """Get product suggestions for cart upsell — works for both guests and logged-in users"""
+    from routes.auth_routes import get_current_user
+    cart_product_ids = []
+    try:
+        auth_header = request.headers.get("authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            import jwt
+            payload = jwt.decode(token, os.environ.get("JWT_SECRET", "pigma-secret-2024"), algorithms=["HS256"])
+            user_id = payload.get("user_id")
+            if user_id:
+                cart = await db.carts.find_one({"user_id": user_id}, {"_id": 0})
+                cart_product_ids = [i["product_id"] for i in (cart.get("items", []) if cart else [])]
+    except Exception:
+        pass
 
     base_filter = {
         "is_active": True, "stock": {"$gt": 0},

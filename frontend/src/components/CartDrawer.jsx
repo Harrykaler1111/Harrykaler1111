@@ -104,12 +104,12 @@ export const CartDrawer = () => {
 
   // Fetch slabs
   useEffect(() => {
-    axios.get(`${API}/cart-booster/slabs`).then(r => setSlabs(r.data || [])).catch(() => {});
+    axios.get(`${API}/booster/config`).then(r => setSlabs(r.data?.slabs || [])).catch(() => {});
   }, []);
 
   const getActiveSlab = useCallback((total) => {
-    const active = slabs.filter(s => s.is_active && total >= s.min_amount).sort((a, b) => b.min_amount - a.min_amount)[0] || null;
-    const next = slabs.filter(s => s.is_active && total < s.min_amount).sort((a, b) => a.min_amount - b.min_amount)[0] || null;
+    const active = slabs.filter(s => s.is_enabled && total >= s.min_cart_value).sort((a, b) => b.min_cart_value - a.min_cart_value)[0] || null;
+    const next = slabs.filter(s => s.is_enabled && total < s.min_cart_value).sort((a, b) => a.min_cart_value - b.min_cart_value)[0] || null;
     return { active, next };
   }, [slabs]);
 

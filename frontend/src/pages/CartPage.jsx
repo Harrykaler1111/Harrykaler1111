@@ -23,18 +23,21 @@ export const CartPage = () => {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [slabs, setSlabs] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const localTotal = cartTotal || 0;
   const shipping = localTotal >= 2999 ? 0 : 199;
 
   useEffect(() => {
-    axios.get(`${API}/booster/slabs`).then(r => setSlabs(r.data?.slabs || r.data || [])).catch(() => {});
-  }, []);
+    axios.get(`${API}/booster/config`).then(r => setSlabs(r.data?.slabs || [])).catch(() => {});
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    axios.get(`${API}/cart/upsell-suggestions?max_price=5000`, { headers }).then(r => setRecommendations(r.data || [])).catch(() => {});
+  }, [token]);
 
   const getActiveSlab = useCallback((total) => {
-    const active = slabs.filter(s => s.is_active && total >= s.min_amount).sort((a, b) => b.min_amount - a.min_amount)[0] || null;
-    const next = slabs.filter(s => s.is_active && total < s.min_amount).sort((a, b) => a.min_amount - b.min_amount)[0] || null;
+    const active = slabs.filter(s => s.is_enabled && total >= s.min_cart_value).sort((a, b) => b.min_cart_value - a.min_cart_value)[0] || null;
+    const next = slabs.filter(s => s.is_enabled && total < s.min_cart_value).sort((a, b) => a.min_cart_value - b.min_cart_value)[0] || null;
     return { active, next };
   }, [slabs]);
 
@@ -175,6 +178,30 @@ export const CartPage = () => {
                 ))}
               </div>
 
+              {/* You May Also Like */}
+              {recommendations.length > 0 && (
+                <div data-testid="cart-recommendations">
+                  <h3 className="font-serif text-lg font-bold mb-3">You May Also Like</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {recommendations.slice(0, 6).map(p => (
+                      <Link key={p.product_id} to={`/product/${p.product_id}`}
+                        className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group"
+                        data-testid={`rec-product-${p.product_id}`}>
+                        <div className="aspect-square bg-neutral-100 overflow-hidden">
+                          <img src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE} alt={p.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={handleImageError} />
+                        </div>
+                        <div className="p-2.5">
+                          <p className="text-xs font-medium text-neutral-800 line-clamp-1">{p.name}</p>
+                          <p className="text-sm font-bold mt-0.5">Rs.{(p.price || 0).toLocaleString()}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* WhatsApp Help */}
               <a href={whatsappLink("Hi, I have a question about my cart")} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-2.5 text-xs text-neutral-400 hover:text-green-500 transition-colors rounded-lg border border-neutral-200 hover:border-green-300"
@@ -195,11 +222,11 @@ export const CartPage = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <Gift className="h-3.5 w-3.5 text-gold" />
                       <span className="text-xs font-bold text-amber-800">
-                        Add Rs.{(nextSlab.min_amount - localTotal).toLocaleString()} more for {nextSlab.reward_type === "fixed" ? `Rs.${nextSlab.reward_value} off` : `${nextSlab.reward_value}% off`}
+                        Add Rs.{(nextSlab.min_cart_value - localTotal).toLocaleString()} more for {nextSlab.reward_type === "fixed" ? `Rs.${nextSlab.reward_value} off` : `${nextSlab.reward_value}% off`}
                       </span>
                     </div>
                     <div className="w-full bg-neutral-200 rounded-full h-1.5 mt-2">
-                      <div className="bg-gold rounded-full h-1.5 transition-all" style={{ width: `${Math.min((localTotal / nextSlab.min_amount) * 100, 100)}%` }} />
+                      <div className="bg-gold rounded-full h-1.5 transition-all" style={{ width: `${Math.min((localTotal / nextSlab.min_cart_value) * 100, 100)}%` }} />
                     </div>
                   </div>
                 )}
