@@ -19,6 +19,7 @@ export const BulkUpload = ({ mode = "admin" }) => {
   const [csvFile, setCsvFile] = useState(null);
   const [zipFile, setZipFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [previewData, setPreviewData] = useState(null);
   const [publishResult, setPublishResult] = useState(null);
   const [dragOver, setDragOver] = useState(null);
@@ -59,14 +60,20 @@ export const BulkUpload = ({ mode = "admin" }) => {
 
     try {
       const res = await axios.post(`${API}/products/bulk/preview`, formData, {
-        headers: { ...getHeaders(), "Content-Type": "multipart/form-data" },
-        timeout: 120000
+        headers: getHeaders(),
+        timeout: 300000,
+        onUploadProgress: (e) => {
+          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        }
       });
       setPreviewData(res.data);
       setStep("preview");
+      setUploadProgress(0);
       toast.success(`Parsed ${res.data.total} products (${res.data.valid_count} valid)`);
     } catch (e) {
-      toast.error(e.response?.data?.detail || "Failed to parse file");
+      setUploadProgress(0);
+      const msg = e.response?.data?.detail || e.message || "Failed to parse file";
+      toast.error(msg, { duration: 8000 });
     } finally { setLoading(false); }
   };
 
@@ -308,6 +315,9 @@ export const BulkUpload = ({ mode = "admin" }) => {
                 <strong className="text-neutral-400">Variants format:</strong> Color:Size:Qty separated by semicolons.
                 Example: <code className="text-gold/80">Black:36:20;Black:37:25;White:36:10</code>
               </p>
+              <p className="text-[10px] text-neutral-600 mt-2">
+                Column names are flexible — e.g. "Product Name" or "title" works for name, "Selling Price" for price, "Quantity" for stock.
+              </p>
             </div>
 
             <div className="mt-4">
@@ -318,8 +328,16 @@ export const BulkUpload = ({ mode = "admin" }) => {
                 data-testid="preview-upload-btn"
               >
                 {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Eye className="h-4 w-4 mr-2" />}
-                {loading ? "Parsing..." : "Preview & Validate"}
+                {loading ? (uploadProgress > 0 && uploadProgress < 100 ? `Uploading ${uploadProgress}%...` : "Processing...") : "Preview & Validate"}
               </Button>
+              {loading && uploadProgress > 0 && (
+                <div className="mt-3 w-64">
+                  <div className="h-1.5 bg-neutral-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-gold rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                  <p className="text-[10px] text-neutral-500 mt-1">{uploadProgress}% uploaded</p>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

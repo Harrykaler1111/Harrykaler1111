@@ -64,16 +64,43 @@ async def get_uploader(authorization: Optional[str] = Header(None)):
     raise HTTPException(status_code=403, detail="Access denied. Only admins and vendors can bulk upload.")
 
 
+# Column name aliases — maps common variants to our canonical names
+COLUMN_ALIASES = {
+    "sku": "sku", "sku_id": "sku", "product_sku": "sku", "sku_code": "sku", "item_code": "sku", "product_code": "sku",
+    "name": "name", "product_name": "name", "product name": "name", "title": "name", "product_title": "name",
+    "description": "description", "desc": "description", "product_description": "description", "details": "description", "product_details": "description",
+    "price": "price", "selling_price": "price", "selling price": "price", "mrp": "price", "rate": "price",
+    "compare_price": "compare_price", "compare price": "compare_price", "original_price": "compare_price", "original price": "compare_price", "list_price": "compare_price", "list price": "compare_price",
+    "category": "category", "product_category": "category", "product category": "category", "cat": "category", "type": "category",
+    "sizes": "sizes", "size": "sizes", "available_sizes": "sizes", "available sizes": "sizes",
+    "colors": "colors", "color": "colors", "colour": "colors", "colours": "colors", "available_colors": "colors",
+    "stock": "stock", "quantity": "stock", "qty": "stock", "inventory": "stock", "total_stock": "stock", "total stock": "stock",
+    "tags": "tags", "tag": "tags", "keywords": "tags",
+    "is_limited_edition": "is_limited_edition", "limited_edition": "is_limited_edition", "limited edition": "is_limited_edition", "limited": "is_limited_edition",
+    "variants": "variants", "variant": "variants", "variant_data": "variants",
+    "sub_category": "sub_category", "sub category": "sub_category", "subcategory": "sub_category",
+}
+
+
 def parse_csv_excel(file_bytes: bytes, filename: str) -> pd.DataFrame:
     """Parse CSV or Excel file into a DataFrame."""
     ext = os.path.splitext(filename)[1].lower()
     if ext == ".csv":
         df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
     elif ext in (".xlsx", ".xls"):
-        df = pd.read_excel(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
+        df = pd.read_excel(io.BytesIO(file_bytes), dtype=str, keep_default_na=False, engine="openpyxl" if ext == ".xlsx" else None)
     else:
         raise HTTPException(status_code=400, detail="Unsupported file format. Use CSV or Excel (.xlsx/.xls)")
-    df.columns = df.columns.str.strip().str.lower()
+    # Normalize column names: strip, lowercase, replace spaces with underscores
+    df.columns = df.columns.str.strip().str.lower().str.replace(r'\s+', '_', regex=True)
+    # Apply column aliases to map user's column names to our canonical names
+    rename_map = {}
+    for col in df.columns:
+        canonical = COLUMN_ALIASES.get(col)
+        if canonical and canonical != col and canonical not in df.columns:
+            rename_map[col] = canonical
+    if rename_map:
+        df = df.rename(columns=rename_map)
     return df
 
 
@@ -194,18 +221,22 @@ async def bulk_preview(
 
     try:
         df = parse_csv_excel(file_bytes, file.filename)
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.error(f"Bulk upload parse error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
     if df.empty:
-        raise HTTPException(status_code=400, detail="File contains no data")
+        raise HTTPException(status_code=400, detail="File contains no data rows")
 
     # Check required columns
     missing_cols = REQUIRED_COLUMNS - set(df.columns)
     if missing_cols:
+        found_cols = list(df.columns)
         raise HTTPException(
             status_code=400,
-            detail=f"Missing required columns: {', '.join(missing_cols)}. Required: {', '.join(REQUIRED_COLUMNS)}"
+            detail=f"Missing required columns: {', '.join(missing_cols)}. Found columns: {', '.join(found_cols)}. Required: {', '.join(REQUIRED_COLUMNS)}"
         )
 
     # Create session

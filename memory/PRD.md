@@ -24,7 +24,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
-- **Bulk Product Upload System** (CSV/Excel + ZIP images, SKU matching, variant support, preview/publish/revert)
+- **Bulk Product Upload System** (CSV/Excel + ZIP images, SKU matching, variant support, preview/publish/revert, flexible column name aliases, upload progress bar)
 - Cart Boosters with configurable slabs, upsell modals, vendor credit system
 - Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (Order webhooks, COD confirmation, Cart Recovery, Broadcasts, OTP, Support Tickets)
@@ -35,9 +35,9 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - WhatsApp-first support system (auto-ticket creation from WhatsApp chats)
 - Image filtering: All customer-facing product endpoints filter out products without images
 
-## Completed Bug Fixes
-- Product photos not visible (P0): Backend filters imageless products; Frontend handles bad URLs (Apr 2026)
-- Cart delete button, booster endpoint mismatches, guest cart visibility
+## Recent Bug Fixes (Apr 2026)
+- Product photos not visible (P0): Backend filters imageless products; Frontend handles bad URLs
+- Bulk upload "Failed to parse file" fix: Removed explicit Content-Type header (was stripping multipart boundary), added flexible column name aliases, improved error messages, added upload progress bar
 
 ## Mocked Services
 - Razorpay (Payments)
