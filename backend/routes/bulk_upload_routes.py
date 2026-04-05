@@ -130,8 +130,11 @@ def parse_variants(variant_str: str) -> List[Dict]:
 
 
 def extract_zip_images(zip_bytes: bytes, session_dir: str) -> Dict[str, List[str]]:
-    """Extract images from ZIP, returning a map of SKU -> list of file paths."""
-    sku_images = {}
+    """Extract images from ZIP, returning a map of SKU -> list of file paths.
+    Matches filenames to SKUs by comparing full filename (without ext) against known patterns.
+    Handles filenames like: PG-COORD-001.jpg, PG-COORD-001.1.jpg, PG-COORD-001_2.jpg
+    """
+    all_extracted = []
     with zipfile.ZipFile(io.BytesIO(zip_bytes), 'r') as zf:
         for info in zf.infolist():
             if info.is_dir():
@@ -142,21 +145,33 @@ def extract_zip_images(zip_bytes: bytes, session_dir: str) -> Dict[str, List[str
             ext = os.path.splitext(basename)[1].lower()
             if ext not in ALLOWED_IMAGE_EXTS:
                 continue
-            name_without_ext = os.path.splitext(basename)[0]
-            # Match SKU: filename starts with SKU (e.g., SKU001.jpg, SKU001-1.jpg, SKU001_2.png)
-            # Extract the SKU part before any separator (-_)
-            sku_part = name_without_ext
-            for sep in ["-", "_"]:
-                if sep in name_without_ext:
-                    sku_part = name_without_ext.split(sep)[0]
-                    break
-            sku_upper = sku_part.strip().upper()
-
-            # Extract file to session dir
             out_path = os.path.join(session_dir, basename)
             with zf.open(info) as src, open(out_path, 'wb') as dst:
                 dst.write(src.read())
-            sku_images.setdefault(sku_upper, []).append(out_path)
+            name_without_ext = os.path.splitext(basename)[0].strip().upper()
+            all_extracted.append((name_without_ext, out_path))
+    return all_extracted
+
+
+def match_images_to_skus(extracted_files: list, sku_variants_map: Dict[str, str]) -> Dict[str, List[str]]:
+    """Match extracted image files to SKUs using the variant map.
+    sku_variants_map: maps each variant SKU (uppercase) -> primary SKU (uppercase).
+    Matching strategy: check if the filename starts with any known SKU variant.
+    """
+    sku_images = {}
+    for file_name_upper, file_path in extracted_files:
+        matched = False
+        # Try exact match first, then prefix match (longest match wins)
+        best_match = ""
+        best_primary = ""
+        for variant_sku, primary_sku in sku_variants_map.items():
+            if file_name_upper == variant_sku or file_name_upper.startswith(variant_sku):
+                if len(variant_sku) > len(best_match):
+                    best_match = variant_sku
+                    best_primary = primary_sku
+                    matched = True
+        if matched:
+            sku_images.setdefault(best_primary, []).append(file_path)
     return sku_images
 
 
@@ -244,13 +259,27 @@ async def bulk_preview(
     session_dir = os.path.join(tempfile.gettempdir(), f"bulk_{session_id}")
     os.makedirs(session_dir, exist_ok=True)
 
+    # First pass: collect all SKU variants for image matching
+    sku_variants_map = {}  # variant_sku_upper -> primary_sku_upper
+    for idx, row in df.iterrows():
+        raw_sku = str(row.get("sku", "")).strip()
+        if not raw_sku:
+            continue
+        # Handle semicolon-separated SKUs: first part is primary, rest are variants
+        parts = [s.strip() for s in raw_sku.split(";") if s.strip()]
+        if parts:
+            primary = parts[0].upper()
+            for part in parts:
+                sku_variants_map[part.upper()] = primary
+
     # Extract ZIP images
     sku_images = {}
     if zip_file:
         zip_bytes = await zip_file.read()
         if zip_bytes:
             try:
-                sku_images = extract_zip_images(zip_bytes, session_dir)
+                extracted_files = extract_zip_images(zip_bytes, session_dir)
+                sku_images = match_images_to_skus(extracted_files, sku_variants_map)
             except zipfile.BadZipFile:
                 shutil.rmtree(session_dir, ignore_errors=True)
                 raise HTTPException(status_code=400, detail="Invalid ZIP file")
@@ -265,7 +294,10 @@ async def bulk_preview(
         row_dict = row.to_dict()
         row_errors = validate_row(row_dict, row_num)
 
-        sku = str(row_dict.get("sku", "")).strip()
+        raw_sku = str(row_dict.get("sku", "")).strip()
+        # Handle semicolon-separated SKUs — use first part as primary
+        sku_parts = [s.strip() for s in raw_sku.split(";") if s.strip()]
+        sku = sku_parts[0] if sku_parts else raw_sku
         sku_upper = sku.upper()
 
         # Check duplicate SKU
@@ -391,17 +423,27 @@ async def bulk_publish(session_id: str, uploader: Dict = Depends(get_uploader)):
             continue
 
         sku = prod["sku"]
-        sku_upper = sku.upper()
+        # Handle semicolon-separated SKUs — use first part as primary
+        sku_parts = [s.strip() for s in sku.split(";") if s.strip()]
+        primary_sku = sku_parts[0] if sku_parts else sku
+        sku_upper = primary_sku.upper()
 
-        # Check if SKU already exists
-        existing = await collection.find_one({"sku": sku_upper}, {"_id": 0, "product_id": 1})
+        # Check if SKU already exists (only among active products)
+        existing = await collection.find_one({"sku": sku_upper, "is_active": True}, {"_id": 0, "product_id": 1})
         if existing:
-            failed.append({"sku": sku, "reason": f"SKU already exists (product: {existing['product_id']})"})
+            failed.append({"sku": primary_sku, "reason": f"SKU already exists (product: {existing['product_id']})"})
             continue
+
+        # Remove any inactive products with same SKU (from previous reverted uploads)
+        await collection.delete_many({"sku": sku_upper, "is_active": False})
 
         # Upload images to object storage
         image_urls = []
         image_paths = sku_image_paths.get(sku_upper, [])
+        # Also try matching with the full original SKU (semicolons removed)
+        if not image_paths and sku != primary_sku:
+            for part in sku_parts:
+                image_paths.extend(sku_image_paths.get(part.upper(), []))
         for img_path in image_paths:
             if not os.path.exists(img_path):
                 continue
@@ -461,7 +503,7 @@ async def bulk_publish(session_id: str, uploader: Dict = Depends(get_uploader)):
 
         try:
             await collection.insert_one(product_doc)
-            created.append({"sku": sku, "product_id": product_id, "name": prod["name"], "images": len(image_urls)})
+            created.append({"sku": primary_sku, "product_id": product_id, "name": prod["name"], "images": len(image_urls)})
         except Exception as e:
             failed.append({"sku": sku, "reason": str(e)})
 

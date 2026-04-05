@@ -9,47 +9,32 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Database: MongoDB
 - Integrations: Interakt (WhatsApp API), Razorpay (Mocked), Emergent Object Storage
 
-## Core Architecture
-```
-/app/
-├── backend/
-│   ├── routes/ (product, cart, admin, vendor, auth, booster, affiliate, reseller, whatsapp, vendor_credit, bulk_upload)
-│   ├── models/schemas.py
-│   └── server.py
-├── frontend/
-│   ├── src/components/ (ProductCard, CartDrawer, BoosterBar, BulkUpload, AdminProductsHub, AddToCartPopup, CheckoutAuthModal, etc.)
-│   ├── src/pages/ (HomePage, ProductsPage, CartPage, CheckoutPage, AdminDashboard, VendorDashboard)
-│   └── src/utils/imageUtils.js
-```
-
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
-- **Bulk Product Upload System** (CSV/Excel + ZIP images, SKU matching, variant support, preview/publish/revert, flexible column name aliases, upload progress bar)
-- Cart Boosters with configurable slabs, upsell modals, vendor credit system
-- Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
-- Real Interakt WhatsApp Integration (Order webhooks, COD confirmation, Cart Recovery, Broadcasts, OTP, Support Tickets)
-- Dynamic Role-Based Access Control (RBAC) stored in MongoDB
-- Unified Affiliate & Reseller System with price overrides
-- Guest Cart System (LocalStorage) with login required only at checkout
-- Smart Add-to-Cart popup, GPS Address fetch
-- WhatsApp-first support system (auto-ticket creation from WhatsApp chats)
-- Image filtering: All customer-facing product endpoints filter out products without images
+- **Bulk Product Upload System** — CSV/Excel + ZIP images, semicolon-separated SKU support, flexible column aliases, upload progress bar, preview/publish/revert
+- Cart Boosters, Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
+- Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
+- Dynamic RBAC, Affiliate & Reseller System with price overrides
+- Guest Cart System (LocalStorage), login only at checkout
+- Image filtering: All customer-facing endpoints filter out imageless products
 
 ## Recent Bug Fixes (Apr 2026)
+- **Bulk upload products not showing**: Fixed 3 issues:
+  1. Semicolon-separated SKUs (e.g., `PG-COORD-001; PG-COORD-001.1`) now parsed — first part = primary SKU
+  2. ZIP image matching fixed — no longer splits on hyphens (which broke SKUs like `PG-COORD-001`)
+  3. Re-publish after revert now works — duplicate check only against active products, inactive ones auto-deleted
 - Product photos not visible (P0): Backend filters imageless products; Frontend handles bad URLs
-- Bulk upload "Failed to parse file" fix: Removed explicit Content-Type header (was stripping multipart boundary), added flexible column name aliases, improved error messages, added upload progress bar
+- Frontend Content-Type header fix for multipart uploads
 
 ## Mocked Services
-- Razorpay (Payments)
-- Instagram Auto-DMs
+- Razorpay (Payments), Instagram Auto-DMs
 
 ## P1 Upcoming Tasks
-- Track affiliate/reseller link clicks (referral URL metrics on dashboards)
-- "Testing Mode" for Orders (dummy order flow for admin alerts)
+- Track affiliate/reseller link clicks (referral URL metrics)
+- "Testing Mode" for Orders (dummy order flow)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
 - Vendor Email Digest Notifications
 - A/B testing for hero videos
-- AdminDashboard.jsx refactoring (3500+ lines needs splitting)
-- VendorDashboard.jsx refactoring (2100+ lines)
+- AdminDashboard.jsx / VendorDashboard.jsx refactoring
