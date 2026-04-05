@@ -13,20 +13,18 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Multi-vendor product management with admin & vendor dashboards
 - Admin Product Photo Cropping (zoom, rotate, 4:5 aspect ratio)
 - Bulk Product Upload System (CSV/Excel + ZIP, chunked upload, semicolon SKU support)
-- **Quick Add (+) buttons on "You May Also Like" cards in Cart Page** — includes -/qty/+ controls when item is in cart
-- **Full guest shopping experience** — Cart, boosters, upsells, recommendations all work without login
+- **Seamless Cart Merge on Login** — Guest cart (LocalStorage) merges into server cart on login, same items sum quantities, checkout waits for merge to complete
+- Quick Add buttons on "You May Also Like" cards, Cart Drawer opens on Add to Cart
 - Cart Boosters, Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
 - Dynamic RBAC, Affiliate & Reseller System with price overrides
-- Guest Cart System (LocalStorage), login only at checkout via auth modal
+- Guest Cart System (LocalStorage), login only at checkout
 - Image filtering: All customer-facing endpoints filter out imageless products
 
-## Recent Changes (Apr 2026)
-- Quick Add buttons on "You May Also Like" product cards in CartPage
-- Admin photo cropping for existing product images
-- Chunked ZIP upload for bulk uploads
-- Fixed bulk upload SKU/image matching
-- Removed "Chat on WhatsApp" from product page
+## Recent Bug Fixes (Apr 2026)
+- **Cart items disappearing after login**: Fixed race condition — CheckoutPage now waits for `isMerging` to complete before fetching server cart. Also fixed swapped login() parameters in CheckoutAuthModal.
+- Quick Add buttons on cart recommendations
+- Admin photo cropping, bulk upload chunked upload, SKU/image matching
 
 ## Mocked Services
 - Razorpay (Payments), Instagram Auto-DMs
