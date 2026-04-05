@@ -242,6 +242,9 @@ const MobileMenu = ({ open, onClose, categories, user, logout, navigate, unreadT
               <div className="px-5 py-2">
                 <p className="text-xs text-neutral-500 uppercase tracking-wider">Account</p>
               </div>
+              <button onClick={() => go("/cart-page")} className="w-full px-5 py-2.5 text-sm text-neutral-300 text-left hover:text-white hover:bg-neutral-900 transition-colors flex items-center gap-3" data-testid="mobile-nav-cart">
+                <ShoppingBag className="h-4 w-4 text-gold/60" /> My Cart
+              </button>
               <button onClick={() => go("/profile")} className="w-full px-5 py-2.5 text-sm text-neutral-300 text-left hover:text-white hover:bg-neutral-900 transition-colors">My Account</button>
               <button onClick={() => go("/orders")} className="w-full px-5 py-2.5 text-sm text-neutral-300 text-left hover:text-white hover:bg-neutral-900 transition-colors">Orders</button>
               <button onClick={() => go("/wishlist")} className="w-full px-5 py-2.5 text-sm text-neutral-300 text-left hover:text-white hover:bg-neutral-900 transition-colors">Wishlist</button>
@@ -262,10 +265,15 @@ const MobileMenu = ({ open, onClose, categories, user, logout, navigate, unreadT
               </button>
             </>
           ) : (
-            <button onClick={() => go("/auth")} className="w-full px-5 py-3 text-sm text-white text-left hover:bg-neutral-900 transition-colors flex items-center gap-3">
-              <User className="h-4 w-4 text-gold" />
-              Sign In / Register
-            </button>
+            <>
+              <button onClick={() => go("/cart-page")} className="w-full px-5 py-3 text-sm text-neutral-300 text-left hover:text-white hover:bg-neutral-900 transition-colors flex items-center gap-3" data-testid="mobile-nav-cart-guest">
+                <ShoppingBag className="h-4 w-4 text-gold/60" /> My Cart
+              </button>
+              <button onClick={() => go("/auth")} className="w-full px-5 py-3 text-sm text-white text-left hover:bg-neutral-900 transition-colors flex items-center gap-3">
+                <User className="h-4 w-4 text-gold" />
+                Sign In / Register
+              </button>
+            </>
           )}
         </nav>
       </div>
@@ -418,21 +426,19 @@ export const Header = () => {
                 </Button>
               )}
 
-              {user && (
-                <Button
-                  variant="ghost" size="icon"
-                  className="text-white hover:text-gold hover:bg-transparent relative"
-                  onClick={openCart}
-                  data-testid="cart-btn"
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-gold text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                      {cartCount > 9 ? "9+" : cartCount}
-                    </span>
-                  )}
-                </Button>
-              )}
+              <Button
+                variant="ghost" size="icon"
+                className="text-white hover:text-gold hover:bg-transparent relative"
+                onClick={openCart}
+                data-testid="cart-btn"
+              >
+                <ShoppingBag className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-gold text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </Button>
 
               {/* Desktop User Menu */}
               <div className="hidden md:block">
