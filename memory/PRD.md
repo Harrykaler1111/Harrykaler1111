@@ -1,44 +1,57 @@
-# Pigma Multi-Vendor E-commerce Platform - PRD
+# Pigma - Premium Multi-Vendor E-Commerce Platform
+
+## Original Problem Statement
+Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform. Maximize conversions with advanced COD/Prepaid systems, cart boosters, bundles, flash sales, and comprehensive WhatsApp-driven automation and retention (Interakt).
 
 ## Tech Stack
-React + FastAPI + MongoDB | Interakt WhatsApp | Razorpay (mocked)
+- Frontend: React, Tailwind CSS, framer-motion, Shadcn UI
+- Backend: FastAPI, Python
+- Database: MongoDB
+- Integrations: Interakt (WhatsApp API), Razorpay (Mocked), Emergent Object Storage
 
-## Credentials
-- Super Admin: superadmin@pigma.com / superadmin123
-- Vendor: testvendor@example.com / vendor123
-- Customer: admin@pigma.com / admin123
+## Core Architecture
+```
+/app/
+├── backend/
+│   ├── routes/ (product, cart, admin, vendor, auth, booster, affiliate, reseller, whatsapp, vendor_credit)
+│   ├── models/schemas.py
+│   └── server.py
+├── frontend/
+│   ├── src/components/ (ProductCard, CartDrawer, BoosterBar, AddToCartPopup, CheckoutAuthModal, etc.)
+│   ├── src/pages/ (HomePage, ProductsPage, CartPage, CheckoutPage, AdminDashboard, VendorDashboard)
+│   └── src/utils/imageUtils.js
+```
 
-## Completed Features
+## What's Been Implemented
+- Multi-vendor product management with admin & vendor dashboards
+- Cart Boosters with configurable slabs, upsell modals, vendor credit system
+- Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
+- Real Interakt WhatsApp Integration (Order webhooks, COD confirmation, Cart Recovery, Broadcasts, OTP, Support Tickets)
+- Dynamic Role-Based Access Control (RBAC) stored in MongoDB
+- Unified Affiliate & Reseller System with price overrides
+- Guest Cart System (LocalStorage) with login required only at checkout
+- Smart Add-to-Cart popup, GPS Address fetch
+- WhatsApp-first support system (auto-ticket creation from WhatsApp chats)
+- Image filtering: All customer-facing product endpoints filter out products without images
 
-### Phase 47 - Cart Booster & Recommendations Fix (2026-04-05)
-- **Fixed**: BoosterBar/CartDrawer/CartPage all called wrong `/api/cart-booster/slabs` (404) → corrected to `/api/booster/config`
-- **Fixed**: Field name mismatch `min_amount`/`is_active` → `min_cart_value`/`is_enabled`
-- **Fixed**: Upsell endpoint required auth, blocking guests → made auth optional
-- **Fixed**: BoosterBar fetched admin-only messages endpoint → now reads from `/booster/config` response
-- **Added**: "You May Also Like" recommendation grid (6 products) on CartPage
-- Testing: Iteration 47 — 100% (15/15 backend, all frontend)
+## Completed Bug Fixes
+- Product photos not visible (P0): Backend filters imageless products from all listings/recommendations; Frontend normalizeImageUrl handles bad URLs (Apr 2026)
+- Cart delete button fix
+- Cart booster & upsell endpoint mismatches
+- Guest cart visibility fixes
 
-### Phase 46 - Guest Cart Flow Fix (2026-04-05)
-- Cart icon always visible in header (removed user-only guard), mobile menu cart link for guests
-- Testing: Iteration 46 — 100%
+## Mocked Services
+- Razorpay (Payments)
+- Instagram Auto-DMs
 
-### Phase 45 - Cart & Checkout Redesign (2026-04-04)
-- AddToCartPopup, Full CartPage, CheckoutAuthModal (WhatsApp OTP + Email), GPS address
-- Testing: Iteration 45 — 100%
+## P1 Upcoming Tasks
+- Track affiliate/reseller link clicks (referral URL metrics on dashboards)
+- "Testing Mode" for Orders (dummy order flow for admin alerts)
+- Transition Instagram Auto DM from Mock to real Meta API
 
-### Phase 44 - WhatsApp Support System (2026-04-04)
-### Phase 43 - Guest Cart, Vendor Credits, Dummy Reviews, FOMO (2026-04-04)
-### Earlier Phases (12-42) - Full platform
-
-## MOCKED: Razorpay, WhatsApp OTP (demo), Instagram Graph API
-
-## Remaining Tasks
-### P1
-- Track affiliate/reseller link clicks & conversions
-- "Testing Mode" for Orders
-- Real Instagram Meta API
-
-### P2
-- AdminDashboard refactoring (3500+ lines)
-- Real WhatsApp OTP via Interakt
-- Vendor email digests, A/B testing, Real Razorpay
+## P2 Future/Backlog
+- Vendor Email Digest Notifications
+- A/B testing for hero videos
+- AdminDashboard.jsx refactoring (3500+ lines needs splitting)
+- VendorDashboard.jsx refactoring (2100+ lines)
+- Bulk Product Upload System (CSV/Excel + ZIP images with SKU mapping)
