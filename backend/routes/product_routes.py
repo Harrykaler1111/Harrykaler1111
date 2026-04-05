@@ -22,7 +22,7 @@ async def get_products(
     skip: int = 0,
     limit: int = 20
 ):
-    query = {"is_active": True}
+    query = {"is_active": True, "images.0": {"$exists": True}}
     if category:
         query["category"] = category
     if sub_category:
@@ -48,7 +48,7 @@ async def get_products(
 @router.get("/featured", response_model=List[ProductResponse])
 async def get_featured_products(limit: int = 8):
     products = await db.products.find(
-        {"is_active": True, "is_limited_edition": True},
+        {"is_active": True, "is_limited_edition": True, "images.0": {"$exists": True}},
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     return [ProductResponse(**p) for p in products]
@@ -57,7 +57,7 @@ async def get_featured_products(limit: int = 8):
 @router.get("/new-arrivals", response_model=List[ProductResponse])
 async def get_new_arrivals(limit: int = 8):
     products = await db.products.find(
-        {"is_active": True},
+        {"is_active": True, "images.0": {"$exists": True}},
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
     return [ProductResponse(**p) for p in products]
@@ -83,7 +83,7 @@ async def get_best_sellers(limit: int = 8):
         product_ids = [p["_id"] for p in top_product_ids]
         sold_map = {p["_id"]: p["total_sold"] for p in top_product_ids}
         products = await db.products.find(
-            {"product_id": {"$in": product_ids}, "is_active": True}, {"_id": 0}
+            {"product_id": {"$in": product_ids}, "is_active": True, "images.0": {"$exists": True}}, {"_id": 0}
         ).to_list(limit)
         for p in products:
             resp = ProductResponse(**p).model_dump()
@@ -96,7 +96,7 @@ async def get_best_sellers(limit: int = 8):
     if len(result) < limit:
         remaining = limit - len(result)
         exclude_ids = list(seen_ids)
-        filler_query = {"is_active": True}
+        filler_query = {"is_active": True, "images.0": {"$exists": True}}
         if exclude_ids:
             filler_query["product_id"] = {"$nin": exclude_ids}
         filler = await db.products.find(filler_query, {"_id": 0}).sort("created_at", -1).limit(remaining).to_list(remaining)
@@ -140,7 +140,7 @@ async def get_frequently_bought_together(product_id: str, limit: int = 4):
     # Step 2: Fetch co-purchased products
     if co_purchased_ids:
         co_products = await db.products.find(
-            {"product_id": {"$in": co_purchased_ids}, "is_active": True},
+            {"product_id": {"$in": co_purchased_ids}, "is_active": True, "images.0": {"$exists": True}},
             {"_id": 0}
         ).to_list(limit)
         results.extend(co_products)
@@ -149,7 +149,7 @@ async def get_frequently_bought_together(product_id: str, limit: int = 4):
     if len(results) < limit:
         exclude_ids = [product_id] + [p["product_id"] for p in results]
         category_fill = await db.products.find(
-            {"category": product.get("category"), "product_id": {"$nin": exclude_ids}, "is_active": True},
+            {"category": product.get("category"), "product_id": {"$nin": exclude_ids}, "is_active": True, "images.0": {"$exists": True}},
             {"_id": 0}
         ).limit(limit - len(results)).to_list(limit - len(results))
         results.extend(category_fill)
@@ -158,7 +158,7 @@ async def get_frequently_bought_together(product_id: str, limit: int = 4):
     if len(results) < limit:
         exclude_ids = [product_id] + [p["product_id"] for p in results]
         popular_fill = await db.products.find(
-            {"product_id": {"$nin": exclude_ids}, "is_active": True},
+            {"product_id": {"$nin": exclude_ids}, "is_active": True, "images.0": {"$exists": True}},
             {"_id": 0}
         ).sort("sold_count", -1).limit(limit - len(results)).to_list(limit - len(results))
         results.extend(popular_fill)
@@ -278,6 +278,8 @@ async def get_promoted_products(listing_type: str, category: Optional[str] = Non
             )
 
         if product:
+            if not product.get("images"):
+                continue
             if category and product.get("category") != category:
                 continue
             product.pop("_id", None)

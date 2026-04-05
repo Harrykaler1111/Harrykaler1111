@@ -170,7 +170,8 @@ async def get_upsell_suggestions(max_price: int = 500, request: Request = None):
 
     base_filter = {
         "is_active": True, "stock": {"$gt": 0},
-        "product_id": {"$nin": cart_product_ids}
+        "product_id": {"$nin": cart_product_ids},
+        "images.0": {"$exists": True}
     }
 
     # Priority 0: Admin-curated upsell products
@@ -180,7 +181,7 @@ async def get_upsell_suggestions(max_price: int = 500, request: Request = None):
     priority_products = []
     if admin_pick_ids:
         curated = await db.products.find(
-            {"product_id": {"$in": admin_pick_ids}, "is_active": True, "stock": {"$gt": 0}},
+            {"product_id": {"$in": admin_pick_ids}, "is_active": True, "stock": {"$gt": 0}, "images.0": {"$exists": True}},
             {"_id": 0}
         ).to_list(20)
         # Sort by admin priority

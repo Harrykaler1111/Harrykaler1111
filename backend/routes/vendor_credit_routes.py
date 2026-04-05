@@ -153,7 +153,7 @@ async def get_upsell_products():
         return []
 
     products = await db.vendor_products.find(
-        {"product_id": {"$in": product_ids}, "is_active": True, "approval_status": "approved"},
+        {"product_id": {"$in": product_ids}, "is_active": True, "approval_status": "approved", "images.0": {"$exists": True}},
         {"_id": 0}
     ).to_list(10)
 

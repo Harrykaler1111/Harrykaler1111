@@ -11,6 +11,9 @@ const FALLBACK_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 export const normalizeImageUrl = (url) => {
   if (!url) return FALLBACK_IMAGE;
 
+  // Filter out known placeholder/invalid URLs
+  if (url.includes("example.com") || url.includes("placeholder")) return FALLBACK_IMAGE;
+
   // If it contains /api/uploads/files/, extract the path and prefix with current backend
   const uploadPathIdx = url.indexOf("/api/uploads/files/");
   if (uploadPathIdx !== -1) {
