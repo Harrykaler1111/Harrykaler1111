@@ -1,0 +1,92 @@
+{
+  "summary": "Iteration 50: Cart Merge Flow Bug Fix - Fixed critical bug where login parameters were swapped in CheckoutAuthModal.jsx. All 10 backend tests pass. Frontend cart merge flow now works correctly: guest cart items are merged into server cart after login, and user is redirected to checkout with all items preserved.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cart_merge_flow.py",
+    "/app/test_reports/pytest/iteration50_cart_merge_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED: CheckoutAuthModal.jsx was calling login(token, user) but App.js login function expects login(user, token) - parameters were swapped",
+    "Cart merge flow now works correctly: guest cart stored in localStorage 'pigma_guest_cart', merged via POST /api/cart/add on login",
+    "Backend POST /api/cart/add correctly increments quantity for duplicate product_id+size+color combinations",
+    "CheckoutPage.fetchAll correctly waits for !isMerging before fetching server cart",
+    "CartPage.handleAuthSuccess sets pendingCheckout flag and waits for merge to complete before navigating to /checkout"
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/CheckoutAuthModal.jsx"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (All cart merge flows verified)"
+  },
+  "test_credentials": {
+    "customer": "admin@pigma.com / admin123",
+    "super_admin": "superadmin@pigma.com / superadmin123"
+  },
+  "seed_data_creation": "None - tests create unique users with UUID prefixes",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Cart merge flow is now fully functional. The bug was in CheckoutAuthModal.jsx where login() was called with swapped parameters (token, user) instead of (user, token). Fixed all 3 occurrences: OTP verify, email login, and signup. Guest cart uses localStorage key 'pigma_guest_cart'. After login, CartContext.mergeGuestCart() posts each guest item to server via POST /api/cart/add, then clears localStorage.",
+  "features_tested": {
+    "guest_cart_localStorage": {
+      "status": "PASS",
+      "details": "Guest can add products to cart, stored in localStorage 'pigma_guest_cart'"
+    },
+    "guest_cart_persistence": {
+      "status": "PASS",
+      "details": "Guest cart persists on page refresh"
+    },
+    "cart_merge_on_login": {
+      "status": "PASS",
+      "details": "Guest cart items merged into server cart via POST /api/cart/add for each item"
+    },
+    "localStorage_cleared_after_merge": {
+      "status": "PASS",
+      "details": "LocalStorage guest cart is cleared after successful merge"
+    },
+    "quantity_summing_for_duplicates": {
+      "status": "PASS",
+      "details": "Backend POST /api/cart/add increments quantity for duplicate product_id+size+color"
+    },
+    "checkout_waits_for_merge": {
+      "status": "PASS",
+      "details": "CheckoutPage waits for !isMerging before fetching server cart"
+    },
+    "no_redirect_during_merge": {
+      "status": "PASS",
+      "details": "CheckoutPage does NOT redirect to home while merge is in progress"
+    },
+    "redirect_to_checkout_after_login": {
+      "status": "PASS",
+      "details": "After successful login from CartPage auth modal, user is navigated to /checkout with all cart items"
+    },
+    "cart_count_badge_update": {
+      "status": "PASS",
+      "details": "Cart count badge updates correctly after merge"
+    },
+    "auth_endpoints": {
+      "status": "PASS",
+      "details": "POST /api/auth/login and POST /api/auth/register work correctly"
+    }
+  },
+  "bug_fix_details": {
+    "file": "/app/frontend/src/components/CheckoutAuthModal.jsx",
+    "issue": "login() function called with swapped parameters",
+    "root_cause": "App.js defines login(userData, authToken) but CheckoutAuthModal was calling login(res.data.token, res.data.user)",
+    "fix": "Changed all 3 occurrences to login(res.data.user, res.data.token)",
+    "lines_fixed": [81, 98, 116]
+  },
+  "mocked_apis": {
+    "razorpay": "MOCKED",
+    "instagram_auto_dms": "MOCKED"
+  }
+}

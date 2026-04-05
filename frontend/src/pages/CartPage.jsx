@@ -18,7 +18,7 @@ import { whatsappLink } from "@/components/WhatsAppButton";
 export const CartPage = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { cartItems, cartTotal, updateQuantity: ctxUpdateQty, removeFromCart, fetchCart, addToCart } = useCart();
+  const { cartItems, cartTotal, updateQuantity: ctxUpdateQty, removeFromCart, fetchCart, addToCart, isMerging } = useCart();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -81,10 +81,17 @@ export const CartPage = () => {
 
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
-    setTimeout(() => {
-      navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } });
-    }, 500);
+    setPendingCheckout(true);
   };
+
+  // Navigate to checkout once merge is complete after login
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  useEffect(() => {
+    if (pendingCheckout && token && !isMerging) {
+      setPendingCheckout(false);
+      navigate("/checkout", { state: { coupon: appliedCoupon?.code, discount: totalDiscount, slabDiscount } });
+    }
+  }, [pendingCheckout, token, isMerging]);
 
   const isEmpty = !cartItems?.length;
 

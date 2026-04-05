@@ -189,7 +189,7 @@ export const CheckoutPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
-  const { fetchCart } = useCart();
+  const { fetchCart, isMerging } = useCart();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -236,10 +236,10 @@ export const CheckoutPage = () => {
     }
   }, [user]);
 
-  // Fetch cart + settings when token available
+  // Fetch cart + settings when token available and merge is complete
   useEffect(() => {
     const fetchAll = async () => {
-      if (!token) return;
+      if (!token || isMerging) return;
       setLoading(true);
       try {
         const [cartRes, settingsRes] = await Promise.all([
@@ -259,7 +259,7 @@ export const CheckoutPage = () => {
       finally { setLoading(false); }
     };
     fetchAll();
-  }, [token, navigate]);
+  }, [token, isMerging, navigate]);
 
   const handleInput = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 

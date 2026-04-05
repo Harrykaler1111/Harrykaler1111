@@ -78,7 +78,7 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/otp/verify`, { phone: cleanPhone, otp: code || otp.join("") });
-      login(res.data.token, res.data.user);
+      login(res.data.user, res.data.token);
       toast.success("Logged in successfully!");
       onSuccess?.();
       onClose();
@@ -95,7 +95,7 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/login`, { email, password });
-      login(res.data.token, res.data.user);
+      login(res.data.user, res.data.token);
       toast.success("Logged in!");
       onSuccess?.();
       onClose();
@@ -113,7 +113,7 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
         name: signupName, email: signupEmail, password: signupPw,
         phone: signupPhone || undefined
       });
-      login(res.data.token, res.data.user);
+      login(res.data.user, res.data.token);
       toast.success("Account created!");
       onSuccess?.();
       onClose();

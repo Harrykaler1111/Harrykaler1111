@@ -27,6 +27,7 @@ export const CartProvider = ({ children }) => {
   const [cartCount, setCartCount] = useState(0);
   const [cartTotal, setCartTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
   const mergeAttempted = useRef(false);
 
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -65,21 +66,29 @@ export const CartProvider = ({ children }) => {
     if (!token || mergeAttempted.current) return;
     mergeAttempted.current = true;
     const guestItems = getGuestCart();
-    if (guestItems.length === 0) return;
-
-    for (const item of guestItems) {
-      try {
-        await axios.post(`${API}/cart/add`, {
-          product_id: item.product_id,
-          quantity: item.quantity || 1,
-          size: item.size || null,
-          color: item.color || null
-        }, { headers });
-      } catch { /* skip failed items */ }
+    if (guestItems.length === 0) {
+      await fetchCart();
+      return;
     }
-    clearGuestCart();
-    await fetchCart();
-    toast.success("Your cart items have been saved to your account");
+
+    setIsMerging(true);
+    try {
+      for (const item of guestItems) {
+        try {
+          await axios.post(`${API}/cart/add`, {
+            product_id: item.product_id,
+            quantity: item.quantity || 1,
+            size: item.size || null,
+            color: item.color || null
+          }, { headers });
+        } catch { /* skip failed items */ }
+      }
+      clearGuestCart();
+      await fetchCart();
+      toast.success("Your cart items have been saved to your account");
+    } finally {
+      setIsMerging(false);
+    }
   }, [token, fetchCart]);
 
   // On login: merge guest cart then fetch
@@ -217,7 +226,7 @@ export const CartProvider = ({ children }) => {
 
   return (
     <CartContext.Provider value={{
-      cartItems, cartCount, cartTotal, loading,
+      cartItems, cartCount, cartTotal, loading, isMerging,
       addToCart, updateQuantity, removeFromCart, clearCart, fetchCart, openCart
     }}>
       {children}
