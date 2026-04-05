@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Phone, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, User, CheckCircle } from "lucide-react";
+import { X, Phone, Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, User, CheckCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { API, useAuth } from "@/App";
@@ -9,15 +9,14 @@ import axios from "axios";
 
 export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
   const { login } = useAuth();
-  const [mode, setMode] = useState("phone"); // phone | email | signup
+  const [mode, setMode] = useState("phone"); // phone | otp | email | signup
   const [loading, setLoading] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const verifyingRef = useRef(false);
 
   // Phone OTP state
   const [phone, setPhone] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [demoOtp, setDemoOtp] = useState("");
   const otpRefs = useRef([]);
 
   // Email state
@@ -31,24 +30,25 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
   const [signupPw, setSignupPw] = useState("");
 
   const resetState = () => {
-    setPhone(""); setOtpSent(false); setOtp(["","","","","",""]); setDemoOtp("");
+    setPhone(""); setOtp(["","","","","",""]);
     setEmail(""); setPassword("");
     setSignupName(""); setSignupEmail(""); setSignupPhone(""); setSignupPw("");
-    setLoading(false); setMode("phone");
+    setLoading(false); setMode("phone"); setShowPw(false);
+    verifyingRef.current = false;
   };
 
   useEffect(() => { if (!open) resetState(); }, [open]);
 
+  // ============== OTP FLOW ==============
   const handleSendOtp = async () => {
     const cleanPhone = phone.replace(/\D/g, "");
     if (cleanPhone.length < 10) { toast.error("Enter a valid 10-digit phone number"); return; }
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/auth/otp/send`, { phone: cleanPhone });
-      setOtpSent(true);
-      if (res.data.demo_otp) setDemoOtp(res.data.demo_otp);
+      await axios.post(`${API}/auth/otp/send`, { phone: cleanPhone });
+      setMode("otp");
       toast.success("OTP sent to your WhatsApp!");
-      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+      setTimeout(() => otpRefs.current[0]?.focus(), 200);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to send OTP");
     } finally { setLoading(false); }
@@ -73,18 +73,32 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     }
   };
 
+  const handleOtpPaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted.length === 6) {
+      const digits = pasted.split("");
+      setOtp(digits);
+      otpRefs.current[5]?.focus();
+      verifyOtp(pasted);
+    }
+  };
+
   const verifyOtp = async (code) => {
+    if (verifyingRef.current || loading) return;
+    verifyingRef.current = true;
     const cleanPhone = phone.replace(/\D/g, "");
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/otp/verify`, { phone: cleanPhone, otp: code || otp.join("") });
       if (res.data.needs_registration) {
-        // Phone verified but no account — switch to signup tab with phone pre-filled
-        toast.success("Phone verified! Please complete your registration.");
+        // Phone verified but no account — switch to signup form
         setSignupPhone(cleanPhone);
-        setTab("signup");
+        setMode("signup");
+        toast.success("Phone verified! Complete your registration below.");
         return;
       }
+      // Existing user — login directly
       login(res.data.user, res.data.token);
       toast.success("Logged in successfully!");
       onSuccess?.();
@@ -92,10 +106,14 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     } catch (err) {
       toast.error(err.response?.data?.detail || "Invalid OTP");
       setOtp(["","","","","",""]);
-      otpRefs.current[0]?.focus();
-    } finally { setLoading(false); }
+      setTimeout(() => otpRefs.current[0]?.focus(), 100);
+    } finally {
+      setLoading(false);
+      verifyingRef.current = false;
+    }
   };
 
+  // ============== EMAIL LOGIN ==============
   const handleEmailLogin = async (e) => {
     e?.preventDefault();
     if (!email || !password) { toast.error("Enter email and password"); return; }
@@ -111,10 +129,11 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
     } finally { setLoading(false); }
   };
 
+  // ============== SIGNUP ==============
   const handleSignup = async (e) => {
     e?.preventDefault();
     if (!signupName || !signupEmail || !signupPw) { toast.error("Fill all required fields"); return; }
-    if (!signupPhone) { toast.error("Phone number is required. Please verify via WhatsApp OTP first."); return; }
+    if (!signupPhone) { toast.error("Phone number is required. Verify via WhatsApp OTP first."); return; }
     setLoading(true);
     try {
       const res = await axios.post(`${API}/auth/register`, {
@@ -138,112 +157,133 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
         className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={(e) => e.target === e.currentTarget && onClose()}
+        data-testid="checkout-auth-modal"
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="bg-white rounded-2xl w-full max-w-[420px] overflow-hidden shadow-2xl"
-          data-testid="checkout-auth-modal"
+          initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 30 }}
+          className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
         >
-          {/* Header */}
-          <div className="relative bg-black text-white px-6 py-5">
-            <button onClick={onClose} className="absolute right-4 top-4 text-white/60 hover:text-white" data-testid="auth-modal-close">
-              <X className="h-5 w-5" />
-            </button>
-            <h2 className="text-lg font-bold">Almost there!</h2>
-            <p className="text-sm text-white/60 mt-0.5">Sign in to complete your order</p>
-          </div>
-
           <div className="p-6">
-            {/* Mode Tabs */}
-            <div className="flex gap-1 bg-neutral-100 rounded-xl p-1 mb-5">
-              {[
-                { key: "phone", label: "WhatsApp OTP", icon: Phone },
-                { key: "email", label: "Email", icon: Mail },
-              ].map(({ key, label, icon: Icon }) => (
-                <button key={key} onClick={() => { setMode(key); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                    mode === key ? "bg-white shadow-sm text-black" : "text-neutral-500 hover:text-neutral-700"
-                  }`}
-                  data-testid={`auth-tab-${key}`}
-                >
-                  <Icon className="h-3.5 w-3.5" /> {label}
-                </button>
-              ))}
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold" data-testid="auth-modal-title">
+                  {mode === "signup" ? "Create Account" : "Almost there!"}
+                </h2>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  {mode === "signup" ? "Fill in your details to complete signup"
+                    : mode === "otp" ? "Enter the OTP sent to your WhatsApp"
+                    : "Sign in to complete your order"}
+                </p>
+              </div>
+              <button onClick={onClose} className="p-2 rounded-full hover:bg-neutral-100" data-testid="auth-modal-close">
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            {/* Phone OTP Flow */}
-            {mode === "phone" && !otpSent && (
-              <div className="space-y-4" data-testid="phone-input-section">
+            {/* ============ PHONE ENTRY ============ */}
+            {mode === "phone" && (
+              <div className="space-y-4" data-testid="phone-entry-section">
                 <div>
                   <label className="text-xs font-medium text-neutral-500 mb-1.5 block">WhatsApp Number</label>
                   <div className="flex gap-2">
-                    <div className="flex items-center bg-neutral-100 rounded-lg px-3 text-sm font-medium text-neutral-600 shrink-0">+91</div>
+                    <div className="flex items-center bg-neutral-100 rounded-lg px-3 text-sm font-medium text-neutral-700 shrink-0">
+                      +91
+                    </div>
                     <Input
-                      value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                      placeholder="Enter 10-digit number"
-                      className="h-11" maxLength={10}
-                      data-testid="auth-phone-input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="Enter your phone number"
+                      className="h-11 text-lg tracking-wider"
+                      data-testid="phone-input"
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && handleSendOtp()}
                     />
                   </div>
                 </div>
-                <Button onClick={handleSendOtp} disabled={loading || phone.length < 10}
-                  className="w-full h-11 bg-black hover:bg-neutral-800 text-white"
+
+                <Button onClick={handleSendOtp} disabled={loading || phone.replace(/\D/g, "").length < 10}
+                  className="w-full h-11 bg-[#25D366] hover:bg-[#20BD5A] text-white font-semibold"
                   data-testid="send-otp-btn">
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Send OTP <ArrowRight className="ml-2 h-4 w-4" /></>}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                    <><Phone className="h-4 w-4 mr-2" /> Send OTP via WhatsApp</>
+                  )}
                 </Button>
-                {demoOtp && (
-                  <p className="text-xs text-center text-amber-600 bg-amber-50 rounded-lg p-2" data-testid="demo-otp-display">
-                    Demo OTP: <strong>{demoOtp}</strong>
-                  </p>
-                )}
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 my-1">
+                  <div className="flex-1 h-px bg-neutral-200" />
+                  <span className="text-xs text-neutral-400">or sign in with</span>
+                  <div className="flex-1 h-px bg-neutral-200" />
+                </div>
+
+                {/* Email Login Button */}
+                <Button variant="outline" onClick={() => setMode("email")}
+                  className="w-full h-11 border-neutral-200 text-neutral-700 hover:bg-neutral-50"
+                  data-testid="goto-email-btn">
+                  <Mail className="h-4 w-4 mr-2" /> Continue with Email
+                </Button>
+
+                <p className="text-center text-xs text-neutral-400 mt-2">
+                  New here?{" "}
+                  <button type="button" onClick={() => setMode("signup")}
+                    className="text-black font-medium hover:underline" data-testid="goto-signup-from-phone">
+                    Create an account
+                  </button>
+                </p>
               </div>
             )}
 
-            {mode === "phone" && otpSent && (
+            {/* ============ OTP VERIFICATION ============ */}
+            {mode === "otp" && (
               <div className="space-y-4" data-testid="otp-verify-section">
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <CheckCircle className="h-6 w-6 text-green-500" />
+                  <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-50 mb-3">
+                    <CheckCircle className="h-6 w-6 text-green-600" />
                   </div>
-                  <p className="text-sm text-neutral-700">OTP sent to <strong>+91 {phone}</strong></p>
-                  <button onClick={() => { setOtpSent(false); setOtp(["","","","","",""]); }}
-                    className="text-xs text-blue-600 hover:underline mt-1">Change number</button>
+                  <p className="text-sm text-neutral-600">
+                    OTP sent to <strong>+91 {phone.replace(/\D/g, "")}</strong>
+                  </p>
+                  <button onClick={() => { setMode("phone"); setOtp(["","","","","",""]); }}
+                    className="text-xs text-green-600 hover:underline mt-1" data-testid="change-number-btn">
+                    Change number
+                  </button>
                 </div>
-                <div className="flex justify-center gap-2" data-testid="otp-input-group">
-                  {otp.map((digit, idx) => (
+
+                {/* OTP Input Boxes */}
+                <div className="flex justify-center gap-2" data-testid="otp-inputs">
+                  {otp.map((digit, i) => (
                     <input
-                      key={idx}
-                      ref={(el) => otpRefs.current[idx] = el}
-                      type="text" inputMode="numeric" maxLength={1}
+                      key={i}
+                      ref={(el) => otpRefs.current[i] = el}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
                       value={digit}
-                      onChange={(e) => handleOtpChange(idx, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                      className="w-11 h-12 text-center text-lg font-bold border-2 border-neutral-200 rounded-xl focus:border-black focus:outline-none transition-colors"
-                      data-testid={`otp-digit-${idx}`}
+                      onChange={(e) => handleOtpChange(i, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                      onPaste={i === 0 ? handleOtpPaste : undefined}
+                      className="w-11 h-12 text-center text-lg font-bold border-2 border-neutral-200 rounded-xl focus:border-black focus:ring-0 outline-none transition-colors"
+                      data-testid={`otp-input-${i}`}
                     />
                   ))}
                 </div>
-                {demoOtp && (
-                  <p className="text-xs text-center text-amber-600 bg-amber-50 rounded-lg p-2" data-testid="demo-otp-reminder">
-                    Demo OTP: <strong>{demoOtp}</strong>
-                  </p>
-                )}
+
                 <Button onClick={() => verifyOtp()} disabled={loading || otp.join("").length < 6}
                   className="w-full h-11 bg-black hover:bg-neutral-800 text-white"
                   data-testid="verify-otp-btn">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & Continue"}
                 </Button>
+
                 <button onClick={handleSendOtp}
                   className="w-full text-xs text-neutral-500 hover:text-black text-center"
                   data-testid="resend-otp-btn">
-                  Didn't receive? Resend OTP
+                  Didn't receive? <span className="font-medium">Resend OTP</span>
                 </button>
               </div>
             )}
 
-            {/* Email Login */}
+            {/* ============ EMAIL LOGIN ============ */}
             {mode === "email" && (
               <form onSubmit={handleEmailLogin} className="space-y-4" data-testid="email-login-section">
                 <div>
@@ -251,7 +291,7 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                     <Input value={email} onChange={(e) => setEmail(e.target.value)}
-                      type="email" placeholder="your@email.com" className="pl-10 h-11" data-testid="auth-email-input" />
+                      type="email" placeholder="your@email.com" className="pl-10 h-11" data-testid="auth-email-input" autoFocus />
                   </div>
                 </div>
                 <div>
@@ -269,6 +309,19 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
                   className="w-full h-11 bg-black hover:bg-neutral-800 text-white" data-testid="email-login-btn">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Sign In <ArrowRight className="ml-2 h-4 w-4" /></>}
                 </Button>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 my-1">
+                  <div className="flex-1 h-px bg-neutral-200" />
+                  <span className="text-xs text-neutral-400">or</span>
+                  <div className="flex-1 h-px bg-neutral-200" />
+                </div>
+
+                <Button type="button" variant="outline" onClick={() => setMode("phone")}
+                  className="w-full h-11 border-neutral-200 text-neutral-700 hover:bg-neutral-50">
+                  <Phone className="h-4 w-4 mr-2" /> Login with WhatsApp OTP
+                </Button>
+
                 <p className="text-center text-xs text-neutral-500">
                   Don't have an account?{" "}
                   <button type="button" onClick={() => setMode("signup")} className="text-black font-medium hover:underline" data-testid="goto-signup">
@@ -278,7 +331,7 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
               </form>
             )}
 
-            {/* Signup */}
+            {/* ============ SIGNUP ============ */}
             {mode === "signup" && (
               <form onSubmit={handleSignup} className="space-y-3" data-testid="signup-section">
                 <div>
@@ -286,27 +339,33 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                     <Input value={signupName} onChange={(e) => setSignupName(e.target.value)}
-                      placeholder="Your name" className="pl-10 h-11" data-testid="signup-name" />
+                      placeholder="Your name" className="pl-10 h-11" data-testid="signup-name" autoFocus />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-neutral-500 mb-1 block">Email *</label>
                   <Input value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)}
                     type="email" placeholder="your@email.com" className="h-11" data-testid="signup-email" />
+                  <p className="text-[10px] text-neutral-400 mt-0.5">No temporary/disposable emails allowed</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">WhatsApp Number * {signupPhone && <span className="text-green-600 font-semibold">Verified</span>}</label>
+                  <label className="text-xs font-medium text-neutral-500 mb-1 block">
+                    WhatsApp Number * {signupPhone && <span className="text-green-600 font-semibold ml-1">Verified</span>}
+                  </label>
                   {signupPhone ? (
                     <div className="flex items-center gap-2">
                       <Input value={`+91 ${signupPhone}`} readOnly
                         className="h-11 bg-green-50 border-green-200 text-green-800 font-medium" data-testid="signup-phone" />
-                      <span className="text-green-600 text-xs shrink-0">Verified</span>
+                      <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-2">
-                        Please verify your WhatsApp number via OTP first.{" "}
-                        <button type="button" onClick={() => setMode("otp")} className="underline font-semibold">Verify now</button>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                      <p className="text-xs text-amber-700">
+                        Phone verification required.{" "}
+                        <button type="button" onClick={() => setMode("phone")}
+                          className="underline font-semibold text-amber-900" data-testid="verify-phone-link">
+                          Verify via WhatsApp OTP
+                        </button>
                       </p>
                     </div>
                   )}
@@ -314,9 +373,9 @@ export const CheckoutAuthModal = ({ open, onClose, onSuccess }) => {
                 <div>
                   <label className="text-xs font-medium text-neutral-500 mb-1 block">Password *</label>
                   <Input value={signupPw} onChange={(e) => setSignupPw(e.target.value)}
-                    type="password" placeholder="Create password" className="h-11" data-testid="signup-password" />
+                    type="password" placeholder="Min 6 characters" className="h-11" data-testid="signup-password" />
                 </div>
-                <Button type="submit" disabled={loading}
+                <Button type="submit" disabled={loading || !signupPhone}
                   className="w-full h-11 bg-black hover:bg-neutral-800 text-white" data-testid="signup-btn">
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Account & Continue"}
                 </Button>

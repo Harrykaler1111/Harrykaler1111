@@ -310,12 +310,12 @@ async def send_otp(request: OTPRequest):
             "phone": clean_phone,
             "otp": otp,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+            "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
         }},
         upsert=True
     )
     logger.info(f"OTP for {clean_phone}: {otp}")
-    return {"message": "OTP sent successfully", "demo_otp": otp}
+    return {"message": "OTP sent successfully"}
 
 
 @router.post("/otp/verify", response_model=Dict)
