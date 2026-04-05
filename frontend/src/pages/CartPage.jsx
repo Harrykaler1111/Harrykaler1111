@@ -18,7 +18,7 @@ import { whatsappLink } from "@/components/WhatsAppButton";
 export const CartPage = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { cartItems, cartTotal, updateQuantity: ctxUpdateQty, removeFromCart, fetchCart } = useCart();
+  const { cartItems, cartTotal, updateQuantity: ctxUpdateQty, removeFromCart, fetchCart, addToCart } = useCart();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -183,21 +183,75 @@ export const CartPage = () => {
                 <div data-testid="cart-recommendations">
                   <h3 className="font-serif text-lg font-bold mb-3">You May Also Like</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {recommendations.slice(0, 6).map(p => (
-                      <Link key={p.product_id} to={`/product/${p.product_id}`}
-                        className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group"
-                        data-testid={`rec-product-${p.product_id}`}>
-                        <div className="aspect-square bg-neutral-100 overflow-hidden">
-                          <img src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE} alt={p.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            onError={handleImageError} />
-                        </div>
-                        <div className="p-2.5">
-                          <p className="text-xs font-medium text-neutral-800 line-clamp-1">{p.name}</p>
-                          <p className="text-sm font-bold mt-0.5">Rs.{(p.price || 0).toLocaleString()}</p>
-                        </div>
-                      </Link>
-                    ))}
+                    {recommendations.slice(0, 6).map(p => {
+                      const inCart = cartItems?.find(i => i.product_id === p.product_id);
+                      const qty = inCart?.quantity || 0;
+
+                      const handleQuickAdd = async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        await addToCart(p.product_id, 1, p.sizes?.[0] || "Free Size", p.colors?.[0] || "Default", p);
+                        toast.success(`${p.name} added to cart`);
+                      };
+
+                      const handleIncrease = async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (inCart && qty >= (p.stock || 99)) return;
+                        await ctxUpdateQty(p.product_id, qty + 1, inCart?.size, inCart?.color);
+                      };
+
+                      const handleDecrease = async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (qty <= 1) {
+                          await removeFromCart(p.product_id, inCart?.size, inCart?.color);
+                        } else {
+                          await ctxUpdateQty(p.product_id, qty - 1, inCart?.size, inCart?.color);
+                        }
+                      };
+
+                      return (
+                        <Link key={p.product_id} to={`/product/${p.product_id}`}
+                          className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group relative"
+                          data-testid={`rec-product-${p.product_id}`}>
+                          <div className="aspect-square bg-neutral-100 overflow-hidden relative">
+                            <img src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE} alt={p.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={handleImageError} />
+                          </div>
+                          <div className="p-2.5 flex items-center justify-between gap-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-neutral-800 line-clamp-1">{p.name}</p>
+                              <p className="text-sm font-bold mt-0.5">Rs.{(p.price || 0).toLocaleString()}</p>
+                            </div>
+                            {qty === 0 ? (
+                              <button
+                                onClick={handleQuickAdd}
+                                className="shrink-0 w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-gold hover:text-black transition-colors shadow-md"
+                                data-testid={`quick-add-${p.product_id}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            ) : (
+                              <div className="shrink-0 flex items-center bg-black rounded-full overflow-hidden shadow-md">
+                                <button onClick={handleDecrease}
+                                  className="w-7 h-7 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors"
+                                  data-testid={`rec-decrease-${p.product_id}`}>
+                                  <Minus className="h-3 w-3" />
+                                </button>
+                                <span className="text-white text-xs font-bold w-5 text-center">{qty}</span>
+                                <button onClick={handleIncrease}
+                                  className="w-7 h-7 flex items-center justify-center text-white hover:bg-neutral-700 transition-colors"
+                                  data-testid={`rec-increase-${p.product_id}`}>
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               )}
