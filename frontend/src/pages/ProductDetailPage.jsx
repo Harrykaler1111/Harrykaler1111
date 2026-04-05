@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 import { whatsappProductLink, PHONE_NUMBER } from "@/components/WhatsAppButton";
-import { AddToCartPopup } from "@/components/AddToCartPopup";
 
 // ====== Image with Zoom on Hover ======
 const ZoomableImage = ({ src, alt }) => {
@@ -180,7 +179,7 @@ export const ProductDetailPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, token } = useAuth();
-  const { addToCart } = useCart();
+  const { addToCart, openCart } = useCart();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -189,7 +188,6 @@ export const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [showCartPopup, setShowCartPopup] = useState(false);
 
   // Reseller price override from URL
   const urlResellerId = searchParams.get("reseller_id");
@@ -225,7 +223,7 @@ export const ProductDetailPage = () => {
       const ok = await addToCart(
         product.product_id, quantity, selectedSize, selectedColor, product
       );
-      if (ok) { setShowCartPopup(true); }
+      if (ok) { openCart(); }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to add to cart");
     } finally { setAddingToCart(false); }
@@ -601,14 +599,6 @@ export const ProductDetailPage = () => {
         </div>
       </div>
 
-      {/* Add to Cart Popup */}
-      <AddToCartPopup
-        open={showCartPopup}
-        onClose={() => setShowCartPopup(false)}
-        product={product}
-        size={selectedSize}
-        color={selectedColor}
-      />
     </div>
   );
 };
