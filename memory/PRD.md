@@ -5,7 +5,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 ## Tech Stack
 - Frontend: React, Tailwind CSS, framer-motion, Shadcn UI
-- Backend: FastAPI, Python
+- Backend: FastAPI, Python, Pandas (CSV/Excel parsing)
 - Database: MongoDB
 - Integrations: Interakt (WhatsApp API), Razorpay (Mocked), Emergent Object Storage
 
@@ -13,17 +13,18 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 ```
 /app/
 ├── backend/
-│   ├── routes/ (product, cart, admin, vendor, auth, booster, affiliate, reseller, whatsapp, vendor_credit)
+│   ├── routes/ (product, cart, admin, vendor, auth, booster, affiliate, reseller, whatsapp, vendor_credit, bulk_upload)
 │   ├── models/schemas.py
 │   └── server.py
 ├── frontend/
-│   ├── src/components/ (ProductCard, CartDrawer, BoosterBar, AddToCartPopup, CheckoutAuthModal, etc.)
+│   ├── src/components/ (ProductCard, CartDrawer, BoosterBar, BulkUpload, AdminProductsHub, AddToCartPopup, CheckoutAuthModal, etc.)
 │   ├── src/pages/ (HomePage, ProductsPage, CartPage, CheckoutPage, AdminDashboard, VendorDashboard)
 │   └── src/utils/imageUtils.js
 ```
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
+- **Bulk Product Upload System** (CSV/Excel + ZIP images, SKU matching, variant support, preview/publish/revert)
 - Cart Boosters with configurable slabs, upsell modals, vendor credit system
 - Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (Order webhooks, COD confirmation, Cart Recovery, Broadcasts, OTP, Support Tickets)
@@ -35,10 +36,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Image filtering: All customer-facing product endpoints filter out products without images
 
 ## Completed Bug Fixes
-- Product photos not visible (P0): Backend filters imageless products from all listings/recommendations; Frontend normalizeImageUrl handles bad URLs (Apr 2026)
-- Cart delete button fix
-- Cart booster & upsell endpoint mismatches
-- Guest cart visibility fixes
+- Product photos not visible (P0): Backend filters imageless products; Frontend handles bad URLs (Apr 2026)
+- Cart delete button, booster endpoint mismatches, guest cart visibility
 
 ## Mocked Services
 - Razorpay (Payments)
@@ -54,4 +53,3 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - A/B testing for hero videos
 - AdminDashboard.jsx refactoring (3500+ lines needs splitting)
 - VendorDashboard.jsx refactoring (2100+ lines)
-- Bulk Product Upload System (CSV/Excel + ZIP images with SKU mapping)
