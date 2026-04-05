@@ -296,43 +296,6 @@ export const CartDrawer = () => {
                     ))}
                   </div>
 
-                  {/* Coupon Code */}
-                  <div className="px-4 py-3 border-t border-neutral-100">
-                    <div className="flex gap-2">
-                      <Input
-                        value={couponCode}
-                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                        placeholder="Enter Coupon Code"
-                        className="text-xs uppercase h-9 rounded-lg"
-                        data-testid="drawer-coupon-input"
-                      />
-                      <Button onClick={applyCoupon} size="sm"
-                        className="bg-black text-white text-xs h-9 px-4 rounded-lg hover:bg-neutral-800"
-                        data-testid="drawer-apply-coupon">
-                        Apply
-                      </Button>
-                    </div>
-                    {appliedCoupon && (
-                      <p className="text-[10px] text-green-600 mt-1.5 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" /> {appliedCoupon.code} applied! -₹{couponDiscount.toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Savings Bar */}
-                  {totalDiscount > 0 && (
-                    <motion.div
-                      initial={{ scaleX: 0 }}
-                      animate={{ scaleX: 1 }}
-                      className="mx-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg px-4 py-2 origin-left"
-                      data-testid="savings-bar"
-                    >
-                      <p className="text-white text-sm font-bold text-center">
-                        ₹{totalDiscount.toLocaleString()} Saved so far!
-                      </p>
-                    </motion.div>
-                  )}
-
                   {/* Estimated Total (collapsible bill) */}
                   <div className="px-4 pt-3 pb-2">
                     <button
@@ -441,6 +404,43 @@ export const CartDrawer = () => {
 
                   {/* Frequently Bought Together (Compact) */}
                   <FrequentlyBoughtTogetherCompact cartItems={items} />
+
+                  {/* Coupon Code — after recommendations */}
+                  <div className="px-4 py-3 border-t border-neutral-100">
+                    <div className="flex gap-2">
+                      <Input
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Enter Coupon Code"
+                        className="text-xs uppercase h-9 rounded-lg"
+                        data-testid="drawer-coupon-input"
+                      />
+                      <Button onClick={applyCoupon} size="sm"
+                        className="bg-black text-white text-xs h-9 px-4 rounded-lg hover:bg-neutral-800"
+                        data-testid="drawer-apply-coupon">
+                        Apply
+                      </Button>
+                    </div>
+                    {appliedCoupon && (
+                      <p className="text-[10px] text-green-600 mt-1.5 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" /> {appliedCoupon.code} applied! -₹{couponDiscount.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Savings Bar */}
+                  {totalDiscount > 0 && (
+                    <motion.div
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      className="mx-4 mb-2 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg px-4 py-2 origin-left"
+                      data-testid="savings-bar"
+                    >
+                      <p className="text-white text-sm font-bold text-center">
+                        ₹{totalDiscount.toLocaleString()} Saved so far!
+                      </p>
+                    </motion.div>
+                  )}
                 </>
               )}
             </div>
