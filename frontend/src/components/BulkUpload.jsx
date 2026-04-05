@@ -50,31 +50,85 @@ export const BulkUpload = ({ mode = "admin" }) => {
     }
   };
 
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB chunks
+
+  const uploadZipInChunks = async (file) => {
+    const uploadId = `zip_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+
+      const chunkForm = new FormData();
+      chunkForm.append("chunk", chunk, `chunk_${i}`);
+      chunkForm.append("upload_id", uploadId);
+      chunkForm.append("chunk_index", i.toString());
+      chunkForm.append("total_chunks", totalChunks.toString());
+
+      await axios.post(`${API}/products/bulk/upload-chunk`, chunkForm, {
+        headers: getHeaders(),
+        timeout: 60000
+      });
+
+      setUploadProgress(Math.round(((i + 1) / totalChunks) * 80));
+    }
+
+    // Assemble chunks
+    const assembleForm = new FormData();
+    assembleForm.append("upload_id", uploadId);
+    assembleForm.append("total_chunks", totalChunks.toString());
+    assembleForm.append("filename", file.name);
+
+    await axios.post(`${API}/products/bulk/assemble-zip`, assembleForm, {
+      headers: getHeaders(),
+      timeout: 120000
+    });
+
+    setUploadProgress(85);
+    return uploadId;
+  };
+
   const handlePreview = async () => {
     if (!csvFile) { toast.error("Please select a CSV or Excel file"); return; }
     setLoading(true);
-
-    const formData = new FormData();
-    formData.append("file", csvFile);
-    if (zipFile) formData.append("zip_file", zipFile);
+    setUploadProgress(0);
 
     try {
+      let zipUploadId = null;
+
+      // If ZIP is large (>5 MB), use chunked upload
+      if (zipFile && zipFile.size > CHUNK_SIZE) {
+        toast.info("Uploading images in chunks...");
+        zipUploadId = await uploadZipInChunks(zipFile);
+      }
+
+      const formData = new FormData();
+      formData.append("file", csvFile);
+      if (zipFile && !zipUploadId) {
+        formData.append("zip_file", zipFile);
+      }
+      if (zipUploadId) {
+        formData.append("zip_upload_id", zipUploadId);
+      }
+
+      setUploadProgress(90);
       const res = await axios.post(`${API}/products/bulk/preview`, formData, {
         headers: getHeaders(),
-        timeout: 300000,
-        onUploadProgress: (e) => {
-          if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
-        }
+        timeout: 300000
       });
       setPreviewData(res.data);
       setStep("preview");
-      setUploadProgress(0);
+      setUploadProgress(100);
       toast.success(`Parsed ${res.data.total} products (${res.data.valid_count} valid)`);
     } catch (e) {
-      setUploadProgress(0);
       const msg = e.response?.data?.detail || e.message || "Failed to parse file";
       toast.error(msg, { duration: 8000 });
-    } finally { setLoading(false); }
+    } finally {
+      setUploadProgress(0);
+      setLoading(false);
+    }
   };
 
   const handlePublish = async () => {

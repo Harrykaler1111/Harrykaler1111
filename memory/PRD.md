@@ -11,7 +11,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
-- **Bulk Product Upload System** — CSV/Excel + ZIP images, semicolon-separated SKU support, flexible column aliases, upload progress bar, preview/publish/revert
+- **Bulk Product Upload System** — CSV/Excel + ZIP images, **chunked upload for large ZIPs** (5 MB chunks), semicolon-separated SKU support, flexible column aliases, upload progress bar, preview/publish/revert
 - Cart Boosters, Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
 - Dynamic RBAC, Affiliate & Reseller System with price overrides
@@ -19,12 +19,10 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Image filtering: All customer-facing endpoints filter out imageless products
 
 ## Recent Bug Fixes (Apr 2026)
-- **Bulk upload products not showing**: Fixed 3 issues:
-  1. Semicolon-separated SKUs (e.g., `PG-COORD-001; PG-COORD-001.1`) now parsed — first part = primary SKU
-  2. ZIP image matching fixed — no longer splits on hyphens (which broke SKUs like `PG-COORD-001`)
-  3. Re-publish after revert now works — duplicate check only against active products, inactive ones auto-deleted
-- Product photos not visible (P0): Backend filters imageless products; Frontend handles bad URLs
-- Frontend Content-Type header fix for multipart uploads
+- **Bulk upload "Network Error"**: Implemented chunked ZIP upload (5 MB pieces) to bypass K8s ingress body size limit for 100+ MB files
+- **Bulk upload products not showing**: Fixed semicolon SKU parsing, image matching, re-publish after revert
+- **Product photos not visible**: Backend filters imageless products
+- **Removed "Chat on WhatsApp" button** from product detail page per user request
 
 ## Mocked Services
 - Razorpay (Payments), Instagram Auto-DMs

@@ -211,6 +211,68 @@ def validate_row(row: Dict, row_idx: int) -> List[str]:
     return errors
 
 
+
+# --- Chunked ZIP Upload ---
+CHUNK_DIR = os.path.join(tempfile.gettempdir(), "bulk_chunks")
+os.makedirs(CHUNK_DIR, exist_ok=True)
+
+
+@router.post("/upload-chunk")
+async def upload_chunk(
+    chunk: UploadFile = File(...),
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    uploader: Dict = Depends(get_uploader)
+):
+    """Upload a single chunk of a large ZIP file."""
+    upload_dir = os.path.join(CHUNK_DIR, upload_id)
+    os.makedirs(upload_dir, exist_ok=True)
+
+    chunk_path = os.path.join(upload_dir, f"chunk_{chunk_index:05d}")
+    chunk_data = await chunk.read()
+    with open(chunk_path, 'wb') as f:
+        f.write(chunk_data)
+
+    return {"chunk_index": chunk_index, "received": len(chunk_data), "total_chunks": total_chunks}
+
+
+@router.post("/assemble-zip")
+async def assemble_zip(
+    upload_id: str = Form(...),
+    total_chunks: int = Form(...),
+    filename: str = Form("upload.zip"),
+    uploader: Dict = Depends(get_uploader)
+):
+    """Assemble uploaded chunks into a complete ZIP file."""
+    upload_dir = os.path.join(CHUNK_DIR, upload_id)
+    if not os.path.exists(upload_dir):
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    assembled_path = os.path.join(CHUNK_DIR, f"{upload_id}.zip")
+    with open(assembled_path, 'wb') as out:
+        for i in range(total_chunks):
+            chunk_path = os.path.join(upload_dir, f"chunk_{i:05d}")
+            if not os.path.exists(chunk_path):
+                raise HTTPException(status_code=400, detail=f"Missing chunk {i}")
+            with open(chunk_path, 'rb') as cp:
+                out.write(cp.read())
+
+    # Clean up chunk dir
+    shutil.rmtree(upload_dir, ignore_errors=True)
+
+    # Verify it's a valid ZIP
+    try:
+        with zipfile.ZipFile(assembled_path, 'r') as zf:
+            file_count = len([f for f in zf.infolist() if not f.is_dir()])
+    except zipfile.BadZipFile:
+        os.remove(assembled_path)
+        raise HTTPException(status_code=400, detail="Assembled file is not a valid ZIP")
+
+    return {"upload_id": upload_id, "size": os.path.getsize(assembled_path), "files": file_count}
+
+
+
 @router.get("/sample-csv")
 async def download_sample_csv(uploader: Dict = Depends(get_uploader)):
     """Download a sample CSV template for bulk upload."""
@@ -226,6 +288,7 @@ async def download_sample_csv(uploader: Dict = Depends(get_uploader)):
 async def bulk_preview(
     file: UploadFile = File(...),
     zip_file: Optional[UploadFile] = File(None),
+    zip_upload_id: Optional[str] = Form(None),
     uploader: Dict = Depends(get_uploader)
 ):
     """Parse CSV/Excel + optional ZIP of images, return preview data with validation."""
@@ -272,17 +335,24 @@ async def bulk_preview(
             for part in parts:
                 sku_variants_map[part.upper()] = primary
 
-    # Extract ZIP images
+    # Extract ZIP images — from direct upload OR pre-uploaded chunks
     sku_images = {}
+    zip_bytes = None
     if zip_file:
         zip_bytes = await zip_file.read()
-        if zip_bytes:
-            try:
-                extracted_files = extract_zip_images(zip_bytes, session_dir)
-                sku_images = match_images_to_skus(extracted_files, sku_variants_map)
-            except zipfile.BadZipFile:
-                shutil.rmtree(session_dir, ignore_errors=True)
-                raise HTTPException(status_code=400, detail="Invalid ZIP file")
+    elif zip_upload_id:
+        assembled_path = os.path.join(CHUNK_DIR, f"{zip_upload_id}.zip")
+        if os.path.exists(assembled_path):
+            with open(assembled_path, 'rb') as f:
+                zip_bytes = f.read()
+
+    if zip_bytes:
+        try:
+            extracted_files = extract_zip_images(zip_bytes, session_dir)
+            sku_images = match_images_to_skus(extracted_files, sku_variants_map)
+        except zipfile.BadZipFile:
+            shutil.rmtree(session_dir, ignore_errors=True)
+            raise HTTPException(status_code=400, detail="Invalid ZIP file")
 
     # Parse rows
     products = []
