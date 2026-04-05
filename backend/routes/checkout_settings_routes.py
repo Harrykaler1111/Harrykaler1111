@@ -244,7 +244,7 @@ PIN_CITY_MAP = {
 
 @router.get("/validate-pincode/{pincode}")
 async def validate_pincode(pincode: str):
-    """Validate Indian PIN code and return city/state"""
+    """Validate Indian PIN code and return city/state using India Post API with static fallback"""
     pincode = pincode.strip()
     if len(pincode) != 6 or not pincode.isdigit():
         raise HTTPException(status_code=400, detail="Invalid PIN code. Must be 6 digits.")
@@ -253,15 +253,29 @@ async def validate_pincode(pincode: str):
     if first_digit == "0":
         raise HTTPException(status_code=400, detail="Invalid PIN code")
 
+    # Try India Post public API for accurate city/state
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"https://api.postalpincode.in/pincode/{pincode}")
+            data = resp.json()
+            if data and data[0].get("Status") == "Success" and data[0].get("PostOffice"):
+                po = data[0]["PostOffice"][0]
+                city = po.get("District", "")
+                state = po.get("State", "")
+                if city and state:
+                    return {"valid": True, "pincode": pincode, "city": city, "state": state}
+    except Exception:
+        pass  # Fall through to static map
+
+    # Fallback: static 3-digit prefix map
     prefix3 = pincode[:3]
     prefix2 = pincode[:2]
 
-    # Try 3-digit city match first
     if prefix3 in PIN_CITY_MAP:
         city, state = PIN_CITY_MAP[prefix3]
         return {"valid": True, "pincode": pincode, "city": city, "state": state}
 
-    # Fall back to 2-digit state match
     if prefix2 in PIN_STATE_MAP:
         state = PIN_STATE_MAP[prefix2]
         return {"valid": True, "pincode": pincode, "city": "", "state": state}
