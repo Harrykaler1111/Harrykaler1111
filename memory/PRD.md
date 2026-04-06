@@ -21,7 +21,10 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Guest Cart System (LocalStorage), login only at checkout
 - Image filtering: All customer-facing endpoints filter out imageless products
 
-## Recent Bug Fixes (Apr 2026)
+## Deployment Fixes (Apr 2026)
+- **FOMO polling storm**: Fixed initial polling interval from 300-600ms to 300000-600000ms (5-10 min). Was causing hundreds of requests/minute in production logs.
+- **StaticFiles mount conflict**: Moved legacy `/api/uploads` static mount to `/api/static-uploads` (conditional) to avoid conflict with upload_routes router.
+- **Container-safe config**: UPLOAD_DIR creation now falls back to /tmp if app directory is read-only.
 - **Cart items disappearing after login**: Fixed race condition — CheckoutPage now waits for `isMerging` to complete before fetching server cart. Also fixed swapped login() parameters in CheckoutAuthModal.
 - Quick Add buttons on cart recommendations
 - Admin photo cropping, bulk upload chunked upload, SKU/image matching

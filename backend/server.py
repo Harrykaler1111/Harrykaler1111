@@ -94,10 +94,11 @@ app.include_router(dummy_review_router, prefix="/api")
 app.include_router(fomo_router, prefix="/api")
 app.include_router(vendor_credit_router, prefix="/api")
 
-# Serve uploaded files
-from fastapi.staticfiles import StaticFiles
+# Serve uploaded files — only if local uploads directory exists (dev/legacy)
 from config import UPLOAD_DIR
-app.mount("/api/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+if UPLOAD_DIR.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/api/static-uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # CORS middleware
 app.add_middleware(

@@ -33,9 +33,14 @@ MIN_WITHDRAWAL_AMOUNT = 1000
 
 # Upload settings
 UPLOAD_DIR = ROOT_DIR / 'uploads'
-UPLOAD_DIR.mkdir(exist_ok=True)
-(UPLOAD_DIR / 'kyc').mkdir(exist_ok=True)
-(UPLOAD_DIR / 'products').mkdir(exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    (UPLOAD_DIR / 'kyc').mkdir(exist_ok=True)
+    (UPLOAD_DIR / 'products').mkdir(exist_ok=True)
+except OSError:
+    # In read-only containers, fall back to /tmp
+    UPLOAD_DIR = Path(os.environ.get('UPLOAD_DIR', '/tmp/pigma_uploads'))
+    UPLOAD_DIR.mkdir(exist_ok=True)
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
 # Rate limiting for DM automation

@@ -8,7 +8,7 @@ export const FomoNotification = () => {
   const [notification, setNotification] = useState(null);
   const [visible, setVisible] = useState(false);
   const timerRef = useRef(null);
-  const freqRef = useRef({ min: 300, max: 600 });
+  const freqRef = useRef({ min: 300000, max: 600000 });
 
   const fetchNotification = useCallback(async () => {
     try {
