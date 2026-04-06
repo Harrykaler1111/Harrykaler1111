@@ -25,7 +25,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - **Cart items disappearing after login**: Fixed race condition — CheckoutPage now waits for `isMerging` to complete before fetching server cart. Also fixed swapped login() parameters in CheckoutAuthModal.
 - Quick Add buttons on cart recommendations
 - Admin photo cropping, bulk upload chunked upload, SKU/image matching
-- **Crop existing photo not working (Feb 2026)**: Two root causes — (1) "Made with Emergent" badge z-index covered the Apply Crop button (raised modal from z-[200] to z-[100000]); (2) `createCroppedImage` CORS/tainted canvas for remote URLs (fixed with blob URL fetch, onerror handler, useRef for crop area).
+- **Crop existing photo not working (Feb 2026)**: Three root causes — (1) "Made with Emergent" badge z-index covered the Apply Crop button (raised modal to z-[100000]); (2) Original code used `crossOrigin="anonymous"` causing CORS hangs with no error handler; (3) `fetch()` blob workaround triggered `postMessage` cloning error from service worker. Final fix: direct `Image()` load without crossOrigin (same-origin images don't taint canvas), proper `onerror` rejection, `useRef` for crop area data.
 
 ## Mocked Services
 - Razorpay (Payments), Instagram Auto-DMs

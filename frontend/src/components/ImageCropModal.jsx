@@ -5,17 +5,9 @@ import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-// Fetch image as blob URL to avoid CORS/tainted canvas issues
-const toSafeSrc = async (src) => {
-  if (src.startsWith("blob:") || src.startsWith("data:")) return src;
-  const resp = await fetch(src);
-  const blob = await resp.blob();
-  return URL.createObjectURL(blob);
-};
-
 // Crop an image and return a blob
-const createCroppedImage = async (imageSrc, crop, rotation = 0) => {
-  const safeSrc = await toSafeSrc(imageSrc);
+// Images are same-origin (served via /api/uploads/files/), so no crossOrigin or fetch needed
+const createCroppedImage = (imageSrc, crop, rotation = 0) => {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
@@ -36,20 +28,17 @@ const createCroppedImage = async (imageSrc, crop, rotation = 0) => {
         ctx.drawImage(image, 0, 0);
 
         canvas.toBlob((blob) => {
-          if (safeSrc !== imageSrc) URL.revokeObjectURL(safeSrc);
           if (blob) resolve(blob);
           else reject(new Error("Canvas toBlob returned null"));
         }, "image/jpeg", 0.92);
       } catch (err) {
-        if (safeSrc !== imageSrc) URL.revokeObjectURL(safeSrc);
         reject(err);
       }
     };
     image.onerror = () => {
-      if (safeSrc !== imageSrc) URL.revokeObjectURL(safeSrc);
       reject(new Error("Failed to load image for cropping"));
     };
-    image.src = safeSrc;
+    image.src = imageSrc;
   });
 };
 
