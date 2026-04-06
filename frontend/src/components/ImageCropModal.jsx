@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 // Fetch image as blob URL to avoid CORS/tainted canvas issues
 const toSafeSrc = async (src) => {
@@ -62,19 +63,26 @@ export const ImageCropModal = ({ imageSrc, onCropDone, onCancel, aspect = 4 / 5 
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const croppedAreaRef = useRef(null);
   const [processing, setProcessing] = useState(false);
 
   const onCropComplete = useCallback((_, croppedPixels) => {
     setCroppedAreaPixels(croppedPixels);
+    croppedAreaRef.current = croppedPixels;
   }, []);
 
   const handleDone = async () => {
-    if (!croppedAreaPixels) return;
+    const area = croppedAreaRef.current || croppedAreaPixels;
+    if (!area) {
+      toast.error("Please adjust the crop area first");
+      return;
+    }
     setProcessing(true);
     try {
-      const blob = await createCroppedImage(imageSrc, croppedAreaPixels, rotation);
+      const blob = await createCroppedImage(imageSrc, area, rotation);
       onCropDone(blob);
-    } catch {
+    } catch (err) {
+      toast.error("Crop failed: " + (err?.message || "Unknown error"));
       onCancel();
     } finally {
       setProcessing(false);
@@ -87,7 +95,7 @@ export const ImageCropModal = ({ imageSrc, onCropDone, onCancel, aspect = 4 / 5 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] flex flex-col"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100000] flex flex-col"
         data-testid="image-crop-modal"
       >
         {/* Header */}
