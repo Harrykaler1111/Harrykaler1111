@@ -25,6 +25,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - **Cart items disappearing after login**: Fixed race condition — CheckoutPage now waits for `isMerging` to complete before fetching server cart. Also fixed swapped login() parameters in CheckoutAuthModal.
 - Quick Add buttons on cart recommendations
 - Admin photo cropping, bulk upload chunked upload, SKU/image matching
+- **Crop existing photo infinite processing (Feb 2026)**: Fixed `createCroppedImage` in `ImageCropModal.jsx` — remote images now fetched as blob URLs first (avoids CORS/tainted canvas), added `onerror` rejection and `try-catch` around `toBlob`.
 
 ## Mocked Services
 - Razorpay (Payments), Instagram Auto-DMs
