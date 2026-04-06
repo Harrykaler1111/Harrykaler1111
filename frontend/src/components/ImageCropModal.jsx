@@ -5,40 +5,64 @@ import { X, ZoomIn, ZoomOut, RotateCw, Check, Crop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
+
+// Load image into an Image element with CORS support
+const loadImage = (src, useCORS = true) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    if (useCORS) img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image load failed"));
+    // Cache-bust to avoid stale non-CORS cached responses
+    img.src = useCORS ? src + (src.includes("?") ? "&" : "?") + "_cors=1" : src;
+  });
+
 // Crop an image and return a blob
-// Images are same-origin (served via /api/uploads/files/), so no crossOrigin or fetch needed
-const createCroppedImage = (imageSrc, crop, rotation = 0) => {
+const createCroppedImage = async (imageSrc, crop, rotation = 0) => {
+  let image;
+  try {
+    // Primary: load with crossOrigin="anonymous" + CORS headers from server
+    image = await loadImage(imageSrc, true);
+  } catch {
+    // Fallback: load via backend proxy with CORS headers
+    const proxyUrl = `${API}/uploads/proxy-image?url=${encodeURIComponent(imageSrc)}`;
+    try {
+      image = await loadImage(proxyUrl, true);
+    } catch {
+      // Last resort: load without CORS (will display but may taint canvas)
+      image = await loadImage(imageSrc, false);
+    }
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  const rRad = (rotation * Math.PI) / 180;
+  const { width: bW, height: bH } = getBoundingBox(image.width, image.height, rRad);
+
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+
+  ctx.translate(-crop.x, -crop.y);
+  ctx.translate(bW / 2, bH / 2);
+  ctx.rotate(rRad);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+
   return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-
-        const rRad = (rotation * Math.PI) / 180;
-        const { width: bW, height: bH } = getBoundingBox(image.width, image.height, rRad);
-
-        canvas.width = crop.width;
-        canvas.height = crop.height;
-
-        ctx.translate(-crop.x, -crop.y);
-        ctx.translate(bW / 2, bH / 2);
-        ctx.rotate(rRad);
-        ctx.translate(-image.width / 2, -image.height / 2);
-        ctx.drawImage(image, 0, 0);
-
-        canvas.toBlob((blob) => {
+    try {
+      canvas.toBlob(
+        (blob) => {
           if (blob) resolve(blob);
           else reject(new Error("Canvas toBlob returned null"));
-        }, "image/jpeg", 0.92);
-      } catch (err) {
-        reject(err);
-      }
-    };
-    image.onerror = () => {
-      reject(new Error("Failed to load image for cropping"));
-    };
-    image.src = imageSrc;
+        },
+        "image/jpeg",
+        0.92
+      );
+    } catch (err) {
+      reject(err);
+    }
   });
 };
 

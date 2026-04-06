@@ -187,9 +187,17 @@ async def upload_multiple_files(files: List[UploadFile] = File(...), user_id: st
     return {"uploaded": results, "errors": errors}
 
 
+CORS_HEADERS = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "*",
+    "Cache-Control": "public, max-age=86400",
+}
+
+
 @router.get("/files/{path:path}")
 async def serve_file(path: str, auth: Optional[str] = Query(None)):
-    """Serve uploaded file — checks DB record first, falls back to direct storage fetch"""
+    """Serve uploaded file with CORS headers for canvas/crop operations"""
     record = await db.uploaded_files.find_one(
         {"storage_path": path, "is_deleted": False}, {"_id": 0}
     )
@@ -202,8 +210,25 @@ async def serve_file(path: str, auth: Optional[str] = Query(None)):
     return Response(
         content=data,
         media_type=record.get("content_type", content_type) if record else content_type,
-        headers={"Cache-Control": "public, max-age=86400"}
+        headers=CORS_HEADERS,
     )
+
+
+@router.get("/proxy-image")
+async def proxy_image(url: str = Query(...)):
+    """Proxy an image URL and serve with CORS headers — fallback for tainted canvas"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers=CORS_HEADERS,
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to fetch image")
 
 
 @router.get("/assets/{path:path}")
@@ -218,5 +243,5 @@ async def serve_public_asset(path: str):
     return Response(
         content=data,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=604800"}
+        headers={**CORS_HEADERS, "Cache-Control": "public, max-age=604800"},
     )
