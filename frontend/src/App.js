@@ -169,13 +169,13 @@ const LayoutWrapper = ({ children }) => {
     <div className="App min-h-screen flex flex-col bg-neutral-50">
       {!hideChrome && <Header />}
       {!hideChrome && <FlashSaleToast />}
-      {!hideChrome && <BoosterBar />}
+      {(!hideChrome || isReelsPage) && <BoosterBar />}
       <main className="flex-1">{children}</main>
       {!hideChrome && <Footer />}
       {!hideChrome && <FloatingWhatsApp />}
       {!hideChrome && <ChatWidget />}
       {!hideChrome && <FomoNotification />}
-      {!hideChrome && <CartDrawer />}
+      {(!hideChrome || isReelsPage) && <CartDrawer />}
       <TrackingPixels />
       <Toaster position="top-right" richColors />
     </div>

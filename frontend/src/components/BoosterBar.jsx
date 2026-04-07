@@ -398,7 +398,7 @@ export const BoosterBar = () => {
       <div className="hidden lg:block h-[48px] bg-black" />
 
       {/* Mobile Bar — sticky below header */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 z-[45]" data-testid="booster-bar-mobile">
+      <div className="lg:hidden fixed top-16 left-0 right-0 z-[55]" data-testid="booster-bar-mobile">
         <motion.div
           initial={{ y: -50 }}
           animate={{ y: 0 }}

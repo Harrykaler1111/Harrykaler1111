@@ -14,7 +14,10 @@ const ReelCard = ({ product, isActive }) => {
   const { user, token } = useAuth();
   const { addToCart } = useCart();
   const [imgIdx, setImgIdx] = useState(0);
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(() => {
+    const stored = JSON.parse(localStorage.getItem("pigma_reel_likes") || "[]");
+    return stored.includes(product.product_id);
+  });
   const [adding, setAdding] = useState(false);
   const [muted, setMuted] = useState(true);
   const videoRef = useRef(null);
@@ -60,15 +63,29 @@ const ReelCard = ({ product, isActive }) => {
 
   const handleLike = async (e) => {
     e.stopPropagation();
-    if (!user) { toast.error("Sign in to like"); return; }
-    setLiked(l => !l);
-    try {
-      if (!liked) {
-        await axios.post(`${API}/wishlist/add`, { product_id: product.product_id }, { headers: { Authorization: `Bearer ${token}` } });
-      } else {
-        await axios.delete(`${API}/wishlist/remove/${product.product_id}`, { headers: { Authorization: `Bearer ${token}` } });
-      }
-    } catch { setLiked(l => !l); }
+    const newLiked = !liked;
+    setLiked(newLiked);
+
+    // Store locally so anyone can like
+    const stored = JSON.parse(localStorage.getItem("pigma_reel_likes") || "[]");
+    if (newLiked) {
+      if (!stored.includes(product.product_id)) stored.push(product.product_id);
+    } else {
+      const idx = stored.indexOf(product.product_id);
+      if (idx > -1) stored.splice(idx, 1);
+    }
+    localStorage.setItem("pigma_reel_likes", JSON.stringify(stored));
+
+    // Also sync to wishlist API if logged in
+    if (user && token) {
+      try {
+        if (newLiked) {
+          await axios.post(`${API}/wishlist/add`, { product_id: product.product_id }, { headers: { Authorization: `Bearer ${token}` } });
+        } else {
+          await axios.delete(`${API}/wishlist/remove/${product.product_id}`, { headers: { Authorization: `Bearer ${token}` } });
+        }
+      } catch {}
+    }
   };
 
   const handleAddToCart = async (e) => {
