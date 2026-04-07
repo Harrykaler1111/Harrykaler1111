@@ -291,7 +291,7 @@ export const ProductsPage = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {[...Array(10)].map((_, i) => (
               <div key={i} className="space-y-2">
-                <div className="aspect-[4/5] bg-neutral-100 rounded-lg animate-pulse" />
+                <div className="aspect-[4/5] bg-neutral-100 animate-pulse" />
                 <div className="h-3 bg-neutral-100 rounded animate-pulse" />
                 <div className="h-3 bg-neutral-100 rounded w-2/3 animate-pulse" />
               </div>
@@ -301,7 +301,7 @@ export const ProductsPage = () => {
           <div
             className={
               viewMode === "grid"
-                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4"
+                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5"
                 : "space-y-4"
             }
           >

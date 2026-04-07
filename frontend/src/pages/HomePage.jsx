@@ -236,7 +236,7 @@ export const HomePage = () => {
               </h2>
             </motion.div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
               {featuredProducts.map((product, index) => (
                 <motion.div
                   key={product.product_id}
@@ -363,7 +363,7 @@ export const HomePage = () => {
               </Button>
             </motion.div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
               {newArrivals.slice(0, 10).map((product, index) => (
                 <motion.div
                   key={product.product_id}
