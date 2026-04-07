@@ -22,7 +22,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Image filtering: All customer-facing endpoints filter out imageless products
 
 ## UI Redesign (Apr 2026)
-- **Mobile Product Listing Premium Redesign**: Complete rewrite of ProductCard.jsx. Removed ALL image overlays (discount %, price, LOW STOCK banners, ADD buttons). Single subtle badge at top-left only. Zara/H&M-inspired clean hierarchy below image: Title → Category → Rating → Price/MRP/Discount → "ADD TO BAG" button. Increased grid spacing for premium breathing room.
+- **Mobile Product Listing Premium Redesign**: Rewrite of ProductCard.jsx. Clean images with no heavy overlays. Small red "LOW STOCK" badge top-left. Blinkit-style small "+" button bottom-right (replaces full-width ADD TO BAG). Price/MRP/Discount below image. Rounded-pill qty controller on add.
 
 ## Deployment Fixes (Apr 2026)
 - **FOMO polling storm**: Fixed initial polling interval from 300-600ms to 300000-600000ms (5-10 min). Was causing hundreds of requests/minute in production logs.
