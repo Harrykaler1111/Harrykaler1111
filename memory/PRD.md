@@ -21,6 +21,9 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Guest Cart System (LocalStorage), login only at checkout
 - Image filtering: All customer-facing endpoints filter out imageless products
 
+## UI Redesign (Apr 2026)
+- **Mobile Product Listing Premium Redesign**: Complete rewrite of ProductCard.jsx. Removed ALL image overlays (discount %, price, LOW STOCK banners, ADD buttons). Single subtle badge at top-left only. Zara/H&M-inspired clean hierarchy below image: Title → Category → Rating → Price/MRP/Discount → "ADD TO BAG" button. Increased grid spacing for premium breathing room.
+
 ## Deployment Fixes (Apr 2026)
 - **FOMO polling storm**: Fixed initial polling interval from 300-600ms to 300000-600000ms (5-10 min). Was causing hundreds of requests/minute in production logs.
 - **StaticFiles mount conflict**: Moved legacy `/api/uploads` static mount to `/api/static-uploads` (conditional) to avoid conflict with upload_routes router.
