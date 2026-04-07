@@ -22,7 +22,12 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Image filtering: All customer-facing endpoints filter out imageless products
 
 ## New Features (Apr 2026)
-- **Explore / Reels Page**: Instagram Reels-style vertical scrolling product feed at /reels. Full-screen cards with image carousel (swipe), action buttons (Like, Cart, Share), product info overlay. Uses existing cart system and product data. Navigation links in desktop nav and mobile menu.
+- **Vendor Monetization System**: Complete credit-based monetization engine. Admin-configurable pricing (9 fields: credit rate, reel boost per hour/day/week/month, cart placement, featured vendor week/month, free vendor reel limit). Vendor wallet, credit purchase, reel boost with timed duration, cart placement spending, featured vendor slots, view tracking analytics.
+- **Admin Monetization Panel**: `/admin/monetization` — Super admin sets all prices, manually adds credits to vendors, views active boosts table.
+- **Reels Boost Feed**: Boosted products appear first in reels feed, sorted by credits spent. "Promoted" badge on boosted products.
+- **Vendor Reel Strip**: Swipe left (or tap Seller button) on any reel → shows that vendor's products. Free vendors limited to 3 products, paid vendors unlimited.
+- **Explore / Reels Page**: Instagram Reels-style vertical scrolling product feed at /reels. Full-screen cards with image carousel, action buttons (Like, Cart, Share, Seller), product info overlay. Uses existing cart system.
+- **Guest Likes**: Anyone can like products in reels without login (stored in localStorage, synced to wishlist API for logged-in users).
 
 ## UI Redesign (Apr 2026)
 - **Mobile Product Listing Premium Redesign**: Rewrite of ProductCard.jsx. Clean images with no heavy overlays. Small red "LOW STOCK" badge top-left. Blinkit-style small "+" button bottom-right (replaces full-width ADD TO BAG). Price/MRP/Discount below image. Rounded-pill qty controller on add.
