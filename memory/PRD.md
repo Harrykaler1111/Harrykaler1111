@@ -21,6 +21,9 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Guest Cart System (LocalStorage), login only at checkout
 - Image filtering: All customer-facing endpoints filter out imageless products
 
+## New Features (Apr 2026)
+- **Explore / Reels Page**: Instagram Reels-style vertical scrolling product feed at /reels. Full-screen cards with image carousel (swipe), action buttons (Like, Cart, Share), product info overlay. Uses existing cart system and product data. Navigation links in desktop nav and mobile menu.
+
 ## UI Redesign (Apr 2026)
 - **Mobile Product Listing Premium Redesign**: Rewrite of ProductCard.jsx. Clean images with no heavy overlays. Small red "LOW STOCK" badge top-left. Blinkit-style small "+" button bottom-right (replaces full-width ADD TO BAG). Price/MRP/Discount below image. Rounded-pill qty controller on add.
 
