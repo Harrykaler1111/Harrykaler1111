@@ -28,6 +28,7 @@ import { AdminReviewsPanel } from "@/components/AdminReviewsPanel";
 import { AdminOrdersPanel } from "@/components/AdminOrdersPanel";
 import { AdminCategoriesPanel } from "@/components/AdminCategoriesPanel";
 import { AdminPoliciesPanel } from "@/components/AdminPoliciesPanel";
+import { AdminMonetizationPanel } from "@/components/AdminMonetizationPanel";
 import { AdminProductsHub } from "@/components/AdminProductsHub";
 import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 import { AdminBundlePanel } from "@/components/AdminBundlePanel";
@@ -3489,6 +3490,7 @@ export const AdminDashboard = () => {
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/dummy-reviews", icon: <Star className="h-5 w-5" />, label: "Dummy Reviews", permission: ["products", "edit"] },
     { path: "/admin/fomo", icon: <Bell className="h-5 w-5" />, label: "FOMO Popups", permission: ["platform_settings", "edit"] },
+    { path: "/admin/monetization", icon: <DollarSign className="h-5 w-5" />, label: "Monetization", permission: ["platform_settings", "edit"] },
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
     { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
@@ -3591,6 +3593,7 @@ export const AdminDashboard = () => {
             <Route path="reviews" element={<AdminReviewsPanel />} />
             <Route path="dummy-reviews" element={<AdminDummyReviewsPanel />} />
             <Route path="fomo" element={<AdminFomoPanel />} />
+            <Route path="monetization" element={<AdminMonetizationPanel />} />
             <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="permissions" element={<PermissionsPanel />} />
@@ -3601,3 +3604,4 @@ export const AdminDashboard = () => {
     </div>
   );
 };
+
