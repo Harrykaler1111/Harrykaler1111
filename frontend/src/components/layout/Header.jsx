@@ -5,7 +5,7 @@ import { useCart } from "@/context/CartContext";
 import axios from "axios";
 import {
   ShoppingBag, Heart, User, Menu, Search, ChevronDown, ChevronRight,
-  X, Store, Users, Share2, UserPlus, LayoutGrid, Zap, Phone
+  X, Store, Users, Share2, UserPlus, LayoutGrid, Zap, Phone, Clapperboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationSystem";
@@ -153,6 +153,16 @@ const MobileMenu = ({ open, onClose, categories, user, logout, navigate, unreadT
           >
             <LayoutGrid className="h-4 w-4 text-gold" />
             Shop All Products
+          </button>
+
+          {/* Explore / Reels */}
+          <button
+            onClick={() => go("/reels")}
+            className="w-full flex items-center gap-3 px-5 py-3 text-sm font-medium text-white hover:bg-neutral-900 transition-colors"
+            data-testid="mobile-nav-explore"
+          >
+            <Clapperboard className="h-4 w-4 text-gold" />
+            Explore
           </button>
 
           {/* Categories expandable */}
@@ -376,6 +386,15 @@ export const Header = () => {
                 {/* Invisible bridge to prevent hover gap */}
                 {megaOpen && <div className="absolute top-full left-0 w-full h-4" />}
               </div>
+
+              {/* Explore / Reels */}
+              <Link
+                to="/reels"
+                className="text-[13px] uppercase tracking-[0.12em] font-medium whitespace-nowrap text-white hover:text-gold transition-colors"
+                data-testid="nav-explore"
+              >
+                Explore
+              </Link>
 
               {/* Partner with Us */}
               <div

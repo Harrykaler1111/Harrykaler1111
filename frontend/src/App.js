@@ -31,6 +31,7 @@ import { CreatorRecruitmentPage } from "@/pages/CreatorRecruitmentPage";
 import { PolicyPage } from "@/pages/PolicyPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { BundleDetailPage } from "@/components/BundleDeals";
+import ReelsPage from "@/pages/ReelsPage";
 import { Header } from "@/components/layout/Header";
 import { FlashSaleToast } from "@/components/NotificationSystem";
 import { Footer } from "@/components/layout/Footer";
@@ -152,7 +153,8 @@ const LayoutWrapper = ({ children }) => {
   const isAdminPage = location.pathname.startsWith("/admin");
   const isVendorPage = location.pathname.startsWith("/vendor");
   const isResellerDash = location.pathname.startsWith("/reseller/");
-  const hideChrome = isAdminPage || isVendorPage || isResellerDash;
+  const isReelsPage = location.pathname === "/reels";
+  const hideChrome = isAdminPage || isVendorPage || isResellerDash || isReelsPage;
 
   // Capture referral code from URL and store in localStorage
   useEffect(() => {
@@ -210,6 +212,7 @@ const AppRouter = () => {
       <Route path="/products/:category" element={<><ScrollToTop /><ProductsPage /></>} />
       <Route path="/product/:productId" element={<><ScrollToTop /><ProductDetailPage /></>} />
       <Route path="/bundle/:bundleId" element={<><ScrollToTop /><BundleDetailPage /></>} />
+      <Route path="/reels" element={<ReelsPage />} />
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
