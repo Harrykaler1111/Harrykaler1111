@@ -1,17 +1,29 @@
 """
 Admin Master Search — enter any display_id and get full data.
 Also handles migration and global ID utilities.
+Quick Actions: Suspend, Activate, Add Credits, Feature Vendor.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Dict, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from config import db
 from auth import get_admin_user, generate_id
 from display_ids import generate_display_id, migrate_existing_users, ROLE_PREFIXES
 
 router = APIRouter(prefix="/admin/master", tags=["admin-master-search"])
+
+
+class AddCreditsRequest(BaseModel):
+    amount: int
+    reason: str = "Admin credit"
+
+
+class FeatureVendorRequest(BaseModel):
+    duration_days: int = 30
+    position: str = "homepage"
 
 
 def _prefix_to_role(display_id: str) -> Optional[str]:
@@ -212,6 +224,158 @@ async def search_autocomplete(q: str = Query("", min_length=1), admin: Dict = De
             })
 
     return results[:15]
+
+
+# ════════════════════════════════════════════════
+# Quick Actions
+# ════════════════════════════════════════════════
+
+@router.post("/action/suspend/{display_id}")
+async def suspend_user(display_id: str, admin: Dict = Depends(get_admin_user)):
+    """Suspend a user by display_id."""
+    display_id = display_id.strip().upper()
+    user = await _find_user_by_display_id(display_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {display_id} not found")
+
+    coll = user["collection"]
+    await db[coll].update_one(
+        {"display_id": display_id},
+        {"$set": {"status": "suspended", "suspended_at": datetime.now(timezone.utc).isoformat(), "suspended_by": admin.get("admin_id", "")}}
+    )
+
+    await db.action_history.insert_one({
+        "action_id": generate_id("act_"),
+        "user_id": admin.get("admin_id", ""),
+        "user_type": "admin",
+        "action": "user_suspended",
+        "entity_type": coll,
+        "details": f"Suspended {display_id} ({user.get('store_name', user.get('name', ''))})",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": f"{display_id} suspended", "status": "suspended"}
+
+
+@router.post("/action/activate/{display_id}")
+async def activate_user(display_id: str, admin: Dict = Depends(get_admin_user)):
+    """Activate/unsuspend a user by display_id."""
+    display_id = display_id.strip().upper()
+    user = await _find_user_by_display_id(display_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {display_id} not found")
+
+    coll = user["collection"]
+    await db[coll].update_one(
+        {"display_id": display_id},
+        {"$set": {"status": "approved", "activated_at": datetime.now(timezone.utc).isoformat(), "activated_by": admin.get("admin_id", "")},
+         "$unset": {"suspended_at": "", "suspended_by": ""}}
+    )
+
+    await db.action_history.insert_one({
+        "action_id": generate_id("act_"),
+        "user_id": admin.get("admin_id", ""),
+        "user_type": "admin",
+        "action": "user_activated",
+        "entity_type": coll,
+        "details": f"Activated {display_id} ({user.get('store_name', user.get('name', ''))})",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": f"{display_id} activated", "status": "approved"}
+
+
+@router.post("/action/add-credits/{display_id}")
+async def add_credits(display_id: str, body: AddCreditsRequest, admin: Dict = Depends(get_admin_user)):
+    """Add credits to a user's wallet by display_id."""
+    display_id = display_id.strip().upper()
+    user = await _find_user_by_display_id(display_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {display_id} not found")
+
+    if body.amount < 1 or body.amount > 100000:
+        raise HTTPException(status_code=400, detail="Amount must be between 1 and 100,000")
+
+    internal_id = user["internal_id"]
+
+    # Upsert wallet
+    result = await db.vendor_wallets.find_one_and_update(
+        {"vendor_id": internal_id},
+        {"$inc": {"balance": body.amount, "total_purchased": body.amount},
+         "$setOnInsert": {"vendor_id": internal_id, "display_id": display_id, "total_spent": 0, "created_at": datetime.now(timezone.utc).isoformat()},
+         "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+        return_document=True
+    )
+    new_balance = result.get("balance", body.amount) if result else body.amount
+
+    # Log transaction
+    await db.credit_transactions.insert_one({
+        "transaction_id": generate_id("ctxn_"),
+        "vendor_id": internal_id,
+        "display_id": display_id,
+        "type": "admin_grant",
+        "credits": body.amount,
+        "source": "admin_panel",
+        "status": "completed",
+        "reason": body.reason,
+        "admin_id": admin.get("admin_id", ""),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    await db.action_history.insert_one({
+        "action_id": generate_id("act_"),
+        "user_id": admin.get("admin_id", ""),
+        "user_type": "admin",
+        "action": "credits_added",
+        "entity_type": "vendor_wallets",
+        "details": f"Added {body.amount} credits to {display_id}. Reason: {body.reason}. New balance: {new_balance}",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": f"Added {body.amount} credits to {display_id}", "new_balance": new_balance}
+
+
+@router.post("/action/feature/{display_id}")
+async def feature_vendor(display_id: str, body: FeatureVendorRequest, admin: Dict = Depends(get_admin_user)):
+    """Feature a vendor on the homepage by display_id."""
+    display_id = display_id.strip().upper()
+    user = await _find_user_by_display_id(display_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User {display_id} not found")
+    if user["user_role"] != "vendor":
+        raise HTTPException(status_code=400, detail="Only vendors can be featured")
+
+    internal_id = user["internal_id"]
+    from datetime import timedelta
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=body.duration_days)).isoformat()
+
+    # Upsert featured entry
+    await db.featured_vendors.update_one(
+        {"vendor_id": internal_id},
+        {"$set": {
+            "vendor_id": internal_id,
+            "display_id": display_id,
+            "position": body.position,
+            "is_active": True,
+            "featured_by": admin.get("admin_id", ""),
+            "expires_at": expires_at,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+
+    await db.action_history.insert_one({
+        "action_id": generate_id("act_"),
+        "user_id": admin.get("admin_id", ""),
+        "user_type": "admin",
+        "action": "vendor_featured",
+        "entity_type": "featured_vendors",
+        "details": f"Featured {display_id} for {body.duration_days} days on {body.position}",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    })
+
+    return {"message": f"{display_id} featured for {body.duration_days} days", "expires_at": expires_at}
 
 
 @router.post("/run-migration")

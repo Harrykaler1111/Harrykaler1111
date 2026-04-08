@@ -115,6 +115,15 @@ export const AuthPage = () => {
         phone: otpPhone,
         otp
       });
+      if (response.data.needs_registration) {
+        // Phone verified but no account — switch to signup tab with phone pre-filled
+        setSignupPhone(otpPhone);
+        setActiveTab("signup");
+        setOtpSent(false);
+        setOtp("");
+        toast.success("Phone verified! Complete registration below.");
+        return;
+      }
       login(response.data.user, response.data.token);
       toast.success("Welcome!");
       navigate(redirectTo, { replace: true });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, User, Package, CreditCard, Zap, AlertCircle, Activity, ShoppingCart, Crown, Copy, Check } from "lucide-react";
+import { Search, X, User, Package, CreditCard, Zap, AlertCircle, Activity, ShoppingCart, Crown, Copy, Check, Ban, PlayCircle, Plus, Star, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -23,8 +23,16 @@ export const AdminMasterSearch = () => {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState("profile");
+  const [actionLoading, setActionLoading] = useState("");
+  const [showActions, setShowActions] = useState(false);
+  const [creditModal, setCreditModal] = useState(false);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [featureModal, setFeatureModal] = useState(false);
+  const [featureDays, setFeatureDays] = useState("30");
   const debounceRef = useRef(null);
   const inputRef = useRef(null);
+  const actionsRef = useRef(null);
 
   const fetchSuggestions = useCallback(async (q) => {
     if (q.length < 1) { setSuggestions([]); return; }
@@ -61,6 +69,67 @@ export const AdminMasterSearch = () => {
     navigator.clipboard.writeText(id);
     toast.success(`Copied ${id}`);
   };
+
+  // Quick Actions
+  const handleSuspend = async () => {
+    if (!profile.display_id) return;
+    setActionLoading("suspend");
+    try {
+      await axios.post(`${API}/admin/master/action/suspend/${profile.display_id}`, {}, { headers: getHeaders() });
+      toast.success(`${profile.display_id} suspended`);
+      doSearch(profile.display_id);
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to suspend"); }
+    setActionLoading("");
+    setShowActions(false);
+  };
+
+  const handleActivate = async () => {
+    if (!profile.display_id) return;
+    setActionLoading("activate");
+    try {
+      await axios.post(`${API}/admin/master/action/activate/${profile.display_id}`, {}, { headers: getHeaders() });
+      toast.success(`${profile.display_id} activated`);
+      doSearch(profile.display_id);
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed to activate"); }
+    setActionLoading("");
+    setShowActions(false);
+  };
+
+  const handleAddCredits = async () => {
+    const amt = parseInt(creditAmount);
+    if (!amt || amt < 1) { toast.error("Enter valid amount"); return; }
+    setActionLoading("credits");
+    try {
+      const { data } = await axios.post(`${API}/admin/master/action/add-credits/${profile.display_id}`, { amount: amt, reason: creditReason || "Admin credit" }, { headers: getHeaders() });
+      toast.success(`Added ${amt} credits. Balance: ${data.new_balance}`);
+      setCreditModal(false);
+      setCreditAmount("");
+      setCreditReason("");
+      doSearch(profile.display_id);
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    setActionLoading("");
+  };
+
+  const handleFeature = async () => {
+    const days = parseInt(featureDays);
+    if (!days || days < 1) { toast.error("Enter valid days"); return; }
+    setActionLoading("feature");
+    try {
+      await axios.post(`${API}/admin/master/action/feature/${profile.display_id}`, { duration_days: days, position: "homepage" }, { headers: getHeaders() });
+      toast.success(`Featured for ${days} days`);
+      setFeatureModal(false);
+      setFeatureDays("30");
+      doSearch(profile.display_id);
+    } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    setActionLoading("");
+  };
+
+  // Close actions dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e) => { if (actionsRef.current && !actionsRef.current.contains(e.target)) setShowActions(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") doSearch(query.trim().toUpperCase());
@@ -151,10 +220,73 @@ export const AdminMasterSearch = () => {
                     {profile.display_id} <Copy className="h-3 w-3" />
                   </button>
                   <span className="text-neutral-500 text-xs">{profile.email}</span>
-                  <span className={`text-[9px] px-2 py-0.5 rounded ${profile.status === "approved" || profile.status === "active" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{profile.status}</span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded ${profile.status === "approved" || profile.status === "active" ? "bg-emerald-500/20 text-emerald-400" : profile.status === "suspended" ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"}`}>{profile.status}</span>
                 </div>
               </div>
+
+              {/* Quick Actions dropdown */}
+              <div className="relative flex-shrink-0" ref={actionsRef}>
+                <Button
+                  size="sm"
+                  onClick={() => setShowActions(!showActions)}
+                  className="bg-gold/10 text-gold border border-gold/20 hover:bg-gold/20 gap-1.5"
+                  data-testid="quick-actions-btn"
+                >
+                  <Zap className="h-3.5 w-3.5" /> Actions <ChevronDown className={`h-3 w-3 transition-transform ${showActions ? "rotate-180" : ""}`} />
+                </Button>
+
+                {showActions && (
+                  <div className="absolute right-0 top-full mt-1 w-52 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 overflow-hidden" data-testid="quick-actions-menu">
+                    {profile.status === "suspended" ? (
+                      <button onClick={handleActivate} disabled={actionLoading === "activate"} className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-emerald-400 hover:bg-neutral-700 transition-colors" data-testid="action-activate">
+                        <PlayCircle className="h-3.5 w-3.5" /> {actionLoading === "activate" ? "Activating..." : "Activate User"}
+                      </button>
+                    ) : (
+                      <button onClick={handleSuspend} disabled={actionLoading === "suspend"} className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-red-400 hover:bg-neutral-700 transition-colors" data-testid="action-suspend">
+                        <Ban className="h-3.5 w-3.5" /> {actionLoading === "suspend" ? "Suspending..." : "Suspend User"}
+                      </button>
+                    )}
+                    <button onClick={() => { setCreditModal(true); setShowActions(false); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-gold hover:bg-neutral-700 transition-colors" data-testid="action-add-credits">
+                      <Plus className="h-3.5 w-3.5" /> Add Credits
+                    </button>
+                    {profile.user_role === "vendor" && (
+                      <button onClick={() => { setFeatureModal(true); setShowActions(false); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-xs text-amber-400 hover:bg-neutral-700 transition-colors" data-testid="action-feature">
+                        <Star className="h-3.5 w-3.5" /> Feature Vendor
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Credit Modal */}
+            {creditModal && (
+              <div className="mt-4 bg-neutral-900 border border-gold/20 rounded-lg p-4 space-y-3" data-testid="credit-modal">
+                <p className="text-sm font-semibold text-gold">Add Credits to {profile.display_id}</p>
+                <Input type="number" placeholder="Amount" value={creditAmount} onChange={e => setCreditAmount(e.target.value)} className="bg-neutral-800 border-neutral-700 text-white h-9 text-sm" data-testid="credit-amount-input" />
+                <Input placeholder="Reason (optional)" value={creditReason} onChange={e => setCreditReason(e.target.value)} className="bg-neutral-800 border-neutral-700 text-white h-9 text-sm" data-testid="credit-reason-input" />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleAddCredits} disabled={actionLoading === "credits"} className="bg-gold text-black hover:bg-gold/90" data-testid="credit-submit-btn">
+                    {actionLoading === "credits" ? "Adding..." : "Add Credits"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setCreditModal(false)} className="border-neutral-600 text-neutral-400" data-testid="credit-cancel-btn">Cancel</Button>
+                </div>
+              </div>
+            )}
+
+            {/* Feature Modal */}
+            {featureModal && (
+              <div className="mt-4 bg-neutral-900 border border-amber-500/20 rounded-lg p-4 space-y-3" data-testid="feature-modal">
+                <p className="text-sm font-semibold text-amber-400">Feature {profile.display_id} on Homepage</p>
+                <Input type="number" placeholder="Duration (days)" value={featureDays} onChange={e => setFeatureDays(e.target.value)} className="bg-neutral-800 border-neutral-700 text-white h-9 text-sm" data-testid="feature-days-input" />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleFeature} disabled={actionLoading === "feature"} className="bg-amber-500 text-black hover:bg-amber-400" data-testid="feature-submit-btn">
+                    {actionLoading === "feature" ? "Featuring..." : "Feature Vendor"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setFeatureModal(false)} className="border-neutral-600 text-neutral-400" data-testid="feature-cancel-btn">Cancel</Button>
+                </div>
+              </div>
+            )}
 
             {/* Summary stats */}
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mt-4">
