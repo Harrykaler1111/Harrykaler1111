@@ -121,73 +121,172 @@ async def update_vendor_profile(data: VendorProfileUpdate, vendor: Dict = Depend
 
 # ============== KYC ==============
 
+KYC_DOC_TYPES = ["pan_card", "aadhaar_front", "aadhaar_back", "msme_certificate", "gst_certificate", "bank_proof"]
+KYC_REQUIRED_DOCS = ["pan_card", "aadhaar_front", "aadhaar_back", "msme_certificate"]
+
+ALLOWED_KYC_TYPES = {
+    "image/jpeg", "image/png", "image/webp",
+    "application/pdf",
+}
+MAX_KYC_SIZE = 10 * 1024 * 1024  # 10MB
+
+
 @router.post("/kyc/submit")
 async def submit_kyc(data: VendorKYCSubmit, vendor: Dict = Depends(get_current_vendor)):
     if vendor["kyc_status"] == "approved":
         raise HTTPException(status_code=400, detail="KYC already approved")
 
+    # Validate PAN format
+    import re
+    if not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', data.pan_number.upper()):
+        raise HTTPException(status_code=400, detail="Invalid PAN format (e.g., ABCDE1234F)")
+
+    # Validate Aadhaar format (12 digits)
+    aadhaar_clean = data.aadhaar_number.replace(" ", "")
+    if not re.match(r'^\d{12}$', aadhaar_clean):
+        raise HTTPException(status_code=400, detail="Invalid Aadhaar number (must be 12 digits)")
+
     kyc_data = {
-        "pan_number": data.pan_number,
-        "aadhaar_number": data.aadhaar_number,
+        "pan_number": data.pan_number.upper(),
+        "aadhaar_number": aadhaar_clean,
+        "gst_number": data.gst_number or "",
+        "msme_registration": data.msme_registration or "",
     }
 
     bank_details = {
         "account_name": data.bank_account_name,
         "account_number": data.bank_account_number,
-        "ifsc": data.bank_ifsc,
+        "ifsc": data.bank_ifsc.upper(),
         "bank_name": data.bank_name
     }
+
+    # Check all required documents are uploaded
+    existing_docs = vendor.get("kyc_documents", {})
+    missing = [d for d in KYC_REQUIRED_DOCS if d not in existing_docs or not existing_docs[d].get("url")]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Please upload required documents first: {', '.join(d.replace('_', ' ').title() for d in missing)}")
+
+    # Build document status map — set all to pending_review
+    doc_statuses = {}
+    for doc_type, doc_info in existing_docs.items():
+        doc_statuses[doc_type] = {
+            **doc_info,
+            "status": "pending_review",
+            "review_note": "",
+            "reviewed_at": "",
+            "reviewed_by": ""
+        }
 
     await db.vendors.update_one(
         {"vendor_id": vendor["vendor_id"]},
         {"$set": {
             "kyc_data": kyc_data,
             "bank_details": bank_details,
+            "kyc_documents": doc_statuses,
             "kyc_status": "submitted",
+            "kyc_submitted_at": datetime.now(timezone.utc).isoformat(),
             "status": VendorStatus.KYC_SUBMITTED.value,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
 
-    return {"message": "KYC submitted successfully", "status": "submitted"}
+    return {"message": "KYC submitted for review", "status": "submitted"}
 
 
 @router.post("/kyc/upload/{doc_type}")
 async def upload_kyc_document(doc_type: str, file: UploadFile = File(...), vendor: Dict = Depends(get_current_vendor)):
-    valid_types = ["pan_card", "aadhaar_card", "bank_proof", "cancelled_cheque"]
-    if doc_type not in valid_types:
-        raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {valid_types}")
+    if doc_type not in KYC_DOC_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid document type. Must be one of: {KYC_DOC_TYPES}")
+
+    if vendor.get("kyc_status") == "approved":
+        raise HTTPException(status_code=400, detail="KYC already approved, cannot re-upload")
+
+    if file.content_type not in ALLOWED_KYC_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPG, PNG, WebP, and PDF files are accepted")
+
+    content = await file.read()
+    if len(content) > MAX_KYC_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (max 10MB)")
 
     ext = file.filename.split(".")[-1] if "." in file.filename else "pdf"
-    filename = f"{vendor['vendor_id']}_{doc_type}_{uuid.uuid4().hex[:8]}.{ext}"
-    filepath = UPLOAD_DIR / 'kyc' / filename
 
-    with open(filepath, "wb") as f:
-        content = await file.read()
-        f.write(content)
+    # Use cloud storage
+    try:
+        from routes.upload_routes import put_object
+        path = f"pigma/kyc/{vendor['vendor_id']}/{doc_type}_{uuid.uuid4().hex[:8]}.{ext}"
+        result = put_object(path, content, file.content_type)
+        doc_url = f"/api/uploads/files/{result['path']}"
+    except Exception as e:
+        logger.error(f"Cloud KYC upload failed, falling back to local: {e}")
+        # Fallback to local storage
+        os.makedirs(str(UPLOAD_DIR / 'kyc'), exist_ok=True)
+        filename = f"{vendor['vendor_id']}_{doc_type}_{uuid.uuid4().hex[:8]}.{ext}"
+        filepath = UPLOAD_DIR / 'kyc' / filename
+        with open(filepath, "wb") as f:
+            f.write(content)
+        doc_url = f"/api/static-uploads/kyc/{filename}"
 
-    doc_url = f"/api/uploads/kyc/{filename}"
+    doc_entry = {
+        "url": doc_url,
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": len(content),
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "status": "uploaded",
+        "review_note": "",
+        "reviewed_at": "",
+        "reviewed_by": ""
+    }
 
     await db.vendors.update_one(
         {"vendor_id": vendor["vendor_id"]},
         {"$set": {
-            f"kyc_documents.{doc_type}": doc_url,
+            f"kyc_documents.{doc_type}": doc_entry,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
 
-    return {"message": f"{doc_type} uploaded", "url": doc_url}
+    return {"message": f"{doc_type.replace('_', ' ').title()} uploaded", "url": doc_url, "doc_type": doc_type}
 
 
 @router.get("/kyc/status")
 async def get_kyc_status(vendor: Dict = Depends(get_current_vendor)):
+    kyc_data = vendor.get("kyc_data", {})
+    masked_data = {}
+    if kyc_data.get("pan_number"):
+        masked_data["pan_number"] = kyc_data["pan_number"][:4] + "****" + kyc_data["pan_number"][-1:]
+    if kyc_data.get("aadhaar_number"):
+        masked_data["aadhaar_number"] = "****" + kyc_data["aadhaar_number"][-4:]
+    masked_data["gst_number"] = kyc_data.get("gst_number", "")
+    masked_data["msme_registration"] = kyc_data.get("msme_registration", "")
+
+    docs = vendor.get("kyc_documents", {})
+    # Strip URLs for security, return only status info
+    doc_status = {}
+    for doc_type, info in docs.items():
+        if isinstance(info, dict):
+            doc_status[doc_type] = {
+                "status": info.get("status", "uploaded"),
+                "filename": info.get("filename", ""),
+                "uploaded_at": info.get("uploaded_at", ""),
+                "review_note": info.get("review_note", ""),
+                "url": info.get("url", ""),
+            }
+        else:
+            doc_status[doc_type] = {"status": "uploaded", "url": info, "filename": "", "uploaded_at": "", "review_note": ""}
+
+    bank = vendor.get("bank_details", {})
     return {
         "kyc_status": vendor.get("kyc_status", "not_submitted"),
-        "kyc_documents": vendor.get("kyc_documents", {}),
-        "kyc_data": {k: v[:4] + "****" for k, v in vendor.get("kyc_data", {}).items()},
+        "kyc_data": masked_data,
+        "kyc_documents": doc_status,
+        "kyc_rejection_reason": vendor.get("kyc_rejection_reason", ""),
+        "kyc_submitted_at": vendor.get("kyc_submitted_at", ""),
         "bank_details": {
-            "bank_name": vendor.get("bank_details", {}).get("bank_name", ""),
-            "account_number": "****" + vendor.get("bank_details", {}).get("account_number", "")[-4:] if vendor.get("bank_details", {}).get("account_number") else ""
+            "bank_name": bank.get("bank_name", ""),
+            "account_name": bank.get("account_name", ""),
+            "account_number": "****" + bank.get("account_number", "")[-4:] if bank.get("account_number") else "",
+            "ifsc": bank.get("ifsc", ""),
         }
     }
 
@@ -827,20 +926,35 @@ async def admin_approve_kyc(vendor_id: str, admin: Dict = Depends(get_admin_user
     if not check_permission(admin, "vendor_kyc", "approve"):
         raise HTTPException(status_code=403, detail="Permission denied")
 
+    vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    # Mark all documents as approved
+    docs = vendor.get("kyc_documents", {})
+    for doc_type in docs:
+        if isinstance(docs[doc_type], dict):
+            docs[doc_type]["status"] = "approved"
+            docs[doc_type]["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+            docs[doc_type]["reviewed_by"] = admin.get("admin_id", "")
+
     result = await db.vendors.update_one(
         {"vendor_id": vendor_id},
         {"$set": {
             "kyc_status": "approved",
+            "kyc_documents": docs,
+            "status": "approved",
+            "kyc_approved_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Vendor not found")
-    return {"message": "KYC approved"}
+    return {"message": "KYC approved — all documents verified"}
 
 
 @router.put("/admin/{vendor_id}/kyc/reject")
-async def admin_reject_kyc(vendor_id: str, reason: str = "Documents unclear", admin: Dict = Depends(get_admin_user)):
+async def admin_reject_kyc(vendor_id: str, reason: str = "Documents unclear or not original", admin: Dict = Depends(get_admin_user)):
     if not check_permission(admin, "vendor_kyc", "reject"):
         raise HTTPException(status_code=403, detail="Permission denied")
 
@@ -854,7 +968,88 @@ async def admin_reject_kyc(vendor_id: str, reason: str = "Documents unclear", ad
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Vendor not found")
-    return {"message": "KYC rejected"}
+    return {"message": "KYC rejected", "reason": reason}
+
+
+class DocReviewRequest(PydanticBaseModel):
+    status: str  # "approved" or "rejected"
+    note: str = ""
+
+
+@router.put("/admin/{vendor_id}/kyc/review-doc/{doc_type}")
+async def admin_review_document(vendor_id: str, doc_type: str, body: DocReviewRequest, admin: Dict = Depends(get_admin_user)):
+    """Review individual KYC document — approve or reject with note."""
+    if not check_permission(admin, "vendor_kyc", "approve"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    if body.status not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="Status must be 'approved' or 'rejected'")
+
+    vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    docs = vendor.get("kyc_documents", {})
+    if doc_type not in docs:
+        raise HTTPException(status_code=404, detail=f"Document {doc_type} not found")
+
+    doc = docs[doc_type] if isinstance(docs[doc_type], dict) else {"url": docs[doc_type]}
+    doc["status"] = body.status
+    doc["review_note"] = body.note
+    doc["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+    doc["reviewed_by"] = admin.get("admin_id", "")
+
+    await db.vendors.update_one(
+        {"vendor_id": vendor_id},
+        {"$set": {
+            f"kyc_documents.{doc_type}": doc,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    # Check if all required docs are now approved
+    updated = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0})
+    all_docs = updated.get("kyc_documents", {})
+    required_statuses = [all_docs.get(d, {}).get("status") if isinstance(all_docs.get(d), dict) else None for d in ["pan_card", "aadhaar_front", "aadhaar_back", "msme_certificate"]]
+    any_rejected = any(s == "rejected" for s in required_statuses if s)
+    all_approved = all(s == "approved" for s in required_statuses if s) and len([s for s in required_statuses if s]) >= 4
+
+    if any_rejected:
+        await db.vendors.update_one(
+            {"vendor_id": vendor_id},
+            {"$set": {"kyc_status": "rejected", "kyc_rejection_reason": f"Document rejected: {doc_type.replace('_', ' ').title()} — {body.note}"}}
+        )
+    elif all_approved:
+        await db.vendors.update_one(
+            {"vendor_id": vendor_id},
+            {"$set": {"kyc_status": "approved", "status": "approved", "kyc_approved_at": datetime.now(timezone.utc).isoformat()}}
+        )
+
+    return {"message": f"{doc_type.replace('_', ' ').title()} {body.status}", "doc_type": doc_type, "status": body.status}
+
+
+@router.get("/admin/{vendor_id}/kyc/details")
+async def admin_get_kyc_details(vendor_id: str, admin: Dict = Depends(get_admin_user)):
+    """Get full KYC details for admin review including all documents and data."""
+    if not check_permission(admin, "vendor_kyc", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0, "password": 0})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+
+    return {
+        "vendor_id": vendor.get("vendor_id"),
+        "display_id": vendor.get("display_id", ""),
+        "store_name": vendor.get("store_name", ""),
+        "email": vendor.get("email", ""),
+        "phone": vendor.get("phone", ""),
+        "kyc_status": vendor.get("kyc_status", "not_submitted"),
+        "kyc_data": vendor.get("kyc_data", {}),
+        "bank_details": vendor.get("bank_details", {}),
+        "kyc_documents": vendor.get("kyc_documents", {}),
+        "kyc_submitted_at": vendor.get("kyc_submitted_at", ""),
+        "kyc_rejection_reason": vendor.get("kyc_rejection_reason", ""),
+    }
 
 
 # ============== ADMIN VENDOR PRODUCT APPROVAL ==============

@@ -64,6 +64,7 @@ export const VendorDashboard = () => {
 
   const navItems = [
     { path: "/vendor", icon: LayoutDashboard, label: "Overview" },
+    { path: "/vendor/kyc", icon: FileText, label: "KYC Verification" },
     { path: "/vendor/products", icon: Package, label: "Products" },
     { path: "/vendor/categories", icon: FolderOpen, label: "Categories" },
     { path: "/vendor/orders", icon: ShoppingCart, label: "Orders" },
@@ -77,9 +78,7 @@ export const VendorDashboard = () => {
     { path: "/vendor/returns", icon: Package, label: "Returns" },
   ];
 
-  if (vendor.kyc_status !== "approved") {
-    navItems.splice(1, 0, { path: "/vendor/kyc", icon: FileText, label: "KYC" });
-  }
+  const kycApproved = vendor.kyc_status === "approved";
 
   const isActive = (path) => location.pathname === path;
   const statusColor = { pending: "text-yellow-400", kyc_submitted: "text-blue-400", approved: "text-green-400", rejected: "text-red-400", suspended: "text-red-500" };
@@ -149,6 +148,21 @@ export const VendorDashboard = () => {
               <div>
                 <p className="font-medium text-orange-300">Account Rejected</p>
                 <p className="text-sm text-neutral-400">Your vendor application has been rejected. Please contact support.</p>
+              </div>
+            </div>
+          )}
+          {/* KYC blocking banner — shown on all pages except /vendor/kyc and /vendor */}
+          {!kycApproved && !["/vendor", "/vendor/kyc"].includes(location.pathname) && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 mb-6" data-testid="kyc-block-banner">
+              <div className="flex items-start gap-3">
+                <FileText className="h-6 w-6 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-300 text-base">KYC Verification Required</p>
+                  <p className="text-sm text-neutral-400 mt-1">Complete your KYC verification to unlock all features. Upload your MSME certificate, PAN, Aadhaar, and bank details.</p>
+                  <Link to="/vendor/kyc" className="inline-flex items-center gap-1.5 mt-3 bg-amber-500 text-black font-semibold text-xs px-4 py-2 rounded-lg hover:bg-amber-400 transition-colors" data-testid="kyc-block-link">
+                    <FileText className="h-3.5 w-3.5" /> Complete KYC Now
+                  </Link>
+                </div>
               </div>
             </div>
           )}
@@ -249,92 +263,272 @@ const VendorOverview = ({ vendor }) => {
 // =============== KYC ===============
 const VendorKYC = ({ vendor, setVendor }) => {
   const [form, setForm] = useState({
-    pan_number: "", aadhaar_number: "",
+    pan_number: "", aadhaar_number: "", gst_number: "", msme_registration: "",
     bank_account_name: "", bank_account_number: "", bank_ifsc: "", bank_name: ""
   });
   const [submitting, setSubmitting] = useState(false);
+  const [uploading, setUploading] = useState({});
+  const [kycStatus, setKycStatus] = useState(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+
+  const DOC_CONFIG = [
+    { key: "msme_certificate", label: "MSME / Udyam Certificate", required: true, desc: "Upload your Udyam Registration certificate" },
+    { key: "pan_card", label: "PAN Card", required: true, desc: "Clear photo/scan of PAN card" },
+    { key: "aadhaar_front", label: "Aadhaar Card (Front)", required: true, desc: "Front side of your Aadhaar card" },
+    { key: "aadhaar_back", label: "Aadhaar Card (Back)", required: true, desc: "Back side of your Aadhaar card" },
+    { key: "gst_certificate", label: "GST Certificate", required: false, desc: "GST registration certificate (optional)" },
+    { key: "bank_proof", label: "Bank Passbook / Cheque", required: false, desc: "Cancelled cheque or passbook first page (optional)" },
+  ];
+
+  useEffect(() => {
+    axios.get(`${API}/vendors/kyc/status`, { headers: getVendorHeaders() })
+      .then(res => setKycStatus(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingStatus(false));
+  }, []);
+
+  const refreshStatus = async () => {
+    try {
+      const res = await axios.get(`${API}/vendors/kyc/status`, { headers: getVendorHeaders() });
+      setKycStatus(res.data);
+    } catch {}
+  };
+
+  const refreshVendor = async () => {
+    try {
+      const res = await axios.get(`${API}/vendors/me`, { headers: getVendorHeaders() });
+      setVendor(res.data);
+    } catch {}
+  };
+
+  const handleUpload = async (docType, file) => {
+    if (!file) return;
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Only JPG, PNG, WebP, or PDF files accepted");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File too large (max 10MB)");
+      return;
+    }
+    setUploading(prev => ({ ...prev, [docType]: true }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      await axios.post(`${API}/vendors/kyc/upload/${docType}`, fd, {
+        headers: { ...getVendorHeaders(), "Content-Type": "multipart/form-data" }
+      });
+      toast.success(`${docType.replace(/_/g, " ")} uploaded`);
+      await refreshStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Upload failed");
+    }
+    setUploading(prev => ({ ...prev, [docType]: false }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       await axios.post(`${API}/vendors/kyc/submit`, form, { headers: getVendorHeaders() });
-      toast.success("KYC submitted successfully!");
-      const res = await axios.get(`${API}/vendors/me`, { headers: getVendorHeaders() });
-      setVendor(res.data);
+      toast.success("KYC submitted for review!");
+      await refreshStatus();
+      await refreshVendor();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to submit KYC");
     } finally { setSubmitting(false); }
   };
 
-  if (vendor.kyc_status === "approved") {
+  if (loadingStatus) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-t-2 border-gold" /></div>;
+
+  const currentStatus = kycStatus?.kyc_status || vendor.kyc_status || "not_submitted";
+  const docs = kycStatus?.kyc_documents || {};
+
+  if (currentStatus === "approved") {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-20" data-testid="kyc-approved">
         <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">KYC Approved</h2>
-        <p className="text-neutral-400">Your documents have been verified</p>
+        <h2 className="text-2xl font-bold text-white mb-2">KYC Verified</h2>
+        <p className="text-neutral-400">All your documents have been verified. You have full access to all features.</p>
+        <div className="mt-6 inline-flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">
+          <CheckCircle className="h-4 w-4 text-green-400" />
+          <span className="text-green-400 text-sm font-medium">Verified Vendor</span>
+        </div>
       </div>
     );
   }
 
-  if (vendor.kyc_status === "submitted") {
-    return (
-      <div className="text-center py-20">
-        <Clock className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">KYC Under Review</h2>
-        <p className="text-neutral-400">Your documents are being verified. This usually takes 24-48 hours.</p>
-      </div>
-    );
+  if (currentStatus === "submitted") {
+    const anyRejected = Object.values(docs).some(d => d?.status === "rejected");
+    if (!anyRejected) {
+      return (
+        <div className="text-center py-20" data-testid="kyc-under-review">
+          <Clock className="h-16 w-16 text-blue-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">KYC Under Review</h2>
+          <p className="text-neutral-400 mb-6">Your documents are being reviewed by our team. This usually takes 24-48 hours.</p>
+          {/* Show document statuses */}
+          <div className="max-w-md mx-auto space-y-2 text-left">
+            {DOC_CONFIG.map(dc => {
+              const d = docs[dc.key];
+              if (!d) return null;
+              return (
+                <div key={dc.key} className="flex items-center justify-between bg-neutral-800/50 border border-neutral-700 rounded-lg px-4 py-2.5">
+                  <span className="text-sm text-neutral-300">{dc.label}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${d.status === "approved" ? "bg-green-500/20 text-green-400" : d.status === "rejected" ? "bg-red-500/20 text-red-400" : "bg-blue-500/20 text-blue-400"}`}>
+                    {d.status === "pending_review" ? "Under Review" : d.status?.replace("_", " ")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
   }
+
+  // Show form for: not_submitted, rejected, or submitted-with-rejected-docs
+  const isResubmit = currentStatus === "rejected" || (currentStatus === "submitted" && Object.values(docs).some(d => d?.status === "rejected"));
 
   return (
-    <div>
-      <h2 className="font-serif text-2xl font-bold text-white mb-6">KYC Verification</h2>
-      <form onSubmit={handleSubmit} className="max-w-2xl">
+    <div data-testid="kyc-form-page">
+      <h2 className="font-serif text-2xl font-bold text-white mb-2">KYC Verification</h2>
+      <p className="text-neutral-400 text-sm mb-6">
+        Upload original documents only. Tampered or fake documents will be rejected.
+      </p>
+
+      {isResubmit && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6" data-testid="kyc-rejection-banner">
+          <div className="flex items-start gap-2">
+            <XCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-300">Documents Rejected</p>
+              <p className="text-sm text-neutral-400 mt-0.5">{kycStatus?.kyc_rejection_reason || "One or more documents were rejected. Please re-upload the rejected documents and submit again."}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 1: Document Uploads */}
+      <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
+        <h3 className="text-lg font-semibold text-white mb-1">Step 1: Upload Documents</h3>
+        <p className="text-xs text-neutral-500 mb-5">Accepted formats: JPG, PNG, WebP, PDF (max 10MB each)</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {DOC_CONFIG.map(dc => {
+            const docInfo = docs[dc.key];
+            const isUploaded = docInfo && docInfo.url;
+            const isRejected = docInfo?.status === "rejected";
+            const isApproved = docInfo?.status === "approved";
+            const canReupload = !isApproved;
+
+            return (
+              <div key={dc.key} className={`border rounded-xl p-4 transition-colors ${isApproved ? "border-green-500/30 bg-green-500/5" : isRejected ? "border-red-500/30 bg-red-500/5" : isUploaded ? "border-blue-500/30 bg-blue-500/5" : "border-neutral-700 bg-neutral-900"}`} data-testid={`kyc-doc-${dc.key}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-white">{dc.label}</span>
+                    {dc.required && <span className="text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded font-bold">REQUIRED</span>}
+                  </div>
+                  {isApproved && <CheckCircle className="h-4 w-4 text-green-400" />}
+                  {isRejected && <XCircle className="h-4 w-4 text-red-400" />}
+                  {isUploaded && !isApproved && !isRejected && <Clock className="h-4 w-4 text-blue-400" />}
+                </div>
+                <p className="text-[11px] text-neutral-500 mb-3">{dc.desc}</p>
+
+                {isRejected && docInfo?.review_note && (
+                  <p className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1.5 mb-3">Reason: {docInfo.review_note}</p>
+                )}
+
+                {isUploaded && (
+                  <div className="flex items-center gap-2 mb-2 text-xs text-neutral-400">
+                    <CheckCircle className="h-3 w-3 text-emerald-400" />
+                    <span className="truncate">{docInfo.filename || "Uploaded"}</span>
+                  </div>
+                )}
+
+                {canReupload && (
+                  <label className={`flex items-center justify-center gap-2 border border-dashed rounded-lg py-3 px-4 cursor-pointer transition-colors text-xs ${isRejected ? "border-red-500/40 text-red-300 hover:bg-red-500/10" : "border-neutral-600 text-neutral-400 hover:border-gold hover:text-gold"}`}>
+                    {uploading[dc.key] ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-gold/30 border-t-gold" />
+                    ) : (
+                      <Upload className="h-4 w-4" />
+                    )}
+                    {uploading[dc.key] ? "Uploading..." : isRejected ? "Re-upload" : isUploaded ? "Replace file" : "Choose file"}
+                    <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf"
+                      onChange={e => handleUpload(dc.key, e.target.files[0])}
+                      disabled={uploading[dc.key]}
+                      data-testid={`kyc-upload-${dc.key}`}
+                    />
+                  </label>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Step 2: KYC Details Form */}
+      <form onSubmit={handleSubmit}>
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Identity Documents</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-lg font-semibold text-white mb-1">Step 2: Identity Details</h3>
+          <p className="text-xs text-neutral-500 mb-5">Enter exactly as shown on your documents</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">PAN Number *</label>
-              <Input value={form.pan_number} onChange={(e) => setForm({...form, pan_number: e.target.value.toUpperCase()})}
+              <Input value={form.pan_number} onChange={e => setForm({...form, pan_number: e.target.value.toUpperCase()})}
                 className="bg-neutral-900 border-neutral-700 text-white" placeholder="ABCDE1234F" required maxLength={10} data-testid="kyc-pan" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Aadhaar Number *</label>
-              <Input value={form.aadhaar_number} onChange={(e) => setForm({...form, aadhaar_number: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" placeholder="1234 5678 9012" required maxLength={12} data-testid="kyc-aadhaar" />
+              <Input value={form.aadhaar_number} onChange={e => setForm({...form, aadhaar_number: e.target.value.replace(/\D/g, "")})}
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="123456789012" required maxLength={12} data-testid="kyc-aadhaar" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">MSME / Udyam Registration No.</label>
+              <Input value={form.msme_registration} onChange={e => setForm({...form, msme_registration: e.target.value.toUpperCase()})}
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="UDYAM-XX-00-0000000" data-testid="kyc-msme" />
+            </div>
+            <div>
+              <label className="text-sm text-neutral-400 mb-1 block">GST Number (Optional)</label>
+              <Input value={form.gst_number} onChange={e => setForm({...form, gst_number: e.target.value.toUpperCase()})}
+                className="bg-neutral-900 border-neutral-700 text-white" placeholder="22AAAAA0000A1Z5" maxLength={15} data-testid="kyc-gst" />
             </div>
           </div>
         </div>
 
         <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 mb-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Bank Account Details</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-lg font-semibold text-white mb-1">Step 3: Bank Account Details</h3>
+          <p className="text-xs text-neutral-500 mb-5">For payouts and settlements</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Account Holder Name *</label>
-              <Input value={form.bank_account_name} onChange={(e) => setForm({...form, bank_account_name: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-bank-name" />
+              <Input value={form.bank_account_name} onChange={e => setForm({...form, bank_account_name: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-bank-holder" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Bank Name *</label>
-              <Input value={form.bank_name} onChange={(e) => setForm({...form, bank_name: e.target.value})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-bank" />
+              <Input value={form.bank_name} onChange={e => setForm({...form, bank_name: e.target.value})}
+                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-bank-name" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">Account Number *</label>
-              <Input value={form.bank_account_number} onChange={(e) => setForm({...form, bank_account_number: e.target.value})}
+              <Input value={form.bank_account_number} onChange={e => setForm({...form, bank_account_number: e.target.value.replace(/\D/g, "")})}
                 className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-account" />
             </div>
             <div>
               <label className="text-sm text-neutral-400 mb-1 block">IFSC Code *</label>
-              <Input value={form.bank_ifsc} onChange={(e) => setForm({...form, bank_ifsc: e.target.value.toUpperCase()})}
-                className="bg-neutral-900 border-neutral-700 text-white" required data-testid="kyc-ifsc" />
+              <Input value={form.bank_ifsc} onChange={e => setForm({...form, bank_ifsc: e.target.value.toUpperCase()})}
+                className="bg-neutral-900 border-neutral-700 text-white" required maxLength={11} data-testid="kyc-ifsc" />
             </div>
           </div>
         </div>
 
-        <Button type="submit" disabled={submitting} className="bg-gold text-black hover:bg-gold/90 font-semibold" data-testid="kyc-submit-btn">
-          {submitting ? "Submitting..." : "Submit KYC Documents"}
+        <div className="flex items-center gap-3 bg-neutral-800/50 border border-neutral-700 rounded-xl p-4 mb-6">
+          <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
+          <p className="text-xs text-neutral-400">All documents must be original. Tampered, edited, or fake documents will result in immediate rejection and possible account suspension.</p>
+        </div>
+
+        <Button type="submit" disabled={submitting} className="bg-gold text-black hover:bg-gold/90 font-semibold px-8 py-5" data-testid="kyc-submit-btn">
+          {submitting ? "Submitting..." : isResubmit ? "Re-submit KYC" : "Submit KYC for Verification"}
         </Button>
       </form>
     </div>

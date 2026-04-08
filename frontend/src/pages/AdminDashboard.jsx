@@ -6,7 +6,8 @@ import {
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
   Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
-  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell, Search
+  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell, Search,
+  CheckCircle, XCircle
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
@@ -1967,6 +1968,32 @@ export const AdminDashboard = () => {
         await axios.put(`${API}/vendors/admin/${vendorId}/kyc/${action}`, {}, { headers: getAdminHeaders() });
         toast.success(`KYC ${action}d`);
         setVendors(vendors.map(v => v.vendor_id === vendorId ? { ...v, kyc_status: action === "approve" ? "approved" : "rejected" } : v));
+        setKycReview(null);
+      } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
+    };
+
+    const [kycReview, setKycReview] = useState(null);
+    const [kycLoading, setKycLoading] = useState(false);
+    const [docReviewNote, setDocReviewNote] = useState("");
+
+    const openKYCReview = async (vendorId) => {
+      setKycLoading(true);
+      try {
+        const { data } = await axios.get(`${API}/vendors/admin/${vendorId}/kyc/details`, { headers: getAdminHeaders() });
+        setKycReview(data);
+      } catch (err) { toast.error("Failed to load KYC details"); }
+      setKycLoading(false);
+    };
+
+    const reviewDocument = async (vendorId, docType, status) => {
+      try {
+        await axios.put(`${API}/vendors/admin/${vendorId}/kyc/review-doc/${docType}`, { status, note: docReviewNote }, { headers: getAdminHeaders() });
+        toast.success(`${docType.replace(/_/g, " ")} ${status}`);
+        setDocReviewNote("");
+        openKYCReview(vendorId);
+        // Refresh vendor list
+        const res = await axios.get(`${API}/vendors/admin/list${filter !== "all" ? `?status=${filter}` : ""}`, { headers: getAdminHeaders() });
+        setVendors(Array.isArray(res.data) ? res.data : res.data.vendors || []);
       } catch (err) { toast.error(err.response?.data?.detail || "Failed"); }
     };
 
@@ -2082,10 +2109,7 @@ export const AdminDashboard = () => {
                         </>
                       )}
                       {canApproveKYC && v.kyc_status === "submitted" && (
-                        <>
-                          <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 text-xs" onClick={() => approveKYC(v.vendor_id, "approve")}>KYC OK</Button>
-                          <Button size="sm" variant="ghost" className="text-orange-400 hover:bg-orange-500/10 text-xs" onClick={() => approveKYC(v.vendor_id, "reject")}>KYC Rej</Button>
-                        </>
+                        <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10 text-xs" onClick={() => openKYCReview(v.vendor_id)} data-testid={`review-kyc-${v.vendor_id}`}>Review KYC</Button>
                       )}
                       <Button size="sm" variant="ghost" className="text-neutral-400 hover:bg-neutral-700/50 text-xs" onClick={() => viewHistory(v.vendor_id)}>
                         <Eye className="h-3 w-3" />
@@ -2099,6 +2123,111 @@ export const AdminDashboard = () => {
           {loading && <div className="text-center py-8 text-neutral-500">Loading...</div>}
           {!loading && vendors.length === 0 && <div className="text-center py-12 text-neutral-500">No vendors found</div>}
         </div>
+
+        {/* KYC Review Modal */}
+        {kycReview && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/70 z-[100] flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setKycReview(null); }}>
+            <div className="bg-neutral-900 border border-neutral-700 rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto" data-testid="kyc-review-modal">
+              <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 p-5 flex items-center justify-between z-10">
+                <div>
+                  <h3 className="text-lg font-bold text-white">KYC Review — {kycReview.store_name}</h3>
+                  <p className="text-xs text-neutral-400">{kycReview.display_id} | {kycReview.email} | {kycReview.phone}</p>
+                </div>
+                <Button size="sm" variant="ghost" className="text-neutral-400" onClick={() => setKycReview(null)}><X className="h-4 w-4" /></Button>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Identity Data */}
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gold mb-3">Identity Information</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div><p className="text-neutral-500">PAN</p><p className="text-white font-mono">{kycReview.kyc_data?.pan_number || "-"}</p></div>
+                    <div><p className="text-neutral-500">Aadhaar</p><p className="text-white font-mono">{kycReview.kyc_data?.aadhaar_number || "-"}</p></div>
+                    <div><p className="text-neutral-500">MSME/Udyam</p><p className="text-white font-mono">{kycReview.kyc_data?.msme_registration || "-"}</p></div>
+                    <div><p className="text-neutral-500">GST</p><p className="text-white font-mono">{kycReview.kyc_data?.gst_number || "-"}</p></div>
+                  </div>
+                </div>
+
+                {/* Bank Details */}
+                <div className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-gold mb-3">Bank Details</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div><p className="text-neutral-500">Account Name</p><p className="text-white">{kycReview.bank_details?.account_name || "-"}</p></div>
+                    <div><p className="text-neutral-500">Bank</p><p className="text-white">{kycReview.bank_details?.bank_name || "-"}</p></div>
+                    <div><p className="text-neutral-500">Account No</p><p className="text-white font-mono">{kycReview.bank_details?.account_number || "-"}</p></div>
+                    <div><p className="text-neutral-500">IFSC</p><p className="text-white font-mono">{kycReview.bank_details?.ifsc || "-"}</p></div>
+                  </div>
+                </div>
+
+                {/* Documents */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gold mb-3">Uploaded Documents</h4>
+                  <div className="space-y-3">
+                    {[
+                      { key: "msme_certificate", label: "MSME / Udyam Certificate", required: true },
+                      { key: "pan_card", label: "PAN Card", required: true },
+                      { key: "aadhaar_front", label: "Aadhaar (Front)", required: true },
+                      { key: "aadhaar_back", label: "Aadhaar (Back)", required: true },
+                      { key: "gst_certificate", label: "GST Certificate", required: false },
+                      { key: "bank_proof", label: "Bank Proof", required: false },
+                    ].map(doc => {
+                      const info = kycReview.kyc_documents?.[doc.key];
+                      if (!info && !doc.required) return null;
+                      const status = info?.status || (info ? "uploaded" : "missing");
+                      const statusColors = { approved: "bg-green-500/20 text-green-400 border-green-500/30", rejected: "bg-red-500/20 text-red-400 border-red-500/30", pending_review: "bg-blue-500/20 text-blue-400 border-blue-500/30", uploaded: "bg-neutral-500/20 text-neutral-400 border-neutral-600", missing: "bg-red-500/10 text-red-500 border-red-500/20" };
+                      return (
+                        <div key={doc.key} className={`border rounded-lg p-4 ${statusColors[status]?.split(" ").pop() || "border-neutral-700"}`} data-testid={`admin-kyc-doc-${doc.key}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-white">{doc.label}</span>
+                              {doc.required && <span className="text-[8px] bg-red-500/20 text-red-400 px-1 py-0.5 rounded">REQ</span>}
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 rounded capitalize font-medium ${statusColors[status] || ""}`}>{status.replace("_", " ")}</span>
+                          </div>
+                          {info?.url ? (
+                            <div className="mb-3">
+                              <a href={`${process.env.REACT_APP_BACKEND_URL}${info.url}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-400 hover:underline flex items-center gap-1" data-testid={`view-doc-${doc.key}`}>
+                                <Eye className="h-3 w-3" /> View Document — {info.filename || doc.key}
+                              </a>
+                              <p className="text-[10px] text-neutral-500 mt-0.5">Uploaded: {info.uploaded_at ? new Date(info.uploaded_at).toLocaleString() : "—"}</p>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-red-400 mb-3">Not uploaded</p>
+                          )}
+                          {info?.review_note && <p className="text-xs text-amber-400 mb-2">Note: {info.review_note}</p>}
+                          {info?.url && status !== "approved" && (
+                            <div className="flex items-center gap-2">
+                              <Input placeholder="Rejection reason (if rejecting)" value={docReviewNote} onChange={e => setDocReviewNote(e.target.value)}
+                                className="bg-neutral-800 border-neutral-600 text-white text-xs h-8 flex-1" data-testid={`review-note-${doc.key}`} />
+                              <Button size="sm" className="bg-green-600 hover:bg-green-500 text-white text-xs h-8 px-3" onClick={() => reviewDocument(kycReview.vendor_id, doc.key, "approved")} data-testid={`approve-doc-${doc.key}`}>
+                                <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                              <Button size="sm" className="bg-red-600 hover:bg-red-500 text-white text-xs h-8 px-3" onClick={() => reviewDocument(kycReview.vendor_id, doc.key, "rejected")} data-testid={`reject-doc-${doc.key}`}>
+                                <XCircle className="h-3 w-3 mr-1" /> Reject
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Bulk Actions */}
+                <div className="flex gap-3 pt-3 border-t border-neutral-700">
+                  <Button className="bg-green-600 hover:bg-green-500 text-white" onClick={() => approveKYC(kycReview.vendor_id, "approve")} data-testid="kyc-approve-all">
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve All & Verify
+                  </Button>
+                  <Button variant="outline" className="border-red-600 text-red-400 hover:bg-red-500/10" onClick={() => { const r = window.prompt("Rejection reason:", "Documents not original"); if (r) { approveKYC(kycReview.vendor_id, `reject?reason=${encodeURIComponent(r)}`); } }} data-testid="kyc-reject-all">
+                    <XCircle className="h-4 w-4 mr-2" /> Reject All
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     );
   };

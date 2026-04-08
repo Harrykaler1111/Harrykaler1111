@@ -369,6 +369,8 @@ class VendorLogin(BaseModel):
 class VendorKYCSubmit(BaseModel):
     pan_number: str
     aadhaar_number: str
+    gst_number: Optional[str] = None
+    msme_registration: Optional[str] = None
     bank_account_name: str
     bank_account_number: str
     bank_ifsc: str
