@@ -32,9 +32,12 @@ async def register_vendor(data: VendorRegister):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    from display_ids import generate_display_id
     vendor_id = generate_id("vendor_")
+    display_id = await generate_display_id("vendor")
     vendor_doc = {
         "vendor_id": vendor_id,
+        "display_id": display_id,
         "email": data.email,
         "password": hash_password(data.password),
         "store_name": data.store_name,

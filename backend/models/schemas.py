@@ -385,6 +385,7 @@ class VendorProfileUpdate(BaseModel):
 class VendorResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     vendor_id: str
+    display_id: Optional[str] = None
     email: str
     store_name: str
     owner_name: str

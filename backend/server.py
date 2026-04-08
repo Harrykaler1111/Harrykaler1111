@@ -49,6 +49,7 @@ from routes.bulk_upload_routes import router as bulk_upload_router
 from routes.dummy_review_routes import router as dummy_review_router
 from routes.fomo_routes import router as fomo_router
 from routes.vendor_credit_routes import router as vendor_credit_router
+from routes.master_search_routes import router as master_search_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -93,6 +94,7 @@ app.include_router(bulk_upload_router, prefix="/api")
 app.include_router(dummy_review_router, prefix="/api")
 app.include_router(fomo_router, prefix="/api")
 app.include_router(vendor_credit_router, prefix="/api")
+app.include_router(master_search_router, prefix="/api")
 
 # Serve uploaded files — only if local uploads directory exists (dev/legacy)
 from config import UPLOAD_DIR
@@ -171,6 +173,11 @@ async def startup_event():
     # Seed booster slabs
     from routes.booster_routes import seed_default_slabs
     await seed_default_slabs()
+
+    # Migrate display IDs for all existing users
+    from display_ids import migrate_existing_users
+    migration_stats = await migrate_existing_users()
+    logger.info(f"Display ID migration: {migration_stats}")
 
     # Seed default categories
     cat_count = await db.categories.count_documents({})

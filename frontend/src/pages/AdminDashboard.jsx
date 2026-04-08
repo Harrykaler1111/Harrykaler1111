@@ -6,7 +6,7 @@ import {
   Percent, Tag, TrendingUp, DollarSign, AlertTriangle, ChevronRight,
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
   Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
-  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell
+  LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell, Search
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import { AdminOrdersPanel } from "@/components/AdminOrdersPanel";
 import { AdminCategoriesPanel } from "@/components/AdminCategoriesPanel";
 import { AdminPoliciesPanel } from "@/components/AdminPoliciesPanel";
 import { AdminMonetizationPanel } from "@/components/AdminMonetizationPanel";
+import { AdminMasterSearch } from "@/components/AdminMasterSearch";
 import { AdminProductsHub } from "@/components/AdminProductsHub";
 import { AdminCheckoutSettingsPanel } from "@/components/AdminCheckoutSettingsPanel";
 import { AdminBundlePanel } from "@/components/AdminBundlePanel";
@@ -3491,6 +3492,7 @@ export const AdminDashboard = () => {
     { path: "/admin/dummy-reviews", icon: <Star className="h-5 w-5" />, label: "Dummy Reviews", permission: ["products", "edit"] },
     { path: "/admin/fomo", icon: <Bell className="h-5 w-5" />, label: "FOMO Popups", permission: ["platform_settings", "edit"] },
     { path: "/admin/monetization", icon: <DollarSign className="h-5 w-5" />, label: "Monetization", permission: ["platform_settings", "edit"] },
+    { path: "/admin/master-search", icon: <Search className="h-5 w-5" />, label: "Master Search", permission: ["platform_settings", "view"] },
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
     { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
@@ -3594,6 +3596,7 @@ export const AdminDashboard = () => {
             <Route path="dummy-reviews" element={<AdminDummyReviewsPanel />} />
             <Route path="fomo" element={<AdminFomoPanel />} />
             <Route path="monetization" element={<AdminMonetizationPanel />} />
+            <Route path="master-search" element={<AdminMasterSearch />} />
             <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="permissions" element={<PermissionsPanel />} />

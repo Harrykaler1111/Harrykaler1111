@@ -31,8 +31,12 @@ async def register_as_reseller(data: ResellerRegister, user: Dict = Depends(get_
     reseller_id = generate_id("resell_")
     referral_code = generate_referral_code(user["name"])
 
+    from display_ids import generate_display_id
+    display_id = await generate_display_id("reseller")
+
     reseller_doc = {
         "reseller_id": reseller_id,
+        "display_id": display_id,
         "user_id": user["user_id"],
         "name": user["name"],
         "email": user["email"],

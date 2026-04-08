@@ -28,8 +28,12 @@ async def apply_as_affiliate(data: AffiliateCreate, user: Dict = Depends(get_cur
     affiliate_id = generate_id("aff_")
     referral_code = generate_referral_code(user["name"])
 
+    from display_ids import generate_display_id
+    display_id = await generate_display_id("affiliate")
+
     affiliate_doc = {
         "affiliate_id": affiliate_id,
+        "display_id": display_id,
         "user_id": user["user_id"],
         "name": user["name"],
         "email": user["email"],

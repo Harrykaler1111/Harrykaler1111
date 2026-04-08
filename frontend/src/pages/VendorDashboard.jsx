@@ -94,6 +94,15 @@ export const VendorDashboard = () => {
           </div>
           <div className="mb-4 pb-3 border-b border-neutral-800">
             <p className="text-sm font-medium text-white truncate">{vendor.store_name}</p>
+            {vendor.display_id && (
+              <button
+                onClick={() => { navigator.clipboard.writeText(vendor.display_id); toast.success(`Copied ${vendor.display_id}`); }}
+                className="flex items-center gap-1 text-gold text-xs font-mono mt-0.5 hover:underline"
+                data-testid="vendor-copy-id"
+              >
+                {vendor.display_id} <Copy className="h-2.5 w-2.5" />
+              </button>
+            )}
             <p className={`text-xs capitalize ${statusColor[vendor.status] || "text-neutral-400"}`}>{vendor.status.replace("_", " ")}</p>
           </div>
           <nav className="flex-1 space-y-1">

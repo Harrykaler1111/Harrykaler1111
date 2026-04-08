@@ -747,12 +747,18 @@ async def request_promotion(data: PromotionRequest, vendor: Dict = Depends(get_c
         product_name = prod.get("name", "") if prod else ""
 
     # Get vendor name
-    v = await db.vendors.find_one({"vendor_id": vid}, {"_id": 0, "store_name": 1, "business_name": 1, "name": 1})
+    v = await db.vendors.find_one({"vendor_id": vid}, {"_id": 0, "store_name": 1, "business_name": 1, "name": 1, "display_id": 1})
     vendor_name = (v.get("store_name") or v.get("business_name") or v.get("name") or vid) if v else vid
+    vendor_display_id = v.get("display_id", "") if v else ""
+
+    from display_ids import generate_display_id
+    promo_display_id = await generate_display_id("promotion")
 
     request = {
         "request_id": generate_id("req_"),
+        "display_id": promo_display_id,
         "vendor_id": vid,
+        "vendor_display_id": vendor_display_id,
         "vendor_name": vendor_name,
         "request_type": data.request_type,
         "product_id": data.product_id,

@@ -33,8 +33,12 @@ async def apply_as_influencer(data: InfluencerCreate, user: Dict = Depends(get_c
     influencer_id = generate_id("inf_")
     referral_code = generate_referral_code(user["name"])
 
+    from display_ids import generate_display_id
+    display_id = await generate_display_id("influencer")
+
     influencer_doc = {
         "influencer_id": influencer_id,
+        "display_id": display_id,
         "user_id": user["user_id"],
         "name": user["name"],
         "email": user["email"],
