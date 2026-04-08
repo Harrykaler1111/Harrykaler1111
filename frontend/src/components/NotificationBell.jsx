@@ -314,6 +314,17 @@ export const NotificationBell = ({ role, token }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Check if quiet hours currently active
+  const isQuietNow = (() => {
+    if (!prefs?.quiet_hours_enabled) return false;
+    const now = new Date();
+    const current = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    const start = prefs.quiet_hours_start || "22:00";
+    const end = prefs.quiet_hours_end || "08:00";
+    if (start > end) return current >= start || current < end;
+    return current >= start && current < end;
+  })();
+
   return (
     <div className="relative" ref={bellRef} data-testid="notification-bell">
       {/* Bell Button */}
@@ -330,6 +341,11 @@ export const NotificationBell = ({ role, token }) => {
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1" data-testid="unread-badge">
             {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+        {isQuietNow && (
+          <span className="absolute -bottom-0.5 -right-0.5 bg-neutral-700 rounded-full w-3.5 h-3.5 flex items-center justify-center border border-neutral-600" title="Quiet Hours active" data-testid="quiet-indicator">
+            <VolumeX className="h-2 w-2 text-neutral-400" />
           </span>
         )}
       </button>
@@ -430,6 +446,40 @@ export const NotificationBell = ({ role, token }) => {
                       </div>
                     </button>
                   ))}
+
+                  <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-3 mb-1">Quiet Hours</p>
+                  <button onClick={() => togglePref("quiet_hours_enabled")}
+                    className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/50 transition-colors"
+                    data-testid="pref-toggle-quiet_hours_enabled">
+                    <div className="flex items-center gap-2">
+                      <VolumeX className="h-3 w-3 text-neutral-500" />
+                      <span className="text-xs text-neutral-300">Enable Quiet Hours</span>
+                    </div>
+                    <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${prefs.quiet_hours_enabled ? "bg-gold justify-end" : "bg-neutral-600 justify-start"}`}>
+                      <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                    </div>
+                  </button>
+                  {prefs.quiet_hours_enabled && (
+                    <div className="flex items-center gap-2 px-2 py-1.5">
+                      <input type="time" value={prefs.quiet_hours_start || "22:00"}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setPrefs(p => ({...p, quiet_hours_start: val}));
+                          try { await axios.put(`${API}/notifications/${prefix}/preferences`, { quiet_hours_start: val }, { headers }); } catch {}
+                        }}
+                        className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs text-white w-24"
+                        data-testid="quiet-start" />
+                      <span className="text-[10px] text-neutral-500">to</span>
+                      <input type="time" value={prefs.quiet_hours_end || "08:00"}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setPrefs(p => ({...p, quiet_hours_end: val}));
+                          try { await axios.put(`${API}/notifications/${prefix}/preferences`, { quiet_hours_end: val }, { headers }); } catch {}
+                        }}
+                        className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs text-white w-24"
+                        data-testid="quiet-end" />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-3"><div className="animate-spin rounded-full h-4 w-4 border-2 border-gold/30 border-t-gold mx-auto" /></div>

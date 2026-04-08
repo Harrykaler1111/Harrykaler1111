@@ -21,6 +21,9 @@ DEFAULT_PREFS = {
     "system": True,
     "sound_high": True,
     "sound_medium": False,
+    "quiet_hours_enabled": False,
+    "quiet_hours_start": "22:00",
+    "quiet_hours_end": "08:00",
 }
 
 
@@ -33,6 +36,9 @@ class NotifPrefsUpdate(BaseModel):
     system: Optional[bool] = None
     sound_high: Optional[bool] = None
     sound_medium: Optional[bool] = None
+    quiet_hours_enabled: Optional[bool] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
 
 
 # ---- Vendor endpoints ----

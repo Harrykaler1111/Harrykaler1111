@@ -77,6 +77,31 @@ async def create_notification(
 
     await db.notifications.insert_one(doc)
 
+    # Check quiet hours — during quiet hours, save to DB but skip real-time push
+    is_quiet = False
+    if prefs and prefs.get("quiet_hours_enabled"):
+        try:
+            now_utc = datetime.now(timezone.utc)
+            # Convert to IST (UTC+5:30) for Indian users
+            from datetime import timedelta
+            now_ist = now_utc + timedelta(hours=5, minutes=30)
+            current_time = now_ist.strftime("%H:%M")
+            q_start = prefs.get("quiet_hours_start", "22:00")
+            q_end = prefs.get("quiet_hours_end", "08:00")
+
+            if q_start > q_end:
+                # Crosses midnight (e.g., 22:00 - 08:00)
+                is_quiet = current_time >= q_start or current_time < q_end
+            else:
+                # Same day (e.g., 13:00 - 15:00)
+                is_quiet = q_start <= current_time < q_end
+        except Exception:
+            is_quiet = False
+
+    if is_quiet:
+        logger.info(f"Notification {ntf_id} -> {user_id} [quiet hours] saved but not pushed")
+        return doc
+
     # Push via WebSocket — include sound prefs
     sound_key = f"sound_{priority}"
     play_sound = True  # default
