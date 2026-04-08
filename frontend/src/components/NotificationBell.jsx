@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink } from "lucide-react";
+import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink, BellPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
@@ -7,6 +7,27 @@ import { API } from "@/App";
 import { useNavigate } from "react-router-dom";
 
 const SOUND_COOLDOWN = 5000; // 5 seconds between sounds
+
+// Browser notification helper
+const showBrowserNotification = (title, body, onClick) => {
+  if (Notification.permission !== "granted") return;
+  try {
+    const notif = new Notification(title, {
+      body,
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
+      tag: `pigma-${Date.now()}`,
+      requireInteraction: false,
+    });
+    notif.onclick = () => {
+      window.focus();
+      if (onClick) onClick();
+      notif.close();
+    };
+    // Auto close after 8s
+    setTimeout(() => notif.close(), 8000);
+  } catch {}
+};
 
 // Generate notification sound using Web Audio API
 const playNotificationSound = (() => {
@@ -64,6 +85,8 @@ export const NotificationBell = ({ role, token }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [muted, setMuted] = useState(() => localStorage.getItem("pigma_mute_notif") === "true");
   const [loading, setLoading] = useState(false);
+  const [pushPermission, setPushPermission] = useState(() => typeof Notification !== "undefined" ? Notification.permission : "denied");
+  const [showPermPrompt, setShowPermPrompt] = useState(false);
   const wsRef = useRef(null);
   const bellRef = useRef(null);
   const seenIds = useRef(new Set());
@@ -71,6 +94,36 @@ export const NotificationBell = ({ role, token }) => {
   const prefix = role === "admin" ? "admin" : "vendor";
 
   const headers = { Authorization: `Bearer ${token}` };
+
+  // Check if we should show permission prompt
+  useEffect(() => {
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      const dismissed = localStorage.getItem("pigma_push_dismissed");
+      if (!dismissed) {
+        // Show prompt after 3 seconds
+        const timer = setTimeout(() => setShowPermPrompt(true), 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
+
+  const requestPushPermission = async () => {
+    try {
+      const result = await Notification.requestPermission();
+      setPushPermission(result);
+      setShowPermPrompt(false);
+      if (result === "granted") {
+        toast.success("Push notifications enabled!");
+      }
+    } catch {
+      setShowPermPrompt(false);
+    }
+  };
+
+  const dismissPushPrompt = () => {
+    setShowPermPrompt(false);
+    localStorage.setItem("pigma_push_dismissed", "true");
+  };
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
@@ -135,6 +188,15 @@ export const NotificationBell = ({ role, token }) => {
               // Sound for high priority
               if (n.priority === "high" && !muted) {
                 playNotificationSound();
+              }
+
+              // Browser push notification when tab is not focused
+              if (!document.hasFocus() && !muted && pushPermission === "granted") {
+                showBrowserNotification(
+                  n.title,
+                  n.message,
+                  () => handleRedirect(n)
+                );
               }
 
               // Toast
@@ -244,6 +306,29 @@ export const NotificationBell = ({ role, token }) => {
         )}
       </button>
 
+      {/* Push Permission Prompt */}
+      {showPermPrompt && (
+        <div className="absolute right-0 top-full mt-2 w-[320px] bg-neutral-900 border border-gold/30 rounded-xl shadow-2xl z-[200] p-4" data-testid="push-permission-prompt">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-gold/10 flex items-center justify-center flex-shrink-0">
+              <BellPlus className="h-4 w-4 text-gold" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white mb-1">Enable Push Notifications</p>
+              <p className="text-[11px] text-neutral-400 mb-3">Get instant alerts for new orders, tickets, and important updates — even when this tab is in the background.</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={requestPushPermission} className="bg-gold text-black hover:bg-gold/90 text-xs h-7 px-3" data-testid="enable-push-btn">
+                  Enable
+                </Button>
+                <Button size="sm" variant="ghost" onClick={dismissPushPrompt} className="text-neutral-500 text-xs h-7 px-3" data-testid="dismiss-push-btn">
+                  Not now
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Dropdown */}
       {open && (
         <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[500px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-[200] overflow-hidden" data-testid="notification-dropdown">
@@ -251,6 +336,11 @@ export const NotificationBell = ({ role, token }) => {
           <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 px-4 py-3 flex items-center justify-between z-10">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
             <div className="flex items-center gap-1.5">
+              {pushPermission !== "granted" && typeof Notification !== "undefined" && (
+                <button onClick={requestPushPermission} className="p-1.5 rounded hover:bg-neutral-800 transition-colors" title="Enable browser notifications" data-testid="push-enable-btn">
+                  <BellPlus className="h-3.5 w-3.5 text-amber-400" />
+                </button>
+              )}
               <button onClick={toggleMute} className="p-1.5 rounded hover:bg-neutral-800 transition-colors" title={muted ? "Unmute" : "Mute"} data-testid="mute-toggle">
                 {muted ? <VolumeX className="h-3.5 w-3.5 text-red-400" /> : <Volume2 className="h-3.5 w-3.5 text-neutral-400" />}
               </button>
