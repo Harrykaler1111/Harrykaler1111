@@ -39,13 +39,16 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Instagram Auto-DMs
 
 ## P1 Upcoming Tasks
-- Featured Sellers UI on Homepage (backend exists, frontend section needed)
 - Track affiliate/reseller link clicks (referral URL metrics)
 - "Testing Mode" for Orders (dummy order flow triggering admin alerts)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
 - Real Razorpay integration for Vendor Credit purchases
+- Vendor Email Digest Notifications
+- A/B testing for hero videos
+- AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
+al Razorpay integration for Vendor Credit purchases
 - Vendor Email Digest Notifications
 - A/B testing for hero videos
 - AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
