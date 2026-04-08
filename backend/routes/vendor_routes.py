@@ -247,26 +247,77 @@ async def upload_kyc_document(doc_type: str, file: UploadFile = File(...), vendo
         }}
     )
 
-    # Run AI verification in background
+    # Run AI verification
+    ai_result = {"verified": False, "skipped": True, "reason": "AI not run"}
+    auto_action = None
     try:
         from services.kyc_verification import verify_kyc_document
         vendor_kyc_data = vendor.get("kyc_data", {})
         ai_result = await verify_kyc_document(doc_type, content, file.content_type, vendor_kyc_data)
-        # Store AI result
+
+        # Auto-decision logic
+        if not ai_result.get("skipped"):
+            ai_status = ai_result.get("status", "")
+            confidence = ai_result.get("confidence", "")
+
+            if ai_status == "verified" and confidence == "high" and not ai_result.get("mismatches"):
+                # Auto-APPROVE: high confidence, verified, no mismatches
+                auto_action = "auto_approved"
+                doc_entry["status"] = "approved"
+                doc_entry["review_note"] = "Auto-approved by AI (high confidence, verified)"
+                doc_entry["reviewed_by"] = "ai_system"
+                doc_entry["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+            elif ai_status in ("invalid_document", "mismatch_detected"):
+                # Auto-REJECT: clearly invalid or data mismatch
+                auto_action = "auto_rejected"
+                doc_entry["status"] = "rejected"
+                doc_entry["review_note"] = f"Auto-rejected by AI: {ai_result.get('recommendation', ai_status)}"
+                doc_entry["reviewed_by"] = "ai_system"
+                doc_entry["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+            # else: stays "uploaded" — needs manual admin review
+
+        doc_entry["ai_verification"] = ai_result
+
         await db.vendors.update_one(
             {"vendor_id": vendor["vendor_id"]},
-            {"$set": {f"kyc_documents.{doc_type}.ai_verification": ai_result}}
+            {"$set": {
+                f"kyc_documents.{doc_type}": doc_entry,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
         )
-        logger.info(f"AI verification for {doc_type}: {ai_result.get('status', 'unknown')} - {ai_result.get('recommendation', '')}")
+
+        # If auto-approved, check if ALL required docs are now approved → auto-approve full KYC
+        if auto_action == "auto_approved":
+            updated_vendor = await db.vendors.find_one({"vendor_id": vendor["vendor_id"]}, {"_id": 0})
+            all_docs = updated_vendor.get("kyc_documents", {})
+            required_approved = all(
+                isinstance(all_docs.get(d), dict) and all_docs[d].get("status") == "approved"
+                for d in KYC_REQUIRED_DOCS
+            )
+            if required_approved and updated_vendor.get("kyc_status") == "submitted":
+                await db.vendors.update_one(
+                    {"vendor_id": vendor["vendor_id"]},
+                    {"$set": {
+                        "kyc_status": "approved",
+                        "status": "approved",
+                        "kyc_approved_at": datetime.now(timezone.utc).isoformat(),
+                        "kyc_approved_by": "ai_system",
+                    }}
+                )
+                auto_action = "full_kyc_auto_approved"
+                logger.info(f"Full KYC auto-approved for vendor {vendor['vendor_id']}")
+
+        logger.info(f"AI verification for {doc_type}: {ai_result.get('status', 'unknown')} | auto_action={auto_action}")
     except Exception as e:
-        logger.error(f"AI verification background task failed: {e}")
+        logger.error(f"AI verification failed: {e}")
         ai_result = {"verified": False, "skipped": True, "reason": str(e)}
 
     return {
         "message": f"{doc_type.replace('_', ' ').title()} uploaded",
         "url": doc_url,
         "doc_type": doc_type,
-        "ai_verification": ai_result
+        "ai_verification": ai_result,
+        "auto_action": auto_action,
     }
 
 

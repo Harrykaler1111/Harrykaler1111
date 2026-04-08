@@ -320,7 +320,20 @@ const VendorKYC = ({ vendor, setVendor }) => {
         headers: { ...getVendorHeaders(), "Content-Type": "multipart/form-data" }
       });
       toast.success(`${docType.replace(/_/g, " ")} uploaded`);
-      await refreshStatus();
+      const statusRes = await axios.get(`${API}/vendors/kyc/status`, { headers: getVendorHeaders() });
+      setKycStatus(statusRes.data);
+      // Check for auto-actions
+      const docResult = statusRes.data?.kyc_documents?.[docType];
+      if (docResult?.status === "approved") {
+        toast.success("Document auto-verified by AI!", { duration: 4000 });
+      } else if (docResult?.status === "rejected") {
+        toast.error("Document auto-rejected by AI — please re-upload a valid document", { duration: 5000 });
+      }
+      // Check if full KYC got auto-approved
+      if (statusRes.data?.kyc_status === "approved") {
+        toast.success("All documents verified! KYC approved instantly.", { duration: 5000 });
+        await refreshVendor();
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Upload failed");
     }
@@ -435,7 +448,19 @@ const VendorKYC = ({ vendor, setVendor }) => {
                 <p className="text-[11px] text-neutral-500 mb-3">{dc.desc}</p>
 
                 {isRejected && docInfo?.review_note && (
-                  <p className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1.5 mb-3">Reason: {docInfo.review_note}</p>
+                  <p className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1.5 mb-3">
+                    {docInfo.review_note.includes("Auto-rejected") && <Zap className="h-3 w-3 inline mr-1" />}
+                    {docInfo.review_note}
+                  </p>
+                )}
+
+                {/* AI Auto-Approved Badge */}
+                {isApproved && docInfo?.review_note?.includes("Auto-approved") && (
+                  <div className="flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-1.5 mb-3 text-xs text-green-400" data-testid={`auto-approved-${dc.key}`}>
+                    <Zap className="h-3 w-3" />
+                    <span className="font-semibold">AI Auto-Verified</span>
+                    <span className="opacity-70">— No admin review needed</span>
+                  </div>
                 )}
 
                 {/* AI Verification Badge */}
