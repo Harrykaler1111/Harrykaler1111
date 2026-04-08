@@ -395,22 +395,24 @@ export default function ReelsPage() {
   const isVendorMode = feedMode === "vendor";
 
   return (
-    <div className="fixed inset-0 bg-black z-50" data-testid="reels-page">
-      {/* Back button */}
-      <button
-        onClick={() => isVendorMode ? exitVendorMode() : navigate(-1)}
-        className="absolute top-3 left-3 z-20 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50"
-        data-testid="reels-back-btn"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </button>
+    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" data-testid="reels-page">
+      {/* Centered container — mobile-like on desktop */}
+      <div className="relative w-full h-full max-w-[480px] mx-auto">
+        {/* Back button */}
+        <button
+          onClick={() => isVendorMode ? exitVendorMode() : navigate(-1)}
+          className="absolute top-3 left-3 z-20 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50"
+          data-testid="reels-back-btn"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
 
-      {/* Title */}
-      <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
-        <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase">
-          {isVendorMode ? vendorLabel : "Explore"}
-        </span>
-      </div>
+        {/* Title */}
+        <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
+          <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase">
+            {isVendorMode ? vendorLabel : "Explore"}
+          </span>
+        </div>
 
       {/* ════════ LAYOUT: Main + Side Panel ════════ */}
       <div className="w-full h-full flex" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
@@ -510,6 +512,7 @@ export default function ReelsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }
