@@ -396,9 +396,9 @@ export const HomePage = () => {
                     <p className="text-xs text-neutral-500 uppercase tracking-wider">{product.category}</p>
                     <h3 className="font-medium text-sm mt-1 group-hover:text-gold transition-colors line-clamp-1">{product.name}</h3>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="font-bold text-sm">${product.price?.toFixed(2)}</span>
+                      <span className="font-bold text-sm">Rs.{product.price?.toLocaleString()}</span>
                       {product.compare_price && product.compare_price > product.price && (
-                        <span className="text-xs text-neutral-400 line-through">${product.compare_price.toFixed(2)}</span>
+                        <span className="text-xs text-neutral-400 line-through">Rs.{product.compare_price.toLocaleString()}</span>
                       )}
                     </div>
                   </Link>
