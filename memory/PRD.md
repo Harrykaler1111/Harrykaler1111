@@ -1,7 +1,7 @@
 # Pigma - Premium Multi-Vendor E-Commerce Platform
 
 ## Original Problem Statement
-Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
+Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform. Maximize conversions with advanced COD/Prepaid systems, cart boosters, bundles, flash sales, and comprehensive WhatsApp-driven automation and retention (Interakt).
 
 ## Tech Stack
 - Frontend: React, Tailwind CSS, framer-motion, Shadcn UI, react-easy-crop
@@ -13,43 +13,39 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Multi-vendor product management with admin & vendor dashboards
 - Admin Product Photo Cropping (zoom, rotate, 4:5 aspect ratio)
 - Bulk Product Upload System (CSV/Excel + ZIP, chunked upload, semicolon SKU support)
-- **Seamless Cart Merge on Login** — Guest cart (LocalStorage) merges into server cart on login, same items sum quantities, checkout waits for merge to complete
+- Seamless Cart Merge on Login — Guest cart (LocalStorage) merges into server cart on login
 - Quick Add buttons on "You May Also Like" cards, Cart Drawer opens on Add to Cart
 - Cart Boosters, Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
 - Dynamic RBAC, Affiliate & Reseller System with price overrides
 - Guest Cart System (LocalStorage), login only at checkout
 - Image filtering: All customer-facing endpoints filter out imageless products
+- Premium Zara/Blinkit-style ProductCard.jsx (clean images, small "+" button, low stock badge)
+- Instagram-style Reels/Explore vertical feed at /reels with guest localStorage likes
+- Vendor Monetization System (credit wallet, reel boost, cart placement, featured vendor)
+- Admin Monetization Panel (/admin/monetization) for pricing config and manual credit top-up
+- Kuaishou-style horizontal swipe vendor side-panel on Reels (falls back to category if no vendor_id)
+- BoosterBar repositioned to top-0 on /reels route to prevent overlap
 
-## New Features (Apr 2026)
-- **Vendor Monetization System**: Complete credit-based monetization engine. Admin-configurable pricing (9 fields: credit rate, reel boost per hour/day/week/month, cart placement, featured vendor week/month, free vendor reel limit). Vendor wallet, credit purchase, reel boost with timed duration, cart placement spending, featured vendor slots, view tracking analytics.
-- **Admin Monetization Panel**: `/admin/monetization` — Super admin sets all prices, manually adds credits to vendors, views active boosts table.
-- **Reels Boost Feed**: Boosted products appear first in reels feed, sorted by credits spent. "Promoted" badge on boosted products.
-- **Vendor Reel Strip**: Swipe left (or tap Seller button) on any reel → shows that vendor's products. Free vendors limited to 3 products, paid vendors unlimited.
-- **Explore / Reels Page**: Instagram Reels-style vertical scrolling product feed at /reels. Full-screen cards with image carousel, action buttons (Like, Cart, Share, Seller), product info overlay. Uses existing cart system.
-- **Guest Likes**: Anyone can like products in reels without login (stored in localStorage, synced to wishlist API for logged-in users).
-
-## UI Redesign (Apr 2026)
-- **Mobile Product Listing Premium Redesign**: Rewrite of ProductCard.jsx. Clean images with no heavy overlays. Small red "LOW STOCK" badge top-left. Blinkit-style small "+" button bottom-right (replaces full-width ADD TO BAG). Price/MRP/Discount below image. Rounded-pill qty controller on add.
-
-## Deployment Fixes (Apr 2026)
-- **FOMO polling storm**: Fixed initial polling interval from 300-600ms to 300000-600000ms (5-10 min). Was causing hundreds of requests/minute in production logs.
-- **StaticFiles mount conflict**: Moved legacy `/api/uploads` static mount to `/api/static-uploads` (conditional) to avoid conflict with upload_routes router.
-- **Container-safe config**: UPLOAD_DIR creation now falls back to /tmp if app directory is read-only.
-- **Cart items disappearing after login**: Fixed race condition — CheckoutPage now waits for `isMerging` to complete before fetching server cart. Also fixed swapped login() parameters in CheckoutAuthModal.
-- Quick Add buttons on cart recommendations
-- Admin photo cropping, bulk upload chunked upload, SKU/image matching
-- **Crop existing photo — tainted canvas & CORS (Feb 2026)**: Full three-layer fix: (1) Backend adds `Access-Control-Allow-Origin: *` to `/api/uploads/files/` and `/api/uploads/assets/` endpoints + new `/api/uploads/proxy-image` fallback; (2) Frontend uses `crossOrigin="anonymous"` with cache-bust param on Image element; (3) Fallback chain: CORS load → proxy endpoint → non-CORS last resort. Also fixed z-index overlap (modal at `z-[100000]`) and added `useRef` + `onerror` for reliability.
+## Deployment Fixes
+- FOMO polling storm: Fixed 300ms → 5min intervals
+- StaticFiles mount conflict resolved
+- Container-safe config with /tmp fallback
+- Cart items race condition on login fixed
+- Image cropping tainted canvas & CORS 3-layer fix
 
 ## Mocked Services
-- Razorpay (Payments), Instagram Auto-DMs
+- Razorpay (Payments/Vendor Credit purchases)
+- Instagram Auto-DMs
 
 ## P1 Upcoming Tasks
+- Featured Sellers UI on Homepage (backend exists, frontend section needed)
 - Track affiliate/reseller link clicks (referral URL metrics)
-- "Testing Mode" for Orders (dummy order flow)
+- "Testing Mode" for Orders (dummy order flow triggering admin alerts)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
+- Real Razorpay integration for Vendor Credit purchases
 - Vendor Email Digest Notifications
 - A/B testing for hero videos
-- AdminDashboard.jsx / VendorDashboard.jsx refactoring
+- AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
