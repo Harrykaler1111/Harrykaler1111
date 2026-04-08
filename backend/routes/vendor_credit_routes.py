@@ -678,3 +678,325 @@ async def admin_add_credits(data: AdminAddCredits, admin: Dict = Depends(get_adm
 async def admin_all_boosts(admin: Dict = Depends(get_admin_user)):
     boosts = await db.reel_boosts.find({}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
     return boosts
+
+
+# ══════════════════════════════════════════════════════
+# PROMOTION REQUEST → ADMIN APPROVAL WORKFLOW
+# ══════════════════════════════════════════════════════
+
+class PromotionRequest(BaseModel):
+    request_type: str  # "reel_boost" or "featured_seller"
+    product_id: Optional[str] = None  # required for reel_boost
+    preferred_duration: str = "week"  # "hour", "day", "week", "month"
+    quantity: int = 1
+    note: str = ""
+
+class AdminActionRequest(BaseModel):
+    action: str  # "approve" or "reject"
+    duration: Optional[str] = None  # admin can override duration
+    quantity: Optional[int] = None  # admin can override quantity
+    admin_note: str = ""
+
+class AdminFeatureVendor(BaseModel):
+    vendor_id: str
+    duration: str = "week"  # "week" or "month"
+
+
+# ─── Vendor: Submit promotion request ───
+
+@router.post("/request-promotion")
+async def request_promotion(data: PromotionRequest, vendor: Dict = Depends(get_current_vendor)):
+    """Vendor submits a promotion request for admin approval."""
+    vid = vendor["vendor_id"]
+
+    if data.request_type == "reel_boost" and not data.product_id:
+        raise HTTPException(status_code=400, detail="Product ID required for reel boost")
+
+    if data.request_type not in ["reel_boost", "featured_seller"]:
+        raise HTTPException(status_code=400, detail="Invalid request type")
+
+    # Calculate estimated cost
+    pricing = await get_pricing()
+    if data.request_type == "reel_boost":
+        cost_key = f"reel_boost_per_{data.preferred_duration}"
+        unit_cost = pricing.get(cost_key, 0)
+        estimated_cost = unit_cost * data.quantity
+        cost_unit = "credits"
+    else:
+        cost_key = f"featured_vendor_{data.preferred_duration}"
+        estimated_cost = pricing.get(cost_key, 0)
+        cost_unit = "INR"
+
+    # Get product name if applicable
+    product_name = ""
+    if data.product_id:
+        prod = await db.products.find_one({"product_id": data.product_id}, {"_id": 0, "name": 1})
+        if not prod:
+            prod = await db.vendor_products.find_one({"product_id": data.product_id}, {"_id": 0, "name": 1})
+        product_name = prod.get("name", "") if prod else ""
+
+    # Get vendor name
+    v = await db.vendors.find_one({"vendor_id": vid}, {"_id": 0, "store_name": 1, "business_name": 1, "name": 1})
+    vendor_name = (v.get("store_name") or v.get("business_name") or v.get("name") or vid) if v else vid
+
+    request = {
+        "request_id": generate_id("req_"),
+        "vendor_id": vid,
+        "vendor_name": vendor_name,
+        "request_type": data.request_type,
+        "product_id": data.product_id,
+        "product_name": product_name,
+        "preferred_duration": data.preferred_duration,
+        "quantity": data.quantity,
+        "estimated_cost": estimated_cost,
+        "cost_unit": cost_unit,
+        "note": data.note,
+        "status": "pending",  # pending | approved | rejected
+        "admin_note": "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.promotion_requests.insert_one(request)
+    request.pop("_id", None)
+    return request
+
+
+# ─── Vendor: Get my requests ───
+
+@router.get("/my-requests")
+async def my_requests(vendor: Dict = Depends(get_current_vendor)):
+    """Vendor sees their promotion requests."""
+    requests = await db.promotion_requests.find(
+        {"vendor_id": vendor["vendor_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(50).to_list(50)
+    return requests
+
+
+# ─── Admin: Get all vendors with credit balances ───
+
+@router.get("/admin/vendors")
+async def admin_vendor_list(admin: Dict = Depends(get_admin_user)):
+    """Admin: see all vendors with credit balances."""
+    vendors = await db.vendors.find(
+        {},
+        {"_id": 0, "vendor_id": 1, "store_name": 1, "business_name": 1, "name": 1, "email": 1, "status": 1}
+    ).to_list(200)
+
+    # Get all wallets
+    wallets = await db.vendor_wallets.find({}, {"_id": 0}).to_list(200)
+    wallet_map = {w["vendor_id"]: w for w in wallets}
+
+    result = []
+    for v in vendors:
+        vid = v["vendor_id"]
+        w = wallet_map.get(vid, {})
+        result.append({
+            "vendor_id": vid,
+            "vendor_name": v.get("store_name") or v.get("business_name") or v.get("name") or vid,
+            "email": v.get("email", ""),
+            "status": v.get("status", "pending"),
+            "credit_balance": w.get("balance", 0),
+            "total_purchased": w.get("total_purchased", 0),
+            "total_spent": w.get("total_spent", 0),
+            "is_paid": w.get("is_paid", False)
+        })
+    return result
+
+
+# ─── Admin: Get promotion requests ───
+
+@router.get("/admin/requests")
+async def admin_get_requests(status: str = Query("all"), admin: Dict = Depends(get_admin_user)):
+    """Admin: get promotion requests, filterable by status."""
+    query = {}
+    if status != "all":
+        query["status"] = status
+    requests = await db.promotion_requests.find(query, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+    return requests
+
+
+# ─── Admin: Approve or Reject request ───
+
+@router.post("/admin/requests/{request_id}/action")
+async def admin_action_request(request_id: str, data: AdminActionRequest, admin: Dict = Depends(get_admin_user)):
+    """Admin approves or rejects a vendor promotion request."""
+    req = await db.promotion_requests.find_one({"request_id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if req["status"] != "pending":
+        raise HTTPException(status_code=400, detail=f"Request already {req['status']}")
+
+    if data.action not in ["approve", "reject"]:
+        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+
+    now = datetime.now(timezone.utc)
+
+    if data.action == "reject":
+        await db.promotion_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "rejected", "admin_note": data.admin_note, "updated_at": now.isoformat()}}
+        )
+        return {"message": "Request rejected", "request_id": request_id}
+
+    # ── APPROVE ──
+    vid = req["vendor_id"]
+    duration = data.duration or req["preferred_duration"]
+    quantity = data.quantity or req["quantity"]
+    pricing = await get_pricing()
+
+    if req["request_type"] == "reel_boost":
+        # Calculate cost and check balance
+        cost_key = f"reel_boost_per_{duration}"
+        unit_cost = pricing.get(cost_key)
+        if unit_cost is None:
+            raise HTTPException(status_code=400, detail=f"Invalid duration: {duration}")
+        total_credits = unit_cost * quantity
+
+        wallet = await db.vendor_wallets.find_one({"vendor_id": vid}, {"_id": 0})
+        balance = wallet.get("balance", 0) if wallet else 0
+        if balance < total_credits:
+            raise HTTPException(status_code=400, detail=f"Vendor has {balance} credits, needs {total_credits}")
+
+        # Deduct credits
+        await db.vendor_wallets.update_one(
+            {"vendor_id": vid},
+            {"$inc": {"balance": -total_credits, "total_spent": total_credits}}
+        )
+
+        # Create boost
+        duration_map = {"hour": timedelta(hours=quantity), "day": timedelta(days=quantity), "week": timedelta(weeks=quantity), "month": timedelta(days=30 * quantity)}
+        expires_at = now + duration_map.get(duration, timedelta(days=quantity))
+
+        boost = {
+            "boost_id": generate_id("boost_"),
+            "vendor_id": vid,
+            "product_id": req.get("product_id", ""),
+            "product_name": req.get("product_name", ""),
+            "credits_spent": total_credits,
+            "duration": duration,
+            "quantity": quantity,
+            "is_active": True,
+            "source": "admin_approved",
+            "request_id": request_id,
+            "created_at": now.isoformat(),
+            "expires_at": expires_at.isoformat()
+        }
+        await db.reel_boosts.insert_one(boost)
+
+        # Log transaction
+        await db.credit_transactions.insert_one({
+            "txn_id": generate_id("txn_"),
+            "vendor_id": vid,
+            "type": "reel_boost",
+            "credits": -total_credits,
+            "product_id": req.get("product_id"),
+            "duration": f"{quantity} {duration}(s)",
+            "source": "admin_approved",
+            "status": "success",
+            "created_at": now.isoformat()
+        })
+
+        await db.promotion_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "approved", "admin_note": data.admin_note, "final_cost": total_credits, "final_duration": f"{quantity} {duration}", "updated_at": now.isoformat()}}
+        )
+        return {"message": "Reel boost approved", "credits_deducted": total_credits, "expires_at": expires_at.isoformat()}
+
+    elif req["request_type"] == "featured_seller":
+        # Featured seller uses INR (or credits depending on admin config)
+        cost_key = f"featured_vendor_{duration}"
+        cost = pricing.get(cost_key, 0)
+
+        duration_map = {"week": timedelta(weeks=1), "month": timedelta(days=30)}
+        delta = duration_map.get(duration, timedelta(weeks=1))
+
+        featured = {
+            "featured_id": generate_id("feat_"),
+            "vendor_id": vid,
+            "vendor_name": req.get("vendor_name", ""),
+            "duration": duration,
+            "cost_inr": cost,
+            "is_active": True,
+            "source": "admin_approved",
+            "request_id": request_id,
+            "created_at": now.isoformat(),
+            "expires_at": (now + delta).isoformat()
+        }
+        await db.featured_vendors.insert_one(featured)
+
+        await db.credit_transactions.insert_one({
+            "txn_id": generate_id("txn_"),
+            "vendor_id": vid,
+            "type": "featured_vendor",
+            "amount_inr": cost,
+            "duration": duration,
+            "source": "admin_approved",
+            "status": "success",
+            "created_at": now.isoformat()
+        })
+
+        await db.promotion_requests.update_one(
+            {"request_id": request_id},
+            {"$set": {"status": "approved", "admin_note": data.admin_note, "final_cost": cost, "final_duration": duration, "updated_at": now.isoformat()}}
+        )
+        return {"message": "Featured seller approved", "cost_inr": cost, "expires_at": (now + delta).isoformat()}
+
+
+# ─── Admin: Manually feature a vendor ───
+
+@router.post("/admin/feature-vendor")
+async def admin_feature_vendor(data: AdminFeatureVendor, admin: Dict = Depends(get_admin_user)):
+    """Admin manually features a vendor."""
+    now = datetime.now(timezone.utc)
+    pricing = await get_pricing()
+    cost_key = f"featured_vendor_{data.duration}"
+    cost = pricing.get(cost_key, 0)
+
+    duration_map = {"week": timedelta(weeks=1), "month": timedelta(days=30)}
+    delta = duration_map.get(data.duration, timedelta(weeks=1))
+
+    # Get vendor name
+    v = await db.vendors.find_one({"vendor_id": data.vendor_id}, {"_id": 0, "store_name": 1, "business_name": 1, "name": 1})
+    vname = (v.get("store_name") or v.get("business_name") or v.get("name") or data.vendor_id) if v else data.vendor_id
+
+    featured = {
+        "featured_id": generate_id("feat_"),
+        "vendor_id": data.vendor_id,
+        "vendor_name": vname,
+        "duration": data.duration,
+        "cost_inr": 0,
+        "is_active": True,
+        "source": "admin_manual",
+        "created_at": now.isoformat(),
+        "expires_at": (now + delta).isoformat()
+    }
+    await db.featured_vendors.insert_one(featured)
+    featured.pop("_id", None)
+    return {"message": f"Vendor {vname} featured for {data.duration}", "featured": featured}
+
+
+# ─── Admin: Remove featured vendor ───
+
+@router.delete("/admin/feature-vendor/{featured_id}")
+async def admin_remove_featured(featured_id: str, admin: Dict = Depends(get_admin_user)):
+    """Admin removes a vendor from featured list."""
+    result = await db.featured_vendors.update_one(
+        {"featured_id": featured_id},
+        {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Featured entry not found")
+    return {"message": "Vendor removed from featured"}
+
+
+# ─── Admin: Get active featured vendors ───
+
+@router.get("/admin/featured-vendors")
+async def admin_featured_vendors(admin: Dict = Depends(get_admin_user)):
+    """Admin: get all featured vendors (active and recent)."""
+    featured = await db.featured_vendors.find(
+        {"is_active": True},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return featured

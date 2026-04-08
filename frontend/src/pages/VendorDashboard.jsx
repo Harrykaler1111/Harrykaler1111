@@ -1040,7 +1040,14 @@ const VendorPromotions = ({ vendor }) => {
   const [buyAmount, setBuyAmount] = useState("500");
   const [buying, setBuying] = useState(false);
   const [promoForm, setPromoForm] = useState({ product_id: "", listing_type: "top_100", days: "7" });
-  const [activeTab, setActiveTab] = useState("overview"); // overview | history
+  const [activeTab, setActiveTab] = useState("overview"); // overview | history | reels
+  // Reels/Featured request state
+  const [reelWallet, setReelWallet] = useState({ balance: 0, total_spent: 0 });
+  const [myRequests, setMyRequests] = useState([]);
+  const [reelProducts, setReelProducts] = useState([]);
+  const [requestForm, setRequestForm] = useState({ request_type: "reel_boost", product_id: "", preferred_duration: "day", quantity: 1, note: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1057,7 +1064,39 @@ const VendorPromotions = ({ vendor }) => {
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchReelData = useCallback(async () => {
+    try {
+      const [walletRes, reqRes, prodRes, analyticsRes] = await Promise.all([
+        axios.get(`${API}/vendor-credits/wallet`, { headers: getVendorHeaders() }).catch(() => ({ data: { balance: 0, total_spent: 0 } })),
+        axios.get(`${API}/vendor-credits/my-requests`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/vendor-credits/analytics`, { headers: getVendorHeaders() }).catch(() => ({ data: null }))
+      ]);
+      setReelWallet(walletRes.data);
+      setMyRequests(reqRes.data);
+      setReelProducts(Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.products || []);
+      setAnalytics(analyticsRes.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchData(); fetchReelData(); }, [fetchData, fetchReelData]);
+
+  const submitRequest = async () => {
+    if (requestForm.request_type === "reel_boost" && !requestForm.product_id) {
+      toast.error("Select a product for reel boost");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/vendor-credits/request-promotion`, requestForm, { headers: getVendorHeaders() });
+      toast.success("Promotion request submitted! Admin will review it.");
+      setRequestForm({ request_type: "reel_boost", product_id: "", preferred_duration: "day", quantity: 1, note: "" });
+      fetchReelData();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to submit");
+    }
+    setSubmitting(false);
+  };
 
   const buyCredits = async () => {
     const amount = parseInt(buyAmount);
@@ -1130,11 +1169,11 @@ const VendorPromotions = ({ vendor }) => {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Promotions</h2>
         <div className="flex gap-2">
-          {["overview", "history"].map(t => (
+          {["overview", "reels", "history"].map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
               className={`px-4 py-1.5 rounded-lg text-sm capitalize transition-colors ${activeTab === t ? "bg-gold text-black font-medium" : "text-neutral-400 hover:bg-neutral-800"}`}
               data-testid={`promo-tab-${t}`}>
-              {t === "overview" ? "Overview" : "Transaction History"}
+              {t === "overview" ? "Overview" : t === "reels" ? "Reels & Featured" : "History"}
             </button>
           ))}
         </div>
@@ -1215,6 +1254,135 @@ const VendorPromotions = ({ vendor }) => {
             </div>
           )}
         </>
+      )}
+
+      {/* ── REELS & FEATURED TAB ── */}
+      {activeTab === "reels" && (
+        <div className="space-y-6">
+          {/* Performance Stats */}
+          {analytics && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Views", value: analytics.total_views, color: "text-blue-400" },
+                { label: "Orders", value: analytics.total_orders, color: "text-emerald-400" },
+                { label: "Revenue", value: `Rs.${(analytics.total_revenue || 0).toLocaleString()}`, color: "text-gold" },
+                { label: "Credit Balance", value: reelWallet.balance || 0, color: "text-purple-400" }
+              ].map(s => (
+                <div key={s.label} className="bg-neutral-800/50 border border-neutral-700 rounded-lg p-4">
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-wider">{s.label}</p>
+                  <p className={`text-2xl font-bold ${s.color} mt-1`} data-testid={`stat-${s.label.toLowerCase().replace(/ /g,"-")}`}>{s.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Request Promotion Form */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Request Promotion</h3>
+            <p className="text-xs text-neutral-400 mb-4">Submit a request to boost your product in Reels or get featured. Admin will review and approve.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <label className="text-xs text-neutral-300 mb-1 block">Type</label>
+                <select
+                  value={requestForm.request_type}
+                  onChange={e => setRequestForm(f => ({ ...f, request_type: e.target.value }))}
+                  className="w-full bg-neutral-900 border border-neutral-700 text-white h-9 text-sm rounded-md px-2"
+                  data-testid="request-type-select"
+                >
+                  <option value="reel_boost">Reel Boost</option>
+                  <option value="featured_seller">Featured Seller</option>
+                </select>
+              </div>
+              {requestForm.request_type === "reel_boost" && (
+                <div>
+                  <label className="text-xs text-neutral-300 mb-1 block">Product</label>
+                  <select
+                    value={requestForm.product_id}
+                    onChange={e => setRequestForm(f => ({ ...f, product_id: e.target.value }))}
+                    className="w-full bg-neutral-900 border border-neutral-700 text-white h-9 text-sm rounded-md px-2"
+                    data-testid="request-product-select"
+                  >
+                    <option value="">Select product...</option>
+                    {reelProducts.filter(p => p.approval_status === "approved").map(p => (
+                      <option key={p.product_id} value={p.product_id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-neutral-300 mb-1 block">Duration</label>
+                <select
+                  value={requestForm.preferred_duration}
+                  onChange={e => setRequestForm(f => ({ ...f, preferred_duration: e.target.value }))}
+                  className="w-full bg-neutral-900 border border-neutral-700 text-white h-9 text-sm rounded-md px-2"
+                  data-testid="request-duration-select"
+                >
+                  <option value="hour">Hour</option>
+                  <option value="day">Day</option>
+                  <option value="week">Week</option>
+                  <option value="month">Month</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-300 mb-1 block">Quantity</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={requestForm.quantity}
+                  onChange={e => setRequestForm(f => ({ ...f, quantity: parseInt(e.target.value) || 1 }))}
+                  className="bg-neutral-900 border-neutral-700 text-white h-9 text-sm"
+                  data-testid="request-quantity-input"
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  onClick={submitRequest}
+                  disabled={submitting}
+                  className="bg-gold hover:bg-gold/90 text-black w-full"
+                  data-testid="submit-request-btn"
+                >
+                  {submitting ? "Submitting..." : "Submit Request"}
+                </Button>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Input
+                value={requestForm.note}
+                onChange={e => setRequestForm(f => ({ ...f, note: e.target.value }))}
+                placeholder="Add a note for admin (optional)..."
+                className="bg-neutral-900 border-neutral-700 text-white h-9 text-sm"
+                data-testid="request-note-input"
+              />
+            </div>
+          </div>
+
+          {/* My Requests */}
+          <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">My Requests</h3>
+            {myRequests.length === 0 ? (
+              <p className="text-neutral-400 text-sm">No requests yet. Submit one above!</p>
+            ) : (
+              <div className="space-y-3" data-testid="my-requests-list">
+                {myRequests.map(r => (
+                  <div key={r.request_id} className={`bg-neutral-900 rounded-lg p-4 border ${r.status === "pending" ? "border-amber-500/30" : "border-neutral-800"}`} data-testid={`my-request-${r.request_id}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${r.request_type === "reel_boost" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>
+                        {r.request_type === "reel_boost" ? "Reel Boost" : "Featured Seller"}
+                      </span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${r.status === "pending" ? "bg-amber-500/20 text-amber-400" : r.status === "approved" ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    {r.product_name && <p className="text-sm text-white">Product: {r.product_name}</p>}
+                    <p className="text-xs text-neutral-400">Duration: {r.quantity} {r.preferred_duration}(s) | Est. Cost: {r.estimated_cost} {r.cost_unit}</p>
+                    {r.admin_note && <p className="text-xs text-gold mt-1">Admin: {r.admin_note}</p>}
+                    <p className="text-[10px] text-neutral-600 mt-1">{new Date(r.created_at).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {activeTab === "history" && (
