@@ -27,10 +27,11 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Unified ID-Based Tracking System (VND-0001, RSL-0001, etc.)
 - Admin Master Search with Quick Actions (Suspend, Activate, Add Credits, Feature Vendor)
 - WhatsApp OTP Login with needs_registration handling
-- Comprehensive Vendor KYC System with AI-Powered OCR (auto-approve/auto-reject)
-- Real-Time Notification System: WebSocket + NTF-XXXX IDs + sound alerts + mute toggle
+- Comprehensive Vendor KYC with AI-Powered OCR auto-approve/auto-reject
+- Real-Time Notification System: WebSocket + NTF-XXXX IDs + sound + mute toggle
 - Browser Push Notifications (Notification API, fires when tab unfocused)
-- **Notification Preferences**: Per-user toggle for each event type (Orders, Issues, Promotions, Credits, KYC, System) + sound per priority (High/Medium). Backend enforces — disabled types skip notification creation. Gear icon in dropdown, saved in DB.
+- Notification Preferences: Per-user toggles for event types + sound per priority
+- **Quiet Hours**: User-configurable time range (e.g. 10PM-8AM) to suppress real-time push. Notifications still saved to DB. Cross-midnight ranges supported. Visual indicator on bell when active. Off by default.
 
 ## Mocked Services
 - Razorpay (Payments/Vendor Credit purchases)
