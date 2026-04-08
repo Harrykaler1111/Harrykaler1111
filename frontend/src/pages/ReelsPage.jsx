@@ -53,7 +53,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
 /* ─────────────────────────────────────────────────
    Single Reel Card (used in both global & vendor feeds)
    ───────────────────────────────────────────────── */
-const ReelCard = ({ product, isActive, isVendorMode }) => {
+const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart } = useCart();
@@ -171,6 +171,18 @@ const ReelCard = ({ product, isActive, isVendorMode }) => {
 
       {/* Right side action buttons */}
       <div className="absolute right-3 bottom-28 flex flex-col items-center gap-4 z-10">
+        {/* Store / Seller button */}
+        {onStoreClick && (
+          <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-vendor-${product.product_id}`}>
+            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
+              <Store className="h-5 w-5 text-white" />
+            </div>
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+              <Plus className="h-2.5 w-2.5 text-white" />
+            </div>
+          </button>
+        )}
+
         <button onClick={handleLike} className="flex flex-col items-center gap-0.5" data-testid={`reel-like-${product.product_id}`}>
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${liked ? "bg-red-500" : "bg-white/15 backdrop-blur-sm"}`}>
             <Heart className={`h-5 w-5 ${liked ? "fill-white text-white" : "text-white"}`} />
@@ -416,22 +428,12 @@ export default function ReelsPage() {
           >
             {globalProducts.map((product, idx) => (
               <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
-                <ReelCard product={product} isActive={idx === globalActiveIdx} isVendorMode={false} />
-                {/* Store button (global mode only) */}
-                {(product.vendor_id || product.category) && (
-                  <button
-                    onClick={(e) => handleStoreClick(e, product)}
-                    className="absolute right-3 bottom-64 z-10 flex flex-col items-center gap-0.5"
-                    data-testid={`reel-vendor-${product.product_id}`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
-                      <Store className="h-5 w-5 text-white" />
-                    </div>
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                      <Plus className="h-2.5 w-2.5 text-white" />
-                    </div>
-                  </button>
-                )}
+                <ReelCard
+                  product={product}
+                  isActive={idx === globalActiveIdx}
+                  isVendorMode={false}
+                  onStoreClick={(product.vendor_id || product.category) ? ((e) => handleStoreClick(e, product)) : undefined}
+                />
               </div>
             ))}
           </div>
