@@ -19,8 +19,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Dynamic RBAC, Affiliate & Reseller System with price overrides
 - Guest Cart System (LocalStorage), login only at checkout
 - Premium Zara/Blinkit-style ProductCard.jsx
-- Instagram-style Reels/Explore vertical feed at /reels with guest localStorage likes
-- Kuaishou-style Reels: Nested feed system with vendor side-panel
+- Instagram-style Reels/Explore vertical feed with guest localStorage likes
+- Kuaishou-style Reels: Nested feed with vendor side-panel
 - Vendor Monetization System (credit wallet, reel boost, cart placement, featured vendor)
 - Admin-Controlled Vendor Promotion System: request -> approval workflow
 - Featured Sellers section on Homepage
@@ -29,7 +29,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - WhatsApp OTP Login with needs_registration handling
 - Comprehensive Vendor KYC System with AI-Powered OCR (auto-approve/auto-reject)
 - Real-Time Notification System: WebSocket + NTF-XXXX IDs + sound alerts + mute toggle
-- **Browser Push Notifications**: Native Notification API integration, fires when tab is not focused, click → focus tab + navigate to page, permission prompt with enable/dismiss, respects mute toggle
+- Browser Push Notifications (Notification API, fires when tab unfocused)
+- **Notification Preferences**: Per-user toggle for each event type (Orders, Issues, Promotions, Credits, KYC, System) + sound per priority (High/Medium). Backend enforces — disabled types skip notification creation. Gear icon in dropdown, saved in DB.
 
 ## Mocked Services
 - Razorpay (Payments/Vendor Credit purchases)
