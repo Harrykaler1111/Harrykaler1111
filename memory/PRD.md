@@ -27,8 +27,9 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Unified ID-Based Tracking System (VND-0001, RSL-0001, etc.)
 - Admin Master Search with Quick Actions (Suspend, Activate, Add Credits, Feature Vendor)
 - WhatsApp OTP Login with needs_registration handling
-- **Comprehensive Vendor KYC System**: MSME/Udyam Certificate, PAN Card, Aadhaar (front/back), GST Certificate (optional), Bank Proof (optional), Bank Details. Per-document admin review. Feature-blocking banner for unverified vendors. Cloud-based document storage.
-- **AI-Powered KYC Document Verification**: GPT-4o-mini Vision OCR extracts text from uploaded documents, cross-checks against vendor-submitted data, auto-flags mismatches, provides admin with APPROVE/REVIEW/REJECT recommendations with confidence levels and extracted data preview.
+- **Comprehensive Vendor KYC System**: MSME/Udyam, PAN, Aadhaar front/back, GST (optional), Bank Proof (optional), Bank Details. Per-document admin review with approve/reject. Feature-blocking banner for unverified vendors.
+- **AI-Powered KYC OCR Verification**: GPT-4o-mini Vision extracts data from documents, cross-checks against vendor input, flags mismatches.
+- **KYC Auto-Approve/Auto-Reject**: High-confidence verified docs auto-approved instantly. Mismatched/invalid docs auto-rejected. If all 4 required docs auto-approved → full KYC auto-approved in seconds. Admin can always override. PDFs need manual review.
 
 ## Deployment Fixes
 - FOMO polling storm: Fixed 300ms -> 5min intervals
