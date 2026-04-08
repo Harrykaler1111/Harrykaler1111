@@ -76,7 +76,7 @@ export const FeaturedSellers = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1 }}
-              className="snap-start shrink-0 w-[85vw] sm:w-[420px] md:w-[480px]"
+              className="snap-start shrink-0 w-[75vw] sm:w-[300px] md:w-[340px]"
             >
               <SellerCard seller={seller} />
             </motion.div>
@@ -127,9 +127,9 @@ const SellerCard = ({ seller }) => {
       </div>
 
       {/* Product grid */}
-      <div className="p-3">
+      <div className="p-2">
         {seller.products.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {seller.products.slice(0, 4).map((product) => (
               <div
                 key={product.product_id}
@@ -137,7 +137,7 @@ const SellerCard = ({ seller }) => {
                 className="cursor-pointer group/item"
                 data-testid={`featured-product-${product.product_id}`}
               >
-                <div className="aspect-[3/4] bg-neutral-800 rounded-lg overflow-hidden relative">
+                <div className="aspect-[3/4] bg-neutral-800 rounded-md overflow-hidden relative">
                   <img
                     src={normalizeImageUrl(product.images?.[0]) || FALLBACK_IMAGE}
                     alt={product.name}
