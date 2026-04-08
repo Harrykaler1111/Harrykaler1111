@@ -206,12 +206,14 @@ const AppRouter = () => {
   }
 
   return (
+    <>
+    <ScrollToTop />
     <Routes>
-      <Route path="/" element={<><ScrollToTop /><HomePage /></>} />
-      <Route path="/products" element={<><ScrollToTop /><ProductsPage /></>} />
-      <Route path="/products/:category" element={<><ScrollToTop /><ProductsPage /></>} />
-      <Route path="/product/:productId" element={<><ScrollToTop /><ProductDetailPage /></>} />
-      <Route path="/bundle/:bundleId" element={<><ScrollToTop /><BundleDetailPage /></>} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/products" element={<ProductsPage />} />
+      <Route path="/products/:category" element={<ProductsPage />} />
+      <Route path="/product/:productId" element={<ProductDetailPage />} />
+      <Route path="/bundle/:bundleId" element={<BundleDetailPage />} />
       <Route path="/reels" element={<ReelsPage />} />
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
@@ -247,7 +249,7 @@ const AppRouter = () => {
         path="/order-success"
         element={
           <ProtectedRoute>
-            <><ScrollToTop /><OrderSuccessPage /></>
+            <OrderSuccessPage />
           </ProtectedRoute>
         }
       />
@@ -261,8 +263,8 @@ const AppRouter = () => {
         }
       />
       <Route path="/creators" element={<CreatorRecruitmentPage />} />
-      <Route path="/policy/:slug" element={<><ScrollToTop /><PolicyPage /></>} />
-      <Route path="/contact" element={<><ScrollToTop /><ContactPage /></>} />
+      <Route path="/policy/:slug" element={<PolicyPage />} />
+      <Route path="/contact" element={<ContactPage />} />
       <Route
         path="/influencer"
         element={
@@ -313,6 +315,7 @@ const AppRouter = () => {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 };
 
