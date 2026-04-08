@@ -7,7 +7,7 @@ import {
   Plus, Edit2, Trash2, Check, X, Eye, Wallet, CreditCard, LogOut,
   Shield, Instagram, Settings, User, Lock, Store, FileCheck, Upload,
   LifeBuoy, Send, BookOpen, Clock, MessageSquare, Star, Bell, Search,
-  CheckCircle, XCircle
+  CheckCircle, XCircle, Zap
 } from "lucide-react";
 import { MediaUploader } from "@/components/MediaUploader";
 import { Button } from "@/components/ui/button";
@@ -2197,6 +2197,28 @@ export const AdminDashboard = () => {
                             <p className="text-xs text-red-400 mb-3">Not uploaded</p>
                           )}
                           {info?.review_note && <p className="text-xs text-amber-400 mb-2">Note: {info.review_note}</p>}
+
+                          {/* AI Verification Result for Admin */}
+                          {info?.ai_verification && !info.ai_verification?.skipped && (
+                            <div className={`rounded-lg px-3 py-2 mb-3 text-xs ${
+                              info.ai_verification.verified ? "bg-green-500/10 border border-green-500/20 text-green-300" :
+                              info.ai_verification.status === "mismatch_detected" ? "bg-red-500/10 border border-red-500/20 text-red-300" :
+                              "bg-amber-500/10 border border-amber-500/20 text-amber-300"
+                            }`} data-testid={`admin-ai-badge-${doc.key}`}>
+                              <div className="flex items-center gap-1.5 font-semibold mb-0.5">
+                                <Zap className="h-3 w-3" />
+                                AI: {info.ai_verification.recommendation || info.ai_verification.status}
+                              </div>
+                              {info.ai_verification.confidence && <span className="text-[9px] opacity-70">Confidence: {info.ai_verification.confidence}</span>}
+                              {info.ai_verification.mismatches?.map((m, i) => <p key={i} className="text-red-400 mt-0.5">{m}</p>)}
+                              {info.ai_verification.extracted_data && (
+                                <details className="mt-1.5 cursor-pointer">
+                                  <summary className="text-[10px] opacity-60 hover:opacity-100">View extracted data</summary>
+                                  <pre className="mt-1 text-[9px] bg-black/30 rounded p-2 overflow-x-auto whitespace-pre-wrap">{JSON.stringify(info.ai_verification.extracted_data, null, 2)}</pre>
+                                </details>
+                              )}
+                            </div>
+                          )}
                           {info?.url && status !== "approved" && (
                             <div className="flex items-center gap-2">
                               <Input placeholder="Rejection reason (if rejecting)" value={docReviewNote} onChange={e => setDocReviewNote(e.target.value)}

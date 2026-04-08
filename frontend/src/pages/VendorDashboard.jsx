@@ -438,6 +438,25 @@ const VendorKYC = ({ vendor, setVendor }) => {
                   <p className="text-xs text-red-400 bg-red-500/10 rounded px-2 py-1.5 mb-3">Reason: {docInfo.review_note}</p>
                 )}
 
+                {/* AI Verification Badge */}
+                {docInfo?.ai_verification && !docInfo.ai_verification.skipped && (
+                  <div className={`rounded-lg px-3 py-2 mb-3 text-xs ${
+                    docInfo.ai_verification.verified ? "bg-green-500/10 border border-green-500/20" :
+                    docInfo.ai_verification.status === "mismatch_detected" ? "bg-red-500/10 border border-red-500/20" :
+                    "bg-amber-500/10 border border-amber-500/20"
+                  }`} data-testid={`ai-badge-${dc.key}`}>
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Zap className="h-3 w-3" />
+                      <span className="font-semibold">AI Verification: {docInfo.ai_verification.verified ? "Passed" : docInfo.ai_verification.status?.replace(/_/g, " ")}</span>
+                      {docInfo.ai_verification.confidence && <span className="text-[9px] opacity-70">({docInfo.ai_verification.confidence})</span>}
+                    </div>
+                    {docInfo.ai_verification.recommendation && <p className="opacity-80">{docInfo.ai_verification.recommendation}</p>}
+                    {docInfo.ai_verification.mismatches?.length > 0 && (
+                      <div className="mt-1 text-red-400">{docInfo.ai_verification.mismatches.map((m, i) => <p key={i}>{m}</p>)}</div>
+                    )}
+                  </div>
+                )}
+
                 {isUploaded && (
                   <div className="flex items-center gap-2 mb-2 text-xs text-neutral-400">
                     <CheckCircle className="h-3 w-3 text-emerald-400" />

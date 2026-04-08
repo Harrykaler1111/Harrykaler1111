@@ -235,7 +235,8 @@ async def upload_kyc_document(doc_type: str, file: UploadFile = File(...), vendo
         "status": "uploaded",
         "review_note": "",
         "reviewed_at": "",
-        "reviewed_by": ""
+        "reviewed_by": "",
+        "ai_verification": {"status": "pending"}
     }
 
     await db.vendors.update_one(
@@ -246,7 +247,27 @@ async def upload_kyc_document(doc_type: str, file: UploadFile = File(...), vendo
         }}
     )
 
-    return {"message": f"{doc_type.replace('_', ' ').title()} uploaded", "url": doc_url, "doc_type": doc_type}
+    # Run AI verification in background
+    try:
+        from services.kyc_verification import verify_kyc_document
+        vendor_kyc_data = vendor.get("kyc_data", {})
+        ai_result = await verify_kyc_document(doc_type, content, file.content_type, vendor_kyc_data)
+        # Store AI result
+        await db.vendors.update_one(
+            {"vendor_id": vendor["vendor_id"]},
+            {"$set": {f"kyc_documents.{doc_type}.ai_verification": ai_result}}
+        )
+        logger.info(f"AI verification for {doc_type}: {ai_result.get('status', 'unknown')} - {ai_result.get('recommendation', '')}")
+    except Exception as e:
+        logger.error(f"AI verification background task failed: {e}")
+        ai_result = {"verified": False, "skipped": True, "reason": str(e)}
+
+    return {
+        "message": f"{doc_type.replace('_', ' ').title()} uploaded",
+        "url": doc_url,
+        "doc_type": doc_type,
+        "ai_verification": ai_result
+    }
 
 
 @router.get("/kyc/status")
@@ -261,16 +282,25 @@ async def get_kyc_status(vendor: Dict = Depends(get_current_vendor)):
     masked_data["msme_registration"] = kyc_data.get("msme_registration", "")
 
     docs = vendor.get("kyc_documents", {})
-    # Strip URLs for security, return only status info
+    # Return status info including AI verification
     doc_status = {}
     for doc_type, info in docs.items():
         if isinstance(info, dict):
+            ai_v = info.get("ai_verification", {})
             doc_status[doc_type] = {
                 "status": info.get("status", "uploaded"),
                 "filename": info.get("filename", ""),
                 "uploaded_at": info.get("uploaded_at", ""),
                 "review_note": info.get("review_note", ""),
                 "url": info.get("url", ""),
+                "ai_verification": {
+                    "status": ai_v.get("status", "pending"),
+                    "verified": ai_v.get("verified", False),
+                    "confidence": ai_v.get("confidence", ""),
+                    "recommendation": ai_v.get("recommendation", ""),
+                    "mismatches": ai_v.get("mismatches", []),
+                    "issues": ai_v.get("issues", []),
+                } if ai_v and not ai_v.get("skipped") else None,
             }
         else:
             doc_status[doc_type] = {"status": "uploaded", "url": info, "filename": "", "uploaded_at": "", "review_note": ""}
