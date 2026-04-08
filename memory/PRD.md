@@ -24,7 +24,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Instagram-style Reels/Explore vertical feed at /reels with guest localStorage likes
 - Vendor Monetization System (credit wallet, reel boost, cart placement, featured vendor)
 - Admin Monetization Panel (/admin/monetization) for pricing config and manual credit top-up
-- Kuaishou-style horizontal swipe vendor side-panel on Reels (falls back to category if no vendor_id)
+- **Kuaishou-style Reels**: Proper nested feed system. Swipe LEFT/click Store → vendor mode (82%/18% split, no overlap, small thumbnails, Works badge). Swipe UP/DOWN in vendor mode = same vendor only. Swipe RIGHT/back button = global feed.
 - BoosterBar repositioned to top-0 on /reels route to prevent overlap
 
 ## Deployment Fixes
