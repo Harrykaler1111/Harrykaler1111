@@ -333,6 +333,13 @@ async def add_credits(display_id: str, body: AddCreditsRequest, admin: Dict = De
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
 
+    # Real-time notification
+    try:
+        from services.notification_service import notify_credits_added
+        await notify_credits_added(internal_id, body.amount, body.reason, new_balance)
+    except Exception as e:
+        pass
+
     return {"message": f"Added {body.amount} credits to {display_id}", "new_balance": new_balance}
 
 

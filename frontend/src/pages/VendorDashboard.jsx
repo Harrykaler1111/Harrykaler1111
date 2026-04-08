@@ -22,6 +22,7 @@ import {
 import { MediaUploader } from "@/components/MediaUploader";
 import { BulkUpload } from "@/components/BulkUpload";
 import { VendorCartBooster } from "@/components/VendorCartBooster";
+import { NotificationBell } from "@/components/NotificationBell";
 import { whatsappLink, PHONE_NUMBER, PHONE_LINK } from "@/components/WhatsAppButton";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -132,6 +133,10 @@ export const VendorDashboard = () => {
         </aside>
 
         <main className="flex-1 md:ml-64 p-6">
+          {/* Top Bar with Notification Bell */}
+          <div className="flex items-center justify-end mb-4 gap-3">
+            <NotificationBell role="vendor" token={localStorage.getItem("pigma_vendor_token")} />
+          </div>
           {/* Status warning for suspended/disconnected vendors */}
           {vendor && ["suspended", "disconnected", "discontinued"].includes(vendor.status) && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3" data-testid="vendor-status-warning">

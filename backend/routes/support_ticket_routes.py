@@ -123,6 +123,14 @@ async def create_ticket(data: CreateTicket, user: Dict = Depends(get_current_use
     }
     await db.tickets.insert_one(ticket)
     ticket.pop("_id", None)
+
+    # Real-time notification for user-created ticket
+    try:
+        from services.notification_service import notify_new_ticket
+        await notify_new_ticket(ticket)
+    except Exception as e:
+        logger.warning(f"Notification trigger failed for ticket: {e}")
+
     return {"message": "Ticket created", "ticket": ticket}
 
 
@@ -235,6 +243,14 @@ async def vendor_create_ticket(data: CreateTicket, vendor: Dict = Depends(get_cu
     }
     await db.tickets.insert_one(ticket)
     ticket.pop("_id", None)
+
+    # Real-time notification for vendor-created ticket
+    try:
+        from services.notification_service import notify_new_ticket
+        await notify_new_ticket(ticket)
+    except Exception as e:
+        logger.warning(f"Notification trigger failed for vendor ticket: {e}")
+
     return {"message": "Ticket created", "ticket": ticket}
 
 

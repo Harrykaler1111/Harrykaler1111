@@ -775,6 +775,14 @@ async def request_promotion(data: PromotionRequest, vendor: Dict = Depends(get_c
     }
     await db.promotion_requests.insert_one(request)
     request.pop("_id", None)
+
+    # Real-time notification
+    try:
+        from services.notification_service import notify_promotion_request
+        await notify_promotion_request(request)
+    except Exception as e:
+        logger.warning(f"Notification trigger failed for promotion: {e}")
+
     return request
 
 

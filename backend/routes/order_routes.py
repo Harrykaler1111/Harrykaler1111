@@ -390,6 +390,13 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
     except Exception as e:
         logger.warning(f"WhatsApp notification failed for order {order_id}: {e}")
 
+    # ============== REAL-TIME NOTIFICATIONS ==============
+    try:
+        from services.notification_service import notify_new_order
+        await notify_new_order(order_doc)
+    except Exception as e:
+        logger.warning(f"Notification trigger failed for order {order_id}: {e}")
+
     return OrderResponse(**order_doc)
 
 

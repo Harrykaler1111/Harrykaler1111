@@ -37,6 +37,7 @@ import { AdminBundlePanel } from "@/components/AdminBundlePanel";
 import { PermissionsPanel } from "@/components/PermissionsPanel";
 import { AdminFomoPanel } from "@/components/AdminFomoPanel";
 import { AdminDummyReviewsPanel } from "@/components/AdminDummyReviewsPanel";
+import { NotificationBell } from "@/components/NotificationBell";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -3718,6 +3719,10 @@ export const AdminDashboard = () => {
 
         {/* Main Content */}
         <main className="flex-1 md:ml-64 p-4 md:p-8">
+          {/* Top Bar with Notification Bell */}
+          <div className="flex items-center justify-end mb-4 gap-3">
+            <NotificationBell role="admin" token={localStorage.getItem("pigma_admin_token")} />
+          </div>
           <Routes>
             <Route index element={<DashboardOverview />} />
             <Route path="orders" element={<AdminOrdersPanel />} />

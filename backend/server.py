@@ -5,7 +5,7 @@ from pathlib import Path
 # Ensure backend dir is on Python path for relative imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from starlette.middleware.cors import CORSMiddleware
 import logging
 from datetime import datetime, timezone, timedelta
@@ -112,6 +112,45 @@ app.add_middleware(
 )
 
 
+# ── WebSocket endpoint for real-time notifications ──
+from ws_manager import ws_manager
+import jwt
+
+@app.websocket("/api/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    """WebSocket endpoint — clients connect with ?token=xxx&role=vendor|admin"""
+    token = websocket.query_params.get("token", "")
+    role = websocket.query_params.get("role", "")
+
+    if not token or role not in ("vendor", "admin"):
+        await websocket.close(code=4001)
+        return
+
+    # Verify token
+    try:
+        jwt_secret = os.environ.get("JWT_SECRET", "pigma_jwt_secret_key_2024")
+        payload = jwt.decode(token, jwt_secret, algorithms=["HS256"])
+        user_id = payload.get("user_id", "")
+        if not user_id:
+            await websocket.close(code=4001)
+            return
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    await ws_manager.connect(websocket, user_id, role)
+    try:
+        while True:
+            # Keep connection alive; client can send pings
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, user_id, role)
+    except Exception:
+        ws_manager.disconnect(websocket, user_id, role)
+
+
 @app.on_event("startup")
 async def startup_event():
     # Initialize object storage
@@ -169,6 +208,11 @@ async def startup_event():
     await db.bundles.create_index("product_ids")
     await db.push_subscriptions.create_index("endpoint", unique=True)
     await db.push_subscriptions.create_index("is_active")
+
+    # Notification indexes
+    await db.notifications.create_index("notification_id", unique=True)
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("user_id", 1), ("is_read", 1)])
 
     # Seed booster slabs
     from routes.booster_routes import seed_default_slabs
