@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink, BellPlus } from "lucide-react";
+import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink, BellPlus, Settings, ShoppingCart, Ticket, Megaphone, Coins, FileText, Cog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
@@ -87,6 +87,9 @@ export const NotificationBell = ({ role, token }) => {
   const [loading, setLoading] = useState(false);
   const [pushPermission, setPushPermission] = useState(() => typeof Notification !== "undefined" ? Notification.permission : "denied");
   const [showPermPrompt, setShowPermPrompt] = useState(false);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [prefs, setPrefs] = useState(null);
+  const [prefsLoading, setPrefsLoading] = useState(false);
   const wsRef = useRef(null);
   const bellRef = useRef(null);
   const seenIds = useRef(new Set());
@@ -123,6 +126,31 @@ export const NotificationBell = ({ role, token }) => {
   const dismissPushPrompt = () => {
     setShowPermPrompt(false);
     localStorage.setItem("pigma_push_dismissed", "true");
+  };
+
+  // Notification Preferences
+  const fetchPrefs = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API}/notifications/${prefix}/preferences`, { headers });
+      setPrefs(data);
+    } catch {}
+  }, [prefix, token]);
+
+  const togglePref = async (key) => {
+    if (!prefs) return;
+    const newVal = !prefs[key];
+    setPrefs(prev => ({ ...prev, [key]: newVal }));
+    try {
+      await axios.put(`${API}/notifications/${prefix}/preferences`, { [key]: newVal }, { headers });
+    } catch {
+      setPrefs(prev => ({ ...prev, [key]: !newVal })); // rollback
+      toast.error("Failed to update preference");
+    }
+  };
+
+  const openPrefs = () => {
+    setShowPrefs(true);
+    if (!prefs) fetchPrefs();
   };
 
   // Fetch notifications
@@ -185,8 +213,8 @@ export const NotificationBell = ({ role, token }) => {
               setNotifications(prev => [n, ...prev].slice(0, 30));
               setUnreadCount(prev => prev + 1);
 
-              // Sound for high priority
-              if (n.priority === "high" && !muted) {
+              // Sound — respect server-side preference
+              if (n.play_sound !== false && !muted) {
                 playNotificationSound();
               }
 
@@ -349,8 +377,65 @@ export const NotificationBell = ({ role, token }) => {
                   <CheckCheck className="h-3 w-3" /> Read all
                 </button>
               )}
+              <button onClick={openPrefs} className={`p-1.5 rounded hover:bg-neutral-800 transition-colors ${showPrefs ? "bg-neutral-800" : ""}`} title="Preferences" data-testid="notif-prefs-btn">
+                <Settings className="h-3.5 w-3.5 text-neutral-400" />
+              </button>
             </div>
           </div>
+
+          {/* Preferences Panel */}
+          {showPrefs && (
+            <div className="border-b border-neutral-700 px-4 py-3 bg-neutral-800/50" data-testid="notif-prefs-panel">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-white">Notification Preferences</span>
+                <button onClick={() => setShowPrefs(false)} className="text-[10px] text-neutral-500 hover:text-white">Done</button>
+              </div>
+              {prefs ? (
+                <div className="space-y-1.5">
+                  <p className="text-[9px] text-neutral-500 uppercase tracking-wider mb-1">Event Types</p>
+                  {[
+                    { key: "order", label: "Orders", icon: ShoppingCart },
+                    { key: "issue", label: "Issues / Tickets", icon: Ticket },
+                    { key: "promotion", label: "Promotions", icon: Megaphone },
+                    { key: "credit", label: "Credits", icon: Coins },
+                    { key: "kyc", label: "KYC Updates", icon: FileText },
+                    { key: "system", label: "System Alerts", icon: Cog },
+                  ].map(({ key, label, icon: Icon }) => (
+                    <button key={key} onClick={() => togglePref(key)}
+                      className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/50 transition-colors"
+                      data-testid={`pref-toggle-${key}`}>
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-3 w-3 text-neutral-500" />
+                        <span className="text-xs text-neutral-300">{label}</span>
+                      </div>
+                      <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${prefs[key] ? "bg-gold justify-end" : "bg-neutral-600 justify-start"}`}>
+                        <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                      </div>
+                    </button>
+                  ))}
+                  <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-3 mb-1">Sound</p>
+                  {[
+                    { key: "sound_high", label: "High priority ring" },
+                    { key: "sound_medium", label: "Medium priority ring" },
+                  ].map(({ key, label }) => (
+                    <button key={key} onClick={() => togglePref(key)}
+                      className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/50 transition-colors"
+                      data-testid={`pref-toggle-${key}`}>
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="h-3 w-3 text-neutral-500" />
+                        <span className="text-xs text-neutral-300">{label}</span>
+                      </div>
+                      <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${prefs[key] ? "bg-gold justify-end" : "bg-neutral-600 justify-start"}`}>
+                        <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-3"><div className="animate-spin rounded-full h-4 w-4 border-2 border-gold/30 border-t-gold mx-auto" /></div>
+              )}
+            </div>
+          )}
 
           {/* List */}
           <div className="overflow-y-auto max-h-[420px]">

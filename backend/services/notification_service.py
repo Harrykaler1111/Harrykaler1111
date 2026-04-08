@@ -39,6 +39,12 @@ async def create_notification(
 ) -> dict:
     """Create a notification, save to DB, and push via WebSocket."""
 
+    # Check user preferences — skip if this type is disabled
+    prefs = await db.notification_prefs.find_one({"user_id": user_id}, {"_id": 0})
+    if prefs and prefs.get(type) is False:
+        logger.info(f"Notification skipped for {user_id} — {type} disabled in preferences")
+        return {}
+
     ntf_id = await _get_next_ntf_id()
 
     # Auto-generate redirect URL based on type + reference
@@ -71,7 +77,12 @@ async def create_notification(
 
     await db.notifications.insert_one(doc)
 
-    # Push via WebSocket
+    # Push via WebSocket — include sound prefs
+    sound_key = f"sound_{priority}"
+    play_sound = True  # default
+    if prefs:
+        play_sound = prefs.get(sound_key, priority == "high")
+
     ws_payload = {
         "event": "notification",
         "data": {
@@ -84,6 +95,7 @@ async def create_notification(
             "redirect_url": redirect_url,
             "created_at": doc["created_at"],
             "is_read": False,
+            "play_sound": play_sound,
         }
     }
     await ws_manager.send_to_user(user_id, ws_payload)

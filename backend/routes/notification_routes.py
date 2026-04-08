@@ -3,13 +3,36 @@ Notification API routes — list, mark-read, unread count, preferences.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict
+from typing import Dict, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from config import db
 from auth import get_admin_user, get_current_vendor
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+DEFAULT_PREFS = {
+    "order": True,
+    "issue": True,
+    "promotion": True,
+    "credit": True,
+    "kyc": True,
+    "system": True,
+    "sound_high": True,
+    "sound_medium": False,
+}
+
+
+class NotifPrefsUpdate(BaseModel):
+    order: Optional[bool] = None
+    issue: Optional[bool] = None
+    promotion: Optional[bool] = None
+    credit: Optional[bool] = None
+    kyc: Optional[bool] = None
+    system: Optional[bool] = None
+    sound_high: Optional[bool] = None
+    sound_medium: Optional[bool] = None
 
 
 # ---- Vendor endpoints ----
@@ -100,3 +123,52 @@ async def admin_mark_all_read(admin: Dict = Depends(get_admin_user)):
         {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": f"Marked {result.modified_count} as read"}
+
+
+# ════════════════════════════════════════════════
+# Preferences
+# ════════════════════════════════════════════════
+
+async def _get_prefs(user_id: str) -> dict:
+    doc = await db.notification_prefs.find_one({"user_id": user_id}, {"_id": 0})
+    if doc:
+        return {**DEFAULT_PREFS, **{k: v for k, v in doc.items() if k != "user_id" and k != "updated_at"}}
+    return {**DEFAULT_PREFS}
+
+
+@router.get("/vendor/preferences")
+async def vendor_get_prefs(vendor: Dict = Depends(get_current_vendor)):
+    return await _get_prefs(vendor["vendor_id"])
+
+
+@router.put("/vendor/preferences")
+async def vendor_update_prefs(body: NotifPrefsUpdate, vendor: Dict = Depends(get_current_vendor)):
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No preferences to update")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.notification_prefs.update_one(
+        {"user_id": vendor["vendor_id"]},
+        {"$set": updates, "$setOnInsert": {"user_id": vendor["vendor_id"]}},
+        upsert=True
+    )
+    return await _get_prefs(vendor["vendor_id"])
+
+
+@router.get("/admin/preferences")
+async def admin_get_prefs(admin: Dict = Depends(get_admin_user)):
+    return await _get_prefs(admin["admin_id"])
+
+
+@router.put("/admin/preferences")
+async def admin_update_prefs(body: NotifPrefsUpdate, admin: Dict = Depends(get_admin_user)):
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No preferences to update")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.notification_prefs.update_one(
+        {"user_id": admin["admin_id"]},
+        {"$set": updates, "$setOnInsert": {"user_id": admin["admin_id"]}},
+        upsert=True
+    )
+    return await _get_prefs(admin["admin_id"])
