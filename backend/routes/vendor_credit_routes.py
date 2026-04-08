@@ -422,8 +422,8 @@ async def get_featured_vendors():
 
     # Fetch vendor info
     vendors = await db.vendors.find(
-        {"vendor_id": {"$in": vendor_ids}, "is_active": True},
-        {"_id": 0, "vendor_id": 1, "business_name": 1, "name": 1, "logo": 1}
+        {"vendor_id": {"$in": vendor_ids}},
+        {"_id": 0, "vendor_id": 1, "business_name": 1, "store_name": 1, "name": 1, "logo": 1}
     ).to_list(20)
     vendor_map = {v["vendor_id"]: v for v in vendors}
 
@@ -432,11 +432,93 @@ async def get_featured_vendors():
         v = vendor_map.get(f["vendor_id"], {})
         result.append({
             "vendor_id": f["vendor_id"],
-            "vendor_name": v.get("business_name") or v.get("name") or f.get("vendor_name", ""),
+            "vendor_name": v.get("store_name") or v.get("business_name") or v.get("name") or f.get("vendor_name", ""),
             "vendor_logo": v.get("logo") or f.get("vendor_logo", ""),
             "expires_at": f["expires_at"]
         })
     return result
+
+
+@router.get("/featured-sellers-with-products")
+async def featured_sellers_with_products(products_per_vendor: int = Query(4, ge=1, le=10)):
+    """Public: Get featured vendors with their top products for homepage display."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    # 1. Active featured vendors
+    featured = await db.featured_vendors.find(
+        {"is_active": True, "expires_at": {"$gt": now}},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    vendor_ids = [f["vendor_id"] for f in featured]
+
+    # 2. Fallback: top vendors by total_spent
+    if not vendor_ids:
+        top_wallets = await db.vendor_wallets.find(
+            {"is_paid": True, "total_spent": {"$gt": 0}},
+            {"_id": 0, "vendor_id": 1}
+        ).sort("total_spent", -1).limit(6).to_list(6)
+        vendor_ids = [w["vendor_id"] for w in top_wallets]
+
+    # 3. Fallback: any active vendors
+    if not vendor_ids:
+        active_vendors = await db.vendors.find(
+            {"status": "approved"},
+            {"_id": 0, "vendor_id": 1}
+        ).limit(8).to_list(8)
+        vendor_ids = [v["vendor_id"] for v in active_vendors]
+
+    if not vendor_ids:
+        return {"sellers": []}
+
+    # 4. Fetch vendor info
+    vendors = await db.vendors.find(
+        {"vendor_id": {"$in": vendor_ids}},
+        {"_id": 0, "vendor_id": 1, "business_name": 1, "name": 1, "store_name": 1, "owner_name": 1, "logo": 1, "description": 1, "store_description": 1}
+    ).to_list(20)
+    vendor_map = {v["vendor_id"]: v for v in vendors}
+
+    # 5. Fetch products from both collections
+    main_products = await db.products.find(
+        {"vendor_id": {"$in": vendor_ids}, "is_active": True, "images.0": {"$exists": True}},
+        {"_id": 0}
+    ).to_list(200)
+
+    approved_products = await db.vendor_products.find(
+        {"vendor_id": {"$in": vendor_ids}, "is_active": True, "approval_status": "approved", "images.0": {"$exists": True}},
+        {"_id": 0}
+    ).to_list(200)
+
+    # Group by vendor_id, deduplicating by product_id
+    vendor_prods = {}
+    seen_ids = set()
+    for p in main_products + approved_products:
+        vid = p.get("vendor_id")
+        pid = p.get("product_id")
+        if not vid or not pid or pid in seen_ids:
+            continue
+        seen_ids.add(pid)
+        if vid not in vendor_prods:
+            vendor_prods[vid] = []
+        if len(vendor_prods[vid]) < products_per_vendor:
+            vendor_prods[vid].append(p)
+
+    # 6. Build response
+    sellers = []
+    for vid in vendor_ids:
+        v = vendor_map.get(vid, {})
+        products = vendor_prods.get(vid, [])
+        if not products:
+            continue
+        sellers.append({
+            "vendor_id": vid,
+            "vendor_name": v.get("store_name") or v.get("business_name") or v.get("name") or v.get("owner_name") or vid,
+            "vendor_logo": v.get("logo", ""),
+            "description": v.get("store_description") or v.get("description", ""),
+            "product_count": len(products),
+            "products": products
+        })
+
+    return {"sellers": sellers}
 
 
 # ─── Vendor Analytics ───

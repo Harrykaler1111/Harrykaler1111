@@ -5,6 +5,7 @@ import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, 
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { BundleDealsSection } from "@/components/BundleDeals";
+import { FeaturedSellers } from "@/components/FeaturedSellers";
 import axios from "axios";
 import { API } from "@/App";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
@@ -379,6 +380,9 @@ export const HomePage = () => {
           </div>
         </section>
       )}
+
+      {/* Featured Sellers */}
+      <FeaturedSellers />
 
       {/* Best Sellers Carousel */}
       {bestSellers.length > 0 && (
