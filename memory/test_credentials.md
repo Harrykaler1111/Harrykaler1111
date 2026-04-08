@@ -12,7 +12,8 @@
 - Customer/Reseller: admin@pigma.com / admin123
 
 ## Vendor Login (/vendor-login)
-- Vendor: testvendor@example.com / vendor123
+- Vendor (KYC Approved): testvendor@example.com / vendor123
+- Vendor (KYC Not Submitted): vendortest3@example.com / vendor123
 
 ## WhatsApp/Interakt
 - Test Phone: +919625992057

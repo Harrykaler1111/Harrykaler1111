@@ -20,13 +20,14 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Guest Cart System (LocalStorage), login only at checkout
 - Premium Zara/Blinkit-style ProductCard.jsx
 - Instagram-style Reels/Explore vertical feed at /reels with guest localStorage likes
-- **Kuaishou-style Reels**: Proper nested feed system with vendor side-panel
+- Kuaishou-style Reels: Nested feed system with vendor side-panel
 - Vendor Monetization System (credit wallet, reel boost, cart placement, featured vendor)
-- Admin-Controlled Vendor Promotion System: request -> approval workflow, 5-tab admin monetization panel
-- Featured Sellers section on Homepage (compact grid layout, 3-level fallback)
-- **Unified ID-Based Tracking System**: Sequential display_ids (VND-0001, RSL-0001, INF-0001, AFF-0001, ADM-001)
-- **Admin Master Search**: Enter any ID -> full data, with Quick Actions (Suspend, Activate, Add Credits, Feature Vendor)
-- **WhatsApp OTP Login**: Full send/verify flow with needs_registration handling for new users
+- Admin-Controlled Vendor Promotion System: request -> approval workflow
+- Featured Sellers section on Homepage
+- Unified ID-Based Tracking System (VND-0001, RSL-0001, etc.)
+- Admin Master Search with Quick Actions (Suspend, Activate, Add Credits, Feature Vendor)
+- WhatsApp OTP Login with needs_registration handling
+- **Comprehensive Vendor KYC System**: MSME/Udyam Certificate, PAN Card, Aadhaar (front/back), GST Certificate (optional), Bank Proof (optional), Bank Details. Per-document admin review (approve/reject with reasons). Feature-blocking banner for unverified vendors. Cloud-based document storage.
 
 ## Deployment Fixes
 - FOMO polling storm: Fixed 300ms -> 5min intervals
