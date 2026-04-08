@@ -444,28 +444,39 @@ async def featured_sellers_with_products(products_per_vendor: int = Query(4, ge=
     """Public: Get featured vendors with their top products for homepage display."""
     now = datetime.now(timezone.utc).isoformat()
 
-    # 1. Active featured vendors
+    # Collect vendor_ids from all sources, prioritised
+    vendor_ids = []
+    seen = set()
+
+    # 1. Active featured vendors (top priority)
     featured = await db.featured_vendors.find(
         {"is_active": True, "expires_at": {"$gt": now}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(10)
-    vendor_ids = [f["vendor_id"] for f in featured]
+    for f in featured:
+        if f["vendor_id"] not in seen:
+            vendor_ids.append(f["vendor_id"])
+            seen.add(f["vendor_id"])
 
-    # 2. Fallback: top vendors by total_spent
-    if not vendor_ids:
-        top_wallets = await db.vendor_wallets.find(
-            {"is_paid": True, "total_spent": {"$gt": 0}},
-            {"_id": 0, "vendor_id": 1}
-        ).sort("total_spent", -1).limit(6).to_list(6)
-        vendor_ids = [w["vendor_id"] for w in top_wallets]
+    # 2. Top vendors by total_spent
+    top_wallets = await db.vendor_wallets.find(
+        {"is_paid": True, "total_spent": {"$gt": 0}},
+        {"_id": 0, "vendor_id": 1}
+    ).sort("total_spent", -1).limit(6).to_list(6)
+    for w in top_wallets:
+        if w["vendor_id"] not in seen:
+            vendor_ids.append(w["vendor_id"])
+            seen.add(w["vendor_id"])
 
-    # 3. Fallback: any active vendors
-    if not vendor_ids:
-        active_vendors = await db.vendors.find(
-            {"status": "approved"},
-            {"_id": 0, "vendor_id": 1}
-        ).limit(8).to_list(8)
-        vendor_ids = [v["vendor_id"] for v in active_vendors]
+    # 3. Any approved vendors
+    active_vendors = await db.vendors.find(
+        {"status": "approved"},
+        {"_id": 0, "vendor_id": 1}
+    ).limit(8).to_list(8)
+    for v in active_vendors:
+        if v["vendor_id"] not in seen:
+            vendor_ids.append(v["vendor_id"])
+            seen.add(v["vendor_id"])
 
     if not vendor_ids:
         return {"sellers": []}
