@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/context/CartContext";
 import { Zap, Gift, Sparkles, ChevronRight, X, Plus, Minus, Star, ShoppingBag, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { API, useAuth } from "@/App";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
@@ -251,6 +251,7 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
 // ============== MAIN STICKY BOOSTER BAR ==============
 export const BoosterBar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cartTotal, cartCount, openCart } = useCart();
   const [showUpsell, setShowUpsell] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -397,8 +398,8 @@ export const BoosterBar = () => {
       {/* Spacer */}
       <div className="hidden lg:block h-[48px] bg-black" />
 
-      {/* Mobile Bar — sticky below header */}
-      <div className="lg:hidden fixed top-16 left-0 right-0 z-[55]" data-testid="booster-bar-mobile">
+      {/* Mobile Bar — sticky below header (or at top on reels page) */}
+      <div className={`lg:hidden fixed left-0 right-0 z-[55] ${location.pathname === "/reels" ? "top-0" : "top-16"}`} data-testid="booster-bar-mobile">
         <motion.div
           initial={{ y: -50 }}
           animate={{ y: 0 }}

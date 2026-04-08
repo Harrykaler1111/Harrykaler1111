@@ -383,6 +383,28 @@ async def vendor_reel_strip(vendor_id: str):
     return {"products": products, "is_paid": is_paid, "limit": max_products}
 
 
+@router.get("/group-products")
+async def group_products(group_key: str = Query(...), group_value: str = Query(...)):
+    """Public: Get products grouped by vendor_id or category for horizontal swipe."""
+    if group_key == "vendor_id" and group_value:
+        pricing = await get_pricing()
+        free_limit = pricing["free_vendor_reel_limit"]
+        wallet = await db.vendor_wallets.find_one({"vendor_id": group_value}, {"_id": 0})
+        is_paid = wallet.get("is_paid", False) if wallet else False
+        max_products = 200 if is_paid else free_limit
+        query = {"vendor_id": group_value, "is_active": True, "images.0": {"$exists": True}}
+        products = await db.products.find(query, {"_id": 0}).limit(max_products).to_list(max_products)
+        return {"products": products, "is_paid": is_paid, "group_label": group_value}
+    elif group_key == "category" and group_value:
+        products = await db.products.find(
+            {"category": group_value, "is_active": True, "images.0": {"$exists": True}},
+            {"_id": 0}
+        ).limit(20).to_list(20)
+        return {"products": products, "is_paid": True, "group_label": group_value}
+    else:
+        return {"products": [], "is_paid": False, "group_label": ""}
+
+
 # ─── Public: Featured Vendors ───
 
 @router.get("/featured-vendors")

@@ -7,7 +7,7 @@ import requests
 import os
 from datetime import datetime
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://inventory-vault-9.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://swipe-vendor-feed.preview.emergentagent.com')
 
 # Test credentials
 CUSTOMER_EMAIL = "harpreetkaler750@gmail.com"

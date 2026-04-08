@@ -8,25 +8,27 @@ import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
-/* ─── Vendor Strip (swipe-left overlay) ─── */
-const VendorStrip = ({ vendorId, onClose, currentProductId }) => {
-  const navigate = useNavigate();
+/* ─── Vendor Side Panel (Kuaishou-style right side thumbnails) ─── */
+const VendorSidePanel = ({ groupKey, groupValue, currentProductId, onClose, onSelectProduct }) => {
   const { addToCart } = useCart();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isPaid, setIsPaid] = useState(false);
+  const [groupLabel, setGroupLabel] = useState("");
 
   useEffect(() => {
-    if (!vendorId) return;
+    if (!groupValue) return;
     (async () => {
       try {
-        const { data } = await axios.get(`${API}/vendor-credits/vendor-reel-strip/${vendorId}`);
-        setProducts((data.products || []).filter(p => p.product_id !== currentProductId));
+        const { data } = await axios.get(`${API}/vendor-credits/group-products?group_key=${groupKey}&group_value=${encodeURIComponent(groupValue)}`);
+        const all = data.products || [];
+        setProducts(all);
         setIsPaid(data.is_paid);
+        setGroupLabel(data.group_label || groupValue);
       } catch {}
       setLoading(false);
     })();
-  }, [vendorId, currentProductId]);
+  }, [groupKey, groupValue]);
 
   const handleAdd = async (e, p) => {
     e.stopPropagation();
@@ -39,39 +41,78 @@ const VendorStrip = ({ vendorId, onClose, currentProductId }) => {
       initial={{ x: "100%" }}
       animate={{ x: 0 }}
       exit={{ x: "100%" }}
-      transition={{ type: "spring", damping: 28, stiffness: 300 }}
-      className="fixed inset-0 z-[60] bg-black/95 flex flex-col"
-      data-testid="vendor-strip"
+      transition={{ type: "spring", damping: 30, stiffness: 350 }}
+      className="absolute top-0 right-0 bottom-0 w-[38%] max-w-[180px] bg-black/90 backdrop-blur-md z-[15] flex flex-col border-l border-white/10"
+      data-testid="vendor-side-panel"
     >
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <div className="flex items-center gap-2">
-          <Store className="h-4 w-4 text-gold" />
-          <span className="text-white text-sm font-semibold">More from this seller</span>
-          {!isPaid && <span className="text-[9px] text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded">Free tier</span>}
+      {/* Header */}
+      <div className="flex items-center justify-between px-2 pt-3 pb-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Store className="h-3 w-3 text-white" />
+          </div>
+          <span className="text-white text-[10px] font-medium truncate">{groupLabel || "Seller"}</span>
         </div>
-        <button onClick={onClose} className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center" data-testid="vendor-strip-close">
-          <X className="h-4 w-4 text-white" />
+        <button onClick={onClose} className="w-5 h-5 flex items-center justify-center" data-testid="vendor-panel-close">
+          <X className="h-3.5 w-3.5 text-white/60" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-4">
+
+      {/* Product count */}
+      <div className="px-2 pb-2">
+        <span className="text-[9px] text-white/40">{products.length} products{!isPaid && " (Free tier)"}</span>
+      </div>
+
+      {/* Thumbnail grid */}
+      <div className="flex-1 overflow-y-auto px-1.5 pb-3 scrollbar-hide">
         {loading ? (
-          <div className="flex items-center justify-center h-40"><div className="animate-spin rounded-full h-6 w-6 border-2 border-white/20 border-t-white" /></div>
+          <div className="flex items-center justify-center h-20">
+            <div className="animate-spin rounded-full h-4 w-4 border border-white/20 border-t-white" />
+          </div>
         ) : products.length === 0 ? (
-          <p className="text-neutral-400 text-sm text-center mt-10">No other products from this seller</p>
+          <p className="text-white/30 text-[10px] text-center mt-6">No products</p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {products.map(p => (
-              <div key={p.product_id} onClick={() => { onClose(); navigate(`/product/${p.product_id}`); }} className="cursor-pointer" data-testid={`vendor-strip-product-${p.product_id}`}>
-                <div className="aspect-[4/5] rounded-lg overflow-hidden bg-neutral-800 relative">
-                  <img src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE} alt={p.name} className="w-full h-full object-cover" loading="lazy" onError={handleImageError} />
-                  <button onClick={(e) => handleAdd(e, p)} className="absolute bottom-2 right-2 w-7 h-7 bg-white rounded-full flex items-center justify-center shadow-md" data-testid={`vendor-strip-add-${p.product_id}`}>
-                    <Plus className="h-3.5 w-3.5 text-neutral-900" />
-                  </button>
+          <div className="flex flex-col gap-2">
+            {products.map(p => {
+              const isCurrent = p.product_id === currentProductId;
+              return (
+                <div
+                  key={p.product_id}
+                  onClick={() => onSelectProduct(p)}
+                  className={`relative rounded-lg overflow-hidden cursor-pointer ${isCurrent ? "ring-2 ring-gold" : ""}`}
+                  data-testid={`vendor-thumb-${p.product_id}`}
+                >
+                  <div className="aspect-[3/4]">
+                    <img
+                      src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE}
+                      alt={p.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={handleImageError}
+                    />
+                  </div>
+                  {/* Overlay info */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                    <p className="text-white text-[8px] line-clamp-1 leading-tight">{p.name}</p>
+                    <p className="text-white text-[9px] font-bold">Rs.{p.price?.toLocaleString()}</p>
+                  </div>
+                  {/* Quick add */}
+                  {!isCurrent && (
+                    <button
+                      onClick={(e) => handleAdd(e, p)}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 rounded-full flex items-center justify-center"
+                    >
+                      <Plus className="h-3 w-3 text-black" />
+                    </button>
+                  )}
+                  {isCurrent && (
+                    <div className="absolute top-1.5 left-1.5 text-[7px] bg-gold/90 text-black font-bold px-1 py-[1px] rounded">
+                      Now
+                    </div>
+                  )}
                 </div>
-                <p className="text-white text-[11px] mt-1.5 line-clamp-1">{p.name}</p>
-                <p className="text-white text-xs font-semibold">Rs.{p.price?.toLocaleString()}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -80,7 +121,7 @@ const VendorStrip = ({ vendorId, onClose, currentProductId }) => {
 };
 
 /* ─── Single Reel Card ─── */
-const ReelCard = ({ product, isActive, onSwipeLeft }) => {
+const ReelCard = ({ product, isActive, onSwipeLeft, showPanel }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart } = useCart();
@@ -94,6 +135,12 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
   const videoRef = useRef(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
+  const touchStartTime = useRef(0);
+
+  // Determine the group identifier (vendor_id if available, otherwise category)
+  const groupKey = product.vendor_id ? "vendor_id" : "category";
+  const groupValue = product.vendor_id || product.category;
+  const sellerLabel = product.vendor_name || product.brand || product.category || "Pigma";
 
   const images = (product.images || []).filter(Boolean);
   const hasVideo = !!product.video_url;
@@ -109,11 +156,8 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
   // Auto-play / pause video
   useEffect(() => {
     if (!videoRef.current) return;
-    if (isActive && imgIdx === 0 && hasVideo) {
-      videoRef.current.play().catch(() => {});
-    } else {
-      videoRef.current.pause();
-    }
+    if (isActive && imgIdx === 0 && hasVideo) videoRef.current.play().catch(() => {});
+    else videoRef.current.pause();
   }, [isActive, imgIdx, hasVideo]);
 
   const nextSlide = useCallback((e) => {
@@ -129,15 +173,20 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
   const onTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
   };
   const onTouchEnd = (e) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-      if (dx < 0) {
-        // Swipe LEFT → vendor strip
-        if (product.vendor_id) onSwipeLeft(product.vendor_id);
-      } else {
+    const dt = Date.now() - touchStartTime.current;
+    // Only handle horizontal swipes (not vertical scroll)
+    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 50 && dt < 500) {
+      if (dx < 0 && groupValue) {
+        // Swipe LEFT → open vendor panel
+        onSwipeLeft(groupKey, groupValue);
+      }
+      // Swipe RIGHT on images (if panel not open)
+      if (dx > 0 && !showPanel) {
         prevSlide();
       }
     }
@@ -183,7 +232,7 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
       return (
         <div className="relative w-full h-full bg-black">
           <video ref={videoRef} src={product.video_url} className="w-full h-full object-cover" loop muted={muted} playsInline />
-          <button onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }} className="absolute top-4 right-4 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white" data-testid="reel-mute-toggle">
+          <button onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }} className="absolute top-14 right-4 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white" data-testid="reel-mute-toggle">
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
         </div>
@@ -194,38 +243,51 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
   };
 
   return (
-    <div className="relative w-full h-full snap-start snap-always flex-shrink-0 bg-black" data-testid={`reel-card-${product.product_id}`}>
+    <div className="relative w-full h-full snap-start snap-always flex-shrink-0 bg-black overflow-hidden" data-testid={`reel-card-${product.product_id}`}>
+      {/* Main content area */}
       <div className="absolute inset-0" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onClick={goToProduct}>
         {renderSlide()}
-        <div className="absolute bottom-0 left-0 right-0 h-56 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-60 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       </div>
 
       {/* Boost badge */}
       {product.is_boosted && (
-        <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-amber-500/90 backdrop-blur-sm text-white text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" data-testid="boosted-badge">
+        <div className="absolute top-12 left-3 z-10 flex items-center gap-1 bg-amber-500/90 backdrop-blur-sm text-white text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" data-testid="boosted-badge">
           <Zap className="h-2.5 w-2.5" /> Promoted
         </div>
       )}
 
-      {/* Carousel dots */}
+      {/* Image carousel dots */}
       {totalSlides > 1 && (
-        <div className="absolute top-3 left-0 right-0 flex justify-center gap-1 z-10">
+        <div className="absolute top-12 left-0 right-0 flex justify-center gap-1 z-10">
           {Array.from({ length: totalSlides }).map((_, i) => (
             <div key={i} className={`h-[3px] rounded-full transition-all duration-300 ${i === imgIdx ? "w-5 bg-white" : "w-2 bg-white/40"}`} />
           ))}
         </div>
       )}
 
-      {/* Carousel arrows (desktop) */}
+      {/* Desktop carousel arrows */}
       {totalSlides > 1 && (
         <>
-          <button onClick={prevSlide} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full items-center justify-center text-white/80 hover:text-white hidden md:flex z-10"><ChevronLeft className="h-4 w-4" /></button>
-          <button onClick={nextSlide} className="absolute right-14 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full items-center justify-center text-white/80 hover:text-white hidden md:flex z-10"><ChevronRight className="h-4 w-4" /></button>
+          <button onClick={prevSlide} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full items-center justify-center text-white/80 hidden md:flex z-10"><ChevronLeft className="h-4 w-4" /></button>
+          <button onClick={nextSlide} className="absolute right-14 top-1/2 -translate-y-1/2 w-8 h-8 bg-black/30 backdrop-blur-sm rounded-full items-center justify-center text-white/80 hidden md:flex z-10"><ChevronRight className="h-4 w-4" /></button>
         </>
       )}
 
-      {/* Right side actions */}
-      <div className="absolute right-3 bottom-36 flex flex-col items-center gap-5 z-10">
+      {/* Right side action buttons */}
+      <div className={`absolute bottom-32 flex flex-col items-center gap-5 z-10 transition-all duration-200 ${showPanel ? "right-[40%]" : "right-3"}`}>
+        {/* Vendor avatar + seller button */}
+        {groupValue && (
+          <button onClick={(e) => { e.stopPropagation(); onSwipeLeft(groupKey, groupValue); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-vendor-${product.product_id}`}>
+            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
+              <Store className="h-5 w-5 text-white" />
+            </div>
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+              <Plus className="h-2.5 w-2.5 text-white" />
+            </div>
+          </button>
+        )}
+
         <button onClick={handleLike} className="flex flex-col items-center gap-0.5" data-testid={`reel-like-${product.product_id}`}>
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${liked ? "bg-red-500" : "bg-white/15 backdrop-blur-sm"}`}>
             <Heart className={`h-5 w-5 ${liked ? "fill-white text-white" : "text-white"}`} />
@@ -246,20 +308,16 @@ const ReelCard = ({ product, isActive, onSwipeLeft }) => {
           </div>
           <span className="text-[9px] text-white/70">Share</span>
         </button>
-
-        {/* Vendor strip hint */}
-        {product.vendor_id && (
-          <button onClick={(e) => { e.stopPropagation(); onSwipeLeft(product.vendor_id); }} className="flex flex-col items-center gap-0.5" data-testid={`reel-vendor-${product.product_id}`}>
-            <div className="w-10 h-10 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center">
-              <Store className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-[9px] text-white/70">Seller</span>
-          </button>
-        )}
       </div>
 
-      {/* Bottom info */}
-      <div className="absolute bottom-6 left-4 right-16 z-10" onClick={goToProduct}>
+      {/* Bottom info — vendor name + product */}
+      <div className={`absolute bottom-5 left-4 z-10 transition-all duration-200 ${showPanel ? "right-[42%]" : "right-16"}`} onClick={goToProduct}>
+        {/* Vendor name */}
+        {sellerLabel && (
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-white text-[11px] font-semibold">@{sellerLabel}</span>
+          </div>
+        )}
         <h3 className="text-white text-base font-medium leading-tight line-clamp-2 mb-1">{product.name}</h3>
         <div className="flex items-baseline gap-2">
           <span className="text-white text-lg font-bold">Rs.{product.price?.toLocaleString()}</span>
@@ -280,7 +338,7 @@ export default function ReelsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [vendorStripId, setVendorStripId] = useState(null);
+  const [vendorPanelGroup, setVendorPanelGroup] = useState(null); // { key, value }
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -289,7 +347,6 @@ export default function ReelsPage() {
         const { data } = await axios.get(`${API}/vendor-credits/reels-feed?limit=50`);
         setProducts(data.products || []);
       } catch {
-        // Fallback to regular products
         try {
           const { data } = await axios.get(`${API}/products?limit=50`);
           setProducts((data.products || data || []).filter(p => p.images?.length > 0));
@@ -310,6 +367,19 @@ export default function ReelsPage() {
     return () => observer.disconnect();
   }, [products]);
 
+  // Close vendor panel when scrolling to a different reel
+  useEffect(() => { setVendorPanelGroup(null); }, [activeIdx]);
+
+  const handleSwipeLeft = useCallback((groupKey, groupValue) => {
+    setVendorPanelGroup(prev =>
+      prev && prev.key === groupKey && prev.value === groupValue ? null : { key: groupKey, value: groupValue }
+    );
+  }, []);
+
+  const handleSelectFromPanel = useCallback((product) => {
+    navigate(`/product/${product.product_id}`);
+  }, [navigate]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
@@ -329,39 +399,52 @@ export default function ReelsPage() {
 
   return (
     <div className="fixed inset-0 bg-black z-50" data-testid="reels-page">
-      <button onClick={() => navigate(-1)} className="absolute top-4 left-4 z-20 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50" data-testid="reels-back-btn">
+      {/* Back button */}
+      <button onClick={() => navigate(-1)} className="absolute top-3 left-3 z-20 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50" data-testid="reels-back-btn">
         <ArrowLeft className="h-5 w-5" />
       </button>
-      <div className="absolute top-4 left-0 right-0 z-20 flex justify-center pointer-events-none">
+
+      {/* Title */}
+      <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
         <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase">Explore</span>
       </div>
 
+      {/* Vertical snap scroll container */}
       <div ref={containerRef} className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide" style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}>
-        {products.map((product, idx) => (
-          <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0" style={{ scrollSnapAlign: "start" }}>
-            <ReelCard product={product} isActive={idx === activeIdx} onSwipeLeft={(vid) => setVendorStripId(vid)} />
-          </div>
-        ))}
+        {products.map((product, idx) => {
+          const gKey = product.vendor_id ? "vendor_id" : "category";
+          const gVal = product.vendor_id || product.category;
+          const panelOpen = vendorPanelGroup && vendorPanelGroup.key === gKey && vendorPanelGroup.value === gVal && idx === activeIdx;
+          return (
+            <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
+              <ReelCard
+                product={product}
+                isActive={idx === activeIdx}
+                onSwipeLeft={handleSwipeLeft}
+                showPanel={panelOpen}
+              />
+              <AnimatePresence>
+                {panelOpen && (
+                  <VendorSidePanel
+                    groupKey={gKey}
+                    groupValue={gVal}
+                    currentProductId={product.product_id}
+                    onClose={() => setVendorPanelGroup(null)}
+                    onSelectProduct={handleSelectFromPanel}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Progress indicator */}
-      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-[2px]">
-        {products.slice(0, 20).map((_, i) => (
-          <div key={i} className={`w-[3px] rounded-full transition-all duration-200 ${i === activeIdx ? "h-4 bg-white" : "h-1.5 bg-white/25"}`} />
-        ))}
-      </div>
-
-      {/* Swipe-left hint */}
-      <div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none">
-        <span className="text-white/30 text-[9px] tracking-wider">Swipe left for more from seller</span>
-      </div>
-
-      {/* Vendor Strip Overlay */}
-      <AnimatePresence>
-        {vendorStripId && (
-          <VendorStrip vendorId={vendorStripId} onClose={() => setVendorStripId(null)} currentProductId={products[activeIdx]?.product_id} />
-        )}
-      </AnimatePresence>
+      {/* Swipe hint */}
+      {!vendorPanelGroup && (
+        <div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none">
+          <span className="text-white/25 text-[9px] tracking-wider">Swipe left for more from seller</span>
+        </div>
+      )}
     </div>
   );
 }
