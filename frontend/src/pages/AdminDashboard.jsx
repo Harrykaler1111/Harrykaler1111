@@ -955,9 +955,9 @@ const AdminUsersManagement = () => {
 
       {/* ===== EDIT USER MODAL ===== */}
       {editingUser && (
-        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4" onClick={() => setEditingUser(null)}>
           <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()} data-testid="edit-user-modal">
+            className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 w-full max-w-md overflow-visible" onClick={e => e.stopPropagation()} data-testid="edit-user-modal">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Edit2 className="h-5 w-5 text-gold" /> Edit User
             </h3>
@@ -978,7 +978,7 @@ const AdminUsersManagement = () => {
                   <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white" data-testid="edit-role">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" className="z-[200] bg-neutral-800 border-neutral-700" sideOffset={4}>
                     <SelectItem value="super_admin">Super Admin</SelectItem>
                     <SelectItem value="product_manager">Product Manager</SelectItem>
                     <SelectItem value="marketing_manager">Marketing Manager</SelectItem>
