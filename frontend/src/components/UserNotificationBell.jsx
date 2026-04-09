@@ -41,8 +41,8 @@ export const UserNotificationBell = () => {
       const res = await axios.get(`${API}/notifications/user/list?limit=20`, { headers });
       setNotifications(res.data.notifications || []);
       setUnreadCount(res.data.unread_count || 0);
-    } catch {
-      // Silently fail
+    } catch (err) {
+      console.error("Failed to fetch user notifications:", err);
     } finally {
       setLoading(false);
     }
@@ -74,13 +74,17 @@ export const UserNotificationBell = () => {
   }, []);
 
   const handleClick = async (notif) => {
-    // Mark as read
+    // Optimistic mark as read
     if (!notif.is_read) {
+      setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
       try {
         await axios.put(`${API}/notifications/user/read/${notif.notification_id}`, {}, { headers });
-        setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch {}
+      } catch {
+        // Rollback on failure
+        setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: false } : n));
+        setUnreadCount(prev => prev + 1);
+      }
     }
     setOpen(false);
 
@@ -95,11 +99,18 @@ export const UserNotificationBell = () => {
   };
 
   const markAllRead = async () => {
+    const prevNotifications = notifications;
+    const prevCount = unreadCount;
+    // Optimistic update
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
     try {
       await axios.put(`${API}/notifications/user/read-all`, {}, { headers });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
-    } catch {}
+    } catch {
+      // Rollback
+      setNotifications(prevNotifications);
+      setUnreadCount(prevCount);
+    }
   };
 
   // Don't render for guests

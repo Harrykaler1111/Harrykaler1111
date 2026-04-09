@@ -96,7 +96,7 @@ export const NotificationBell = ({ role, token }) => {
   const navigate = useNavigate();
   const prefix = role === "admin" ? "admin" : "vendor";
 
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   // Check if we should show permission prompt
   useEffect(() => {
@@ -155,13 +155,16 @@ export const NotificationBell = ({ role, token }) => {
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
+    if (!token) return;
     try {
       const { data } = await axios.get(`${API}/notifications/${prefix}/list?limit=20`, { headers });
       setNotifications(data.notifications || []);
       setUnreadCount(data.unread_count || 0);
       // Track seen IDs
       (data.notifications || []).forEach(n => seenIds.current.add(n.notification_id));
-    } catch {}
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
   }, [prefix, token]);
 
   // Initial fetch
@@ -171,6 +174,7 @@ export const NotificationBell = ({ role, token }) => {
 
   // Poll unread count every 30s as fallback
   useEffect(() => {
+    if (!token) return;
     const interval = setInterval(async () => {
       try {
         const { data } = await axios.get(`${API}/notifications/${prefix}/unread-count`, { headers });
@@ -268,13 +272,18 @@ export const NotificationBell = ({ role, token }) => {
 
   // Handle redirect on notification click
   const handleRedirect = async (notif) => {
-    // Mark as read
+    // Optimistic update for is_read
     if (!notif.is_read) {
+      setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
       try {
         await axios.put(`${API}/notifications/${prefix}/read/${notif.notification_id}`, {}, { headers });
-        setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      } catch {}
+      } catch (err) {
+        // Rollback on failure
+        setNotifications(prev => prev.map(n => n.notification_id === notif.notification_id ? { ...n, is_read: false } : n));
+        setUnreadCount(prev => prev + 1);
+        toast.error("Failed to mark notification as read");
+      }
     }
 
     setOpen(false);
