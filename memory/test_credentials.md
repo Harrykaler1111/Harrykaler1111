@@ -1,20 +1,21 @@
 # Test Credentials
 
-## Admin Login (/admin-login)
-- Super Admin: superadmin@pigma.com / superadmin123
-- Marketing Manager: marketing@pigma.com / marketing123
-- Finance Manager: finance@pigma.com / finance123
-- Support Manager: support@pigma.com / support123
-- Product Manager: products@pigma.com / products123
-- Sales Manager: sales@pigma.com / sales123
+## Customer / Regular User
+- Email: admin@pigma.com
+- Password: admin123
 
-## Customer Login (Auth Page /auth)
-- Customer/Reseller: admin@pigma.com / admin123
+## Super Admin
+- Email: superadmin@pigma.com
+- Password: superadmin123
 
-## Vendor Login (/vendor-login)
-- Vendor (KYC Approved): testvendor@example.com / vendor123
-- Vendor (KYC Not Submitted): vendortest3@example.com / vendor123
+## Demo Admins
+- Marketing: marketing@pigma.com / marketing123
+- Finance: finance@pigma.com / finance123
+- Support: support@pigma.com / support123
+- Products: products@pigma.com / products123
 
-## WhatsApp/Interakt
-- Test Phone: +919625992057
-- Interakt API Key: configured in backend/.env (INTERAKT_API_KEY)
+## Razorpay (TEST Mode)
+- Key ID: rzp_test_SbSgcuBWZ4jQjQ
+- Key Secret: L395NE4CaQXoyHfaojg0TEWq
+- Webhook Secret: pigma_razorpay_webhook_2024
+- Test Card: 4111 1111 1111 1111 (any future expiry, any CVV)

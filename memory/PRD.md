@@ -7,7 +7,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Frontend: React, Tailwind CSS, framer-motion, Shadcn UI, react-easy-crop
 - Backend: FastAPI, Python, WebSockets
 - Database: MongoDB
-- Integrations: Interakt (WhatsApp API), Razorpay (Mocked), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR)
+- Integrations: Interakt (WhatsApp API), Razorpay (REAL - Test Mode), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR)
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
@@ -31,10 +31,10 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Real-Time Notification System: WebSocket + NTF-XXXX IDs + sound + mute toggle
 - Browser Push Notifications (Notification API, fires when tab unfocused)
 - Notification Preferences: Per-user toggles for event types + sound per priority
-- **Quiet Hours**: User-configurable time range (e.g. 10PM-8AM) to suppress real-time push. Notifications still saved to DB. Cross-midnight ranges supported. Visual indicator on bell when active. Off by default.
+- Quiet Hours: User-configurable time range to suppress real-time push
+- **Razorpay Payment Gateway (REAL - Test Mode)**: Full checkout popup integration with signature verification, webhook support (payment.captured/payment.failed), order confirmation flow, and vendor credit purchases via Razorpay
 
 ## Mocked Services
-- Razorpay (Payments/Vendor Credit purchases)
 - Instagram Auto-DMs
 
 ## P1 Upcoming Tasks
@@ -43,7 +43,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
-- Real Razorpay integration for Vendor Credit purchases
+- Switch Razorpay from TEST keys to LIVE keys for production
 - Vendor Email Digest Notifications
 - A/B testing for hero videos
 - AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
