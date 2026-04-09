@@ -343,18 +343,82 @@ export const CheckoutPage = () => {
 
       const orderId = res.data.order_id;
 
-      // For prepaid or COD advance: simulate payment
+      // For prepaid or COD advance: open Razorpay checkout
       if (isPrepaid || codAdvanceRequired) {
-        await axios.post(
-          `${API}/orders/${orderId}/payment/verify?razorpay_payment_id=demo_${Date.now()}&razorpay_signature=demo_sig`,
-          {},
+        const payAmount = codAdvanceRequired ? codAdvanceAmount : total;
+        const amountInPaise = Math.round(payAmount * 100);
+
+        // Create Razorpay order
+        const rpRes = await axios.post(
+          `${API}/payment/create-order`,
+          { order_id: orderId, amount: amountInPaise, currency: "INR" },
           { headers: { Authorization: `Bearer ${token}` } }
         );
+
+        const { razorpay_order_id, razorpay_key_id } = rpRes.data;
+
+        // Open Razorpay checkout popup
+        const options = {
+          key: razorpay_key_id,
+          amount: amountInPaise,
+          currency: "INR",
+          name: "Pigma",
+          description: codAdvanceRequired ? `COD Advance for Order ${orderId}` : `Payment for Order ${orderId}`,
+          order_id: razorpay_order_id,
+          prefill: {
+            name: form.fullName,
+            email: form.email,
+            contact: form.phone,
+          },
+          theme: { color: "#C9A050" },
+          handler: async function (response) {
+            // Verify payment on backend
+            try {
+              await axios.post(
+                `${API}/payment/verify`,
+                {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  order_id: orderId,
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              fetchCart();
+              toast.success("Payment successful! Order confirmed.");
+              navigate(`/order-success?id=${orderId}&method=${paymentMethod}${codAdvanceRequired ? "&advance=" + codAdvanceAmount : ""}`);
+            } catch (verifyErr) {
+              toast.error(verifyErr.response?.data?.detail || "Payment verification failed. Contact support.");
+              navigate(`/order-success?id=${orderId}&method=${paymentMethod}&status=pending`);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              toast.error("Payment cancelled. Your order is saved — you can retry from My Orders.");
+              setPlacing(false);
+            },
+          },
+        };
+
+        if (!window.Razorpay) {
+          toast.error("Payment gateway not loaded. Please refresh and try again.");
+          setPlacing(false);
+          return;
+        }
+
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", function (response) {
+          toast.error(response.error?.description || "Payment failed. Please try again.");
+          setPlacing(false);
+        });
+        rzp.open();
+        return; // Don't setPlacing(false) here - Razorpay popup is open
       }
 
+      // COD without advance: no payment needed
       fetchCart();
       toast.success("Order placed successfully!");
-      navigate(`/order-success?id=${orderId}&method=${paymentMethod}${codAdvanceRequired ? "&advance=" + codAdvanceAmount : ""}`);
+      navigate(`/order-success?id=${orderId}&method=${paymentMethod}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to place order");
     } finally {

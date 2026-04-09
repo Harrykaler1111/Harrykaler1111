@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Check, Package, Home, Banknote, CreditCard, Truck, Shield } from "lucide-react";
+import { Check, Package, Home, Banknote, CreditCard, Truck, Shield, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth, API } from "@/App";
 import axios from "axios";
@@ -25,6 +25,7 @@ export const OrderSuccessPage = () => {
   }, [orderId, token]);
 
   const isCod = paymentMethod === "cod";
+  const paymentPending = searchParams.get("status") === "pending";
 
   return (
     <div className="min-h-screen pt-24 pb-16 bg-black flex items-start justify-center" data-testid="order-success-page">
@@ -40,18 +41,25 @@ export const OrderSuccessPage = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg shadow-green-500/30"
+            className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg ${
+              paymentPending ? "bg-amber-500 shadow-amber-500/30" : "bg-green-500 shadow-green-500/30"
+            }`}
           >
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-              <Check className="h-10 w-10 text-white" strokeWidth={3} />
+              {paymentPending
+                ? <AlertTriangle className="h-10 w-10 text-white" strokeWidth={3} />
+                : <Check className="h-10 w-10 text-white" strokeWidth={3} />
+              }
             </motion.div>
           </motion.div>
 
           <h1 className="font-serif text-2xl md:text-3xl font-bold text-white mb-2" data-testid="success-heading">
-            Order Placed Successfully!
+            {paymentPending ? "Order Created — Payment Pending" : "Order Placed Successfully!"}
           </h1>
           <p className="text-neutral-400 text-sm">
-            {isCod ? "Your COD order has been confirmed." : "Payment received. Thank you for your purchase."}
+            {paymentPending
+              ? "Your order is saved. Payment verification is pending — we'll update you shortly."
+              : isCod ? "Your COD order has been confirmed." : "Payment received. Thank you for your purchase."}
           </p>
         </div>
 

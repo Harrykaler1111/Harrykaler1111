@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
-import uuid
 import logging
 
 from config import db, DEFAULT_COMMISSION_RATE, PLATFORM_COMMISSION_RATE
@@ -258,7 +257,6 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
             risk_level = "high" if risk_level == "high" else "medium"
 
     order_id = generate_id("order_")
-    razorpay_order_id = f"order_{uuid.uuid4().hex[:16]}"
 
     # Determine initial status
     if payment_method == "cod":
@@ -292,7 +290,7 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
         "shipping_address": order.shipping_address,
         "payment_method": payment_method,
         "payment_status": payment_status,
-        "razorpay_order_id": razorpay_order_id,
+        "razorpay_order_id": None,
         "coupon_code": order.coupon_code,
         "affiliate_id": affiliate_id,
         "influencer_id": influencer_id,
@@ -422,6 +420,8 @@ async def get_order(order_id: str, user: Dict = Depends(get_current_user)):
 
 @router.post("/{order_id}/payment/verify")
 async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signature: str, user: Dict = Depends(get_current_user)):
+    """Legacy payment verify endpoint - redirects to payment_routes for real Razorpay verification.
+    Kept for COD advance payments and backward compatibility."""
     order = await db.orders.find_one({"order_id": order_id, "user_id": user["user_id"]}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -429,126 +429,15 @@ async def verify_payment(order_id: str, razorpay_payment_id: str, razorpay_signa
     if order.get("payment_status") == "paid":
         return {"message": "Already paid", "status": "paid"}
 
-    await db.orders.update_one(
-        {"order_id": order_id},
-        {"$set": {
-            "payment_status": "paid",
-            "razorpay_payment_id": razorpay_payment_id,
-            "status": "confirmed",
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
+    # For COD orders with advance, use the real Razorpay verification
+    # For backward compatibility, delegate to payment_routes._confirm_order_payment
+    from routes.payment_routes import _confirm_order_payment
 
-    total = order["total"]
-    actual_influencer_commission = 0.0
-    actual_platform_commission = 0.0
-    actual_vendor_amount = 0.0
-
-    # Step 1: Credit influencer commission
-    if order.get("influencer_id"):
-        influencer = await db.influencers.find_one({"influencer_id": order["influencer_id"]}, {"_id": 0})
-        if influencer:
-            commission_rate = influencer.get("commission_rate", DEFAULT_COMMISSION_RATE)
-            actual_influencer_commission = await credit_influencer_commission(
-                order["influencer_id"], order_id, total, commission_rate
-            )
-
-    # Step 2: Credit affiliate commission (separate from influencer)
-    if order.get("affiliate_id"):
-        affiliate = await db.affiliates.find_one({"affiliate_id": order["affiliate_id"]}, {"_id": 0})
-        if affiliate:
-            commission = total * (affiliate["commission_rate"] / 100)
-            await db.affiliates.update_one(
-                {"affiliate_id": order["affiliate_id"]},
-                {"$inc": {"total_earnings": commission, "total_conversions": 1}}
-            )
-
-    # Step 3: If vendor product, do the full commission split
-    if order.get("vendor_id"):
-        actual_platform_commission = total * (PLATFORM_COMMISSION_RATE / 100)
-        actual_vendor_amount = total - actual_platform_commission - actual_influencer_commission
-
-        # Credit vendor wallet
-        await credit_vendor_wallet(order["vendor_id"], order_id, actual_vendor_amount)
-
-        # Record platform commission
-        await record_platform_commission(order_id, actual_platform_commission, order["vendor_id"])
-
-        # Update vendor product stats
-        for item in order.get("items", []):
-            if item.get("vendor_id"):
-                await db.vendor_products.update_one(
-                    {"product_id": item["product_id"]},
-                    {"$inc": {"total_sold": item["quantity"], "total_revenue": item["item_total"]}}
-                )
-
-        # Update order with actual settlement amounts
-        await db.orders.update_one(
-            {"order_id": order_id},
-            {"$set": {
-                "platform_commission": round(actual_platform_commission, 2),
-                "influencer_commission": round(actual_influencer_commission, 2),
-                "vendor_amount": round(actual_vendor_amount, 2),
-                "settlement_status": "settled"
-            }}
-        )
-
-        logger.info(
-            f"Order {order_id} settled: Total={total}, "
-            f"Platform={actual_platform_commission}, "
-            f"Influencer={actual_influencer_commission}, "
-            f"Vendor={actual_vendor_amount}"
-        )
-
-    # Record in sales_tracking collection for analytics
-    await db.sales_tracking.insert_one({
-        "tracking_id": generate_id("track_"),
-        "order_id": order_id,
-        "total": total,
-        "vendor_id": order.get("vendor_id"),
-        "vendor_name": order.get("vendor_name"),
-        "influencer_id": order.get("influencer_id"),
-        "affiliate_id": order.get("affiliate_id"),
-        "referral_code": order.get("referral_code"),
-        "platform_commission": round(actual_platform_commission, 2),
-        "influencer_commission": round(actual_influencer_commission, 2),
-        "vendor_amount": round(actual_vendor_amount, 2),
-        "is_vendor_sale": bool(order.get("vendor_id")),
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-
-    # Update collaboration sales tracking if referral code matches a collab
-    if order.get("referral_code"):
-        await db.collaboration_requests.update_one(
-            {"referral_code": order["referral_code"], "status": "accepted"},
-            {"$inc": {"sales_count": 1, "sales_revenue": total, "commission_earned": actual_influencer_commission}}
-        )
-        await db.vendor_influencer_links.update_one(
-            {"referral_code": order["referral_code"]},
-            {"$inc": {"sales_count": 1, "sales_revenue": total, "commission_earned": actual_influencer_commission}}
-        )
-
-    # Log payment and confirmation events
-    await log_order_event(
-        order_id, "payment_verified", "Payment Confirmed",
-        f"Payment of ₹{total:,.0f} verified successfully",
-        actor_type="system"
-    )
-    await log_order_event(
-        order_id, "status_change", "Order Confirmed",
-        "Your order has been confirmed and is being prepared",
-        actor_type="system", meta={"old_status": "pending", "new_status": "confirmed"}
-    )
+    await _confirm_order_payment(order_id, razorpay_payment_id, order.get("razorpay_order_id", ""))
 
     return {
         "message": "Payment verified and commissions settled",
-        "status": "paid",
-        "settlement": {
-            "total": total,
-            "platform_commission": round(actual_platform_commission, 2),
-            "influencer_commission": round(actual_influencer_commission, 2),
-            "vendor_amount": round(actual_vendor_amount, 2)
-        }
+        "status": "paid"
     }
 
 
