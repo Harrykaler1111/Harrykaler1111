@@ -19,9 +19,9 @@
 - Key Secret: rUzDm6sYL9ezNqeQiYDxerFz
 - Webhook Secret: pigma_razorpay_webhook_2024
 
-## Resend (Email Service — Pending)
-- API Key: Not yet configured
-- Sender Email: onboarding@resend.dev (default — change after adding key)
+## Resend (Email Service — ACTIVE)
+- API Key: re_EWQHePQK_APfn1nFoR5LLryZBBn4n51wV
+- Sender Email: onboarding@resend.dev
 - Admin Email: paramjeetpigma@gmail.com
 
 ## Production Domain
