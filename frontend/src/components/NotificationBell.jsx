@@ -409,7 +409,10 @@ export const NotificationBell = ({ role, token }) => {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[600px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-[200] overflow-hidden" data-testid="notification-dropdown">
+        <>
+        {/* Mobile backdrop */}
+        <div className="fixed inset-0 bg-black/40 z-[199] sm:hidden" onClick={() => setOpen(false)} />
+        <div className="fixed inset-x-3 top-16 max-h-[80vh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] sm:max-h-[600px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-[200] overflow-hidden" data-testid="notification-dropdown">
           {/* Header */}
           <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 px-4 py-3 flex items-center justify-between z-10">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
@@ -592,6 +595,7 @@ export const NotificationBell = ({ role, token }) => {
             </button>
           </div>
         </div>
+        </>
       )}
     </div>
   );

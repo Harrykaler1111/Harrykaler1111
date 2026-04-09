@@ -157,12 +157,15 @@ export const UserNotificationBell = () => {
 
       <AnimatePresence>
         {open && (
+          <>
+          {/* Mobile backdrop */}
+          <div className="fixed inset-0 bg-black/40 z-[199] sm:hidden" onClick={() => setOpen(false)} />
           <motion.div
             initial={{ opacity: 0, y: -8, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/50 z-[200] overflow-hidden"
+            className="fixed inset-x-3 top-16 max-h-[80vh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96 sm:max-h-[auto] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl shadow-black/50 z-[200] overflow-hidden"
             data-testid="user-notification-dropdown"
           >
             {/* Header */}
@@ -270,6 +273,7 @@ export const UserNotificationBell = () => {
               </button>
             </div>
           </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
