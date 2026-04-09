@@ -155,7 +155,6 @@ def build_vendor_email(order: dict) -> str:
     vendor_amount = order.get("vendor_amount", 0)
     payment = order.get("payment_method", "prepaid").upper()
     pay_status = order.get("payment_status", "pending").upper()
-    referral = order.get("referral_code", "")
     sold_via = "Direct"
     if order.get("affiliate_id"):
         sold_via = f"Reseller: {order.get('affiliate_name', order.get('affiliate_id', 'N/A'))}"
@@ -269,39 +268,75 @@ async def _send_email(to: str, subject: str, html: str, order_id: str = "", reci
     return log_entry
 
 
+# ─── Email Preference Check ───
+
+EMAIL_PREF_DEFAULTS = {
+    "email_order": True, "email_return": True, "email_promotion": True,
+    "email_support": True, "email_kyc": True, "email_credit": True, "email_digest": False,
+}
+
+async def should_send_email(user_id: str, email_type: str) -> bool:
+    """Check if user has opted in for this email type.
+    email_type: order, return, promotion, support, kyc, credit, digest"""
+    pref_key = f"email_{email_type}"
+    doc = await db.notification_prefs.find_one({"user_id": user_id}, {"_id": 0, pref_key: 1})
+    if doc and pref_key in doc:
+        return bool(doc[pref_key])
+    return EMAIL_PREF_DEFAULTS.get(pref_key, True)
+
+
 # ─── Public API: Send order emails to all stakeholders ───
 
 async def send_order_emails(order: dict):
     """Send order notification emails to Admin, Vendor, and Reseller (if applicable).
-    Called as a fire-and-forget background task."""
+    Called as a fire-and-forget background task. Checks email preferences before sending."""
     order_id = order.get("order_id", "")
 
     try:
-        # 1. Admin email (from orders@)
-        admin_html = build_admin_email(order)
-        await _send_email(
-            to=ADMIN_EMAIL,
-            subject=f"New Order #{order_id[-6:]} — Rs.{order.get('total', 0):,.0f}",
-            html=admin_html,
-            order_id=order_id,
-            recipient_type="admin",
-            category="orders",
-        )
+        # 1. Admin email (from orders@) — check admin preferences
+        admin_id = order.get("admin_id", "")
+        if not admin_id:
+            admin_doc = await db.admin_users.find_one({}, {"_id": 0, "admin_id": 1})
+            admin_id = admin_doc["admin_id"] if admin_doc else ""
+
+        if await should_send_email(admin_id, "order"):
+            admin_html = build_admin_email(order)
+            await _send_email(
+                to=ADMIN_EMAIL,
+                subject=f"New Order #{order_id[-6:]} — Rs.{order.get('total', 0):,.0f}",
+                html=admin_html,
+                order_id=order_id,
+                recipient_type="admin",
+                category="orders",
+            )
+        else:
+            await db.email_logs.insert_one({
+                "log_id": generate_id("elog"), "order_id": order_id, "recipient_type": "admin",
+                "recipient_email": ADMIN_EMAIL, "status": "skipped", "reason": "email_preference_disabled",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
 
         # 2. Vendor email (from orders@)
         vendor_id = order.get("vendor_id")
         if vendor_id:
-            vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0, "email": 1, "business_name": 1})
-            if vendor and vendor.get("email"):
-                vendor_html = build_vendor_email(order)
-                await _send_email(
-                    to=vendor["email"],
-                    subject=f"New Sale! Order #{order_id[-6:]} — Rs.{order.get('total', 0):,.0f}",
-                    html=vendor_html,
-                    order_id=order_id,
-                    recipient_type="vendor",
-                    category="orders",
-                )
+            if await should_send_email(vendor_id, "order"):
+                vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0, "email": 1, "business_name": 1})
+                if vendor and vendor.get("email"):
+                    vendor_html = build_vendor_email(order)
+                    await _send_email(
+                        to=vendor["email"],
+                        subject=f"New Sale! Order #{order_id[-6:]} — Rs.{order.get('total', 0):,.0f}",
+                        html=vendor_html,
+                        order_id=order_id,
+                        recipient_type="vendor",
+                        category="orders",
+                    )
+            else:
+                await db.email_logs.insert_one({
+                    "log_id": generate_id("elog"), "order_id": order_id, "recipient_type": "vendor",
+                    "recipient_email": vendor_id, "status": "skipped", "reason": "email_preference_disabled",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
 
         # 3. Reseller email (from accounts@)
         affiliate_id = order.get("affiliate_id")

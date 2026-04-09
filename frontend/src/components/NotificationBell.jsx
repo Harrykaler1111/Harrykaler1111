@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink, BellPlus, Settings, ShoppingCart, Ticket, Megaphone, Coins, FileText, Cog } from "lucide-react";
+import { Bell, BellRing, Volume2, VolumeX, Check, CheckCheck, ExternalLink, BellPlus, Settings, ShoppingCart, Ticket, Megaphone, Coins, FileText, Cog, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
@@ -409,7 +409,7 @@ export const NotificationBell = ({ role, token }) => {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[500px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-[200] overflow-hidden" data-testid="notification-dropdown">
+        <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[600px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-[200] overflow-hidden" data-testid="notification-dropdown">
           {/* Header */}
           <div className="sticky top-0 bg-neutral-900 border-b border-neutral-700 px-4 py-3 flex items-center justify-between z-10">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
@@ -435,7 +435,7 @@ export const NotificationBell = ({ role, token }) => {
 
           {/* Preferences Panel */}
           {showPrefs && (
-            <div className="border-b border-neutral-700 px-4 py-3 bg-neutral-800/50" data-testid="notif-prefs-panel">
+            <div className="border-b border-neutral-700 px-4 py-3 bg-neutral-800/50 max-h-[350px] overflow-y-auto" data-testid="notif-prefs-panel">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold text-white">Notification Preferences</span>
                 <button onClick={() => setShowPrefs(false)} className="text-[10px] text-neutral-500 hover:text-white">Done</button>
@@ -514,6 +514,29 @@ export const NotificationBell = ({ role, token }) => {
                         data-testid="quiet-end" />
                     </div>
                   )}
+
+                  <p className="text-[9px] text-neutral-500 uppercase tracking-wider mt-3 mb-1">Email Notifications</p>
+                  {[
+                    { key: "email_order", label: "Order emails" },
+                    { key: "email_return", label: "Return & refund emails" },
+                    { key: "email_promotion", label: "Promotional emails" },
+                    { key: "email_support", label: "Support / ticket emails" },
+                    { key: "email_kyc", label: "KYC status emails" },
+                    { key: "email_credit", label: "Credit / wallet emails" },
+                    { key: "email_digest", label: "Weekly digest" },
+                  ].map(({ key, label }) => (
+                    <button key={key} onClick={() => togglePref(key)}
+                      className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/50 transition-colors"
+                      data-testid={`pref-toggle-${key}`}>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3 w-3 text-neutral-500" />
+                        <span className="text-xs text-neutral-300">{label}</span>
+                      </div>
+                      <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${prefs[key] ? "bg-gold justify-end" : "bg-neutral-600 justify-start"}`}>
+                        <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                      </div>
+                    </button>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-3"><div className="animate-spin rounded-full h-4 w-4 border-2 border-gold/30 border-t-gold mx-auto" /></div>

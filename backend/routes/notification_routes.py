@@ -24,6 +24,14 @@ DEFAULT_PREFS = {
     "quiet_hours_enabled": False,
     "quiet_hours_start": "22:00",
     "quiet_hours_end": "08:00",
+    # Email notification preferences
+    "email_order": True,
+    "email_return": True,
+    "email_promotion": True,
+    "email_support": True,
+    "email_kyc": True,
+    "email_credit": True,
+    "email_digest": False,
 }
 
 
@@ -39,6 +47,14 @@ class NotifPrefsUpdate(BaseModel):
     quiet_hours_enabled: Optional[bool] = None
     quiet_hours_start: Optional[str] = None
     quiet_hours_end: Optional[str] = None
+    # Email preferences
+    email_order: Optional[bool] = None
+    email_return: Optional[bool] = None
+    email_promotion: Optional[bool] = None
+    email_support: Optional[bool] = None
+    email_kyc: Optional[bool] = None
+    email_credit: Optional[bool] = None
+    email_digest: Optional[bool] = None
 
 
 # ---- Vendor endpoints ----
@@ -223,6 +239,27 @@ async def user_mark_all_read(user: Dict = Depends(get_current_user)):
         {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": f"Marked {result.modified_count} as read"}
+
+
+# ---- User Preferences ----
+
+@router.get("/user/preferences")
+async def user_get_prefs(user: Dict = Depends(get_current_user)):
+    return await _get_prefs(user["user_id"])
+
+
+@router.put("/user/preferences")
+async def user_update_prefs(body: NotifPrefsUpdate, user: Dict = Depends(get_current_user)):
+    updates = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No preferences to update")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.notification_prefs.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": updates, "$setOnInsert": {"user_id": user["user_id"]}},
+        upsert=True
+    )
+    return await _get_prefs(user["user_id"])
 
 
 

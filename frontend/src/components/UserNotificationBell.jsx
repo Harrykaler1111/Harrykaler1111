@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Package, Truck, Check, AlertCircle, MessageSquare, Tag, X } from "lucide-react";
+import { Bell, Package, Truck, Check, AlertCircle, MessageSquare, Tag, X, Settings, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { API, useAuth } from "@/App";
 import axios from "axios";
+import { toast } from "sonner";
 
 const TYPE_CONFIG = {
   order: { icon: Package, color: "text-blue-400", bg: "bg-blue-500/10" },
@@ -31,8 +32,31 @@ export const UserNotificationBell = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [showPrefs, setShowPrefs] = useState(false);
+  const [prefs, setPrefs] = useState(null);
 
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const openPrefs = async () => {
+    setShowPrefs(p => !p);
+    if (!prefs) {
+      try {
+        const { data } = await axios.get(`${API}/notifications/user/preferences`, { headers });
+        setPrefs(data);
+      } catch {}
+    }
+  };
+
+  const togglePref = async (key) => {
+    const newVal = !prefs[key];
+    setPrefs(p => ({ ...p, [key]: newVal }));
+    try {
+      await axios.put(`${API}/notifications/user/preferences`, { [key]: newVal }, { headers });
+    } catch {
+      setPrefs(p => ({ ...p, [key]: !newVal }));
+      toast.error("Failed to update preference");
+    }
+  };
 
   const fetchNotifications = useCallback(async () => {
     if (!token) return;
@@ -150,11 +174,49 @@ export const UserNotificationBell = () => {
                     Mark all read
                   </button>
                 )}
+                <button onClick={openPrefs} className={`p-1 rounded hover:bg-neutral-800 transition-colors ${showPrefs ? "bg-neutral-800" : ""}`} title="Preferences" data-testid="user-prefs-btn">
+                  <Settings className="h-3.5 w-3.5 text-neutral-400" />
+                </button>
                 <button onClick={() => setOpen(false)} className="text-neutral-500 hover:text-white">
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
+
+            {/* Email Preferences Panel */}
+            {showPrefs && (
+              <div className="border-b border-neutral-800 px-4 py-3 bg-neutral-800/40" data-testid="user-prefs-panel">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-white">Email Preferences</span>
+                  <button onClick={() => setShowPrefs(false)} className="text-[10px] text-neutral-500 hover:text-white">Done</button>
+                </div>
+                {prefs ? (
+                  <div className="space-y-1">
+                    {[
+                      { key: "email_order", label: "Order updates" },
+                      { key: "email_return", label: "Returns & refunds" },
+                      { key: "email_promotion", label: "Promotions & offers" },
+                      { key: "email_support", label: "Support replies" },
+                      { key: "email_digest", label: "Weekly digest" },
+                    ].map(({ key, label }) => (
+                      <button key={key} onClick={() => togglePref(key)}
+                        className="w-full flex items-center justify-between py-1.5 px-2 rounded hover:bg-neutral-700/50 transition-colors"
+                        data-testid={`user-pref-${key}`}>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-3 w-3 text-neutral-500" />
+                          <span className="text-xs text-neutral-300">{label}</span>
+                        </div>
+                        <div className={`w-7 h-4 rounded-full transition-colors flex items-center ${prefs[key] ? "bg-[#C9A050] justify-end" : "bg-neutral-600 justify-start"}`}>
+                          <div className="w-3 h-3 rounded-full bg-white mx-0.5 shadow-sm" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-2"><div className="animate-spin h-4 w-4 border-2 border-[#C9A050]/30 border-t-[#C9A050] rounded-full mx-auto" /></div>
+                )}
+              </div>
+            )}
 
             {/* Notification List */}
             <div className="max-h-[360px] overflow-y-auto">
