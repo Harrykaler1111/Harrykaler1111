@@ -7,7 +7,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Frontend: React, Tailwind CSS, framer-motion, Shadcn UI, react-easy-crop
 - Backend: FastAPI, Python, WebSockets
 - Database: MongoDB
-- Integrations: Interakt (WhatsApp API), Razorpay (REAL - Test Mode), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR)
+- Integrations: Interakt (WhatsApp API), Razorpay (LIVE), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR), Resend (email - pending API key)
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
@@ -32,18 +32,24 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Browser Push Notifications (Notification API, fires when tab unfocused)
 - Notification Preferences: Per-user toggles for event types + sound per priority
 - Quiet Hours: User-configurable time range to suppress real-time push
-- **Razorpay Payment Gateway (REAL - Test Mode)**: Full checkout popup integration with signature verification, webhook support (payment.captured/payment.failed), order confirmation flow, and vendor credit purchases via Razorpay
+- **Razorpay Payment Gateway (LIVE)**: Checkout popup, signature verification, webhook support, vendor credit purchases
+- **Order Email Notification System**: Branded HTML emails for Admin/Vendor/Reseller with retry mechanism, DB logging, email delivery tracking (Resend integration — pending API key)
+- **Enhanced Admin Orders Dashboard**: Advanced search (Order ID, Customer Name, Phone, User ID), time filters (Today/7D/30D), payment filters, click-to-call, email delivery status, commission breakdown, WebSocket + fallback polling
 
-## Mocked Services
+## Production Domain
+- https://thepigma.com (all API calls, Razorpay, webhooks route through this domain)
+
+## Mocked / Pending Configuration
+- Resend email service — System built and logging emails as "skipped" (need RESEND_API_KEY)
 - Instagram Auto-DMs
 
 ## P1 Upcoming Tasks
+- Configure Resend API key to activate email notifications
 - Track affiliate/reseller link clicks (referral URL metrics)
 - "Testing Mode" for Orders (dummy order flow triggering admin alerts)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
-- Switch Razorpay from TEST keys to LIVE keys for production
 - Vendor Email Digest Notifications
 - A/B testing for hero videos
 - AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
