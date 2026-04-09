@@ -23,10 +23,11 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Real-Time WebSocket Notification System (Admin + Vendor)
 - Browser Push Notifications, Notification Preferences, Quiet Hours
 - **Razorpay Payment Gateway (LIVE)**: Checkout popup, signature verification, webhook support
-- **Order Email Notification System**: Branded HTML emails via Resend to Admin/Vendor/Reseller with role-based sender addresses (orders@, support@, accounts@, noreply@ thepigma.com)
+- **Order Email Notification System**: Branded HTML emails via Resend to Admin/Vendor/Reseller with role-based sender addresses
 - **Enhanced Admin Orders Dashboard**: Advanced search, time filters, payment filters, click-to-call, email status, commission breakdown
 - **Notification Click Navigation Fix**: Correct nested route URLs, old URL normalization, fallback routing
-- **User (Buyer) Notification System**: Full notification bell in storefront Header for ALL logged-in users. Triggers on: Order Placed, Order Confirmed, Order Shipped, Order Delivered, Order Cancelled, Return Updates, Support Replies, Promotions. Dropdown with unread badge, mark-all-read, click-to-navigate.
+- **User (Buyer) Notification System**: Full notification bell in storefront Header for ALL logged-in users with triggers on order events, returns, support, and promotions
+- **Notification Bell Bug Fix**: Optimistic updates with error rollback for both Admin and User notification bells. Added token null-guard, proper error logging, and toast error feedback on API failures.
 
 ## Production Domain
 - https://thepigma.com
@@ -35,10 +36,10 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Instagram Auto-DMs (mock)
 
 ## P1 Upcoming Tasks
-- Track affiliate/reseller link clicks (referral URL metrics)
 - "Testing Mode" for Orders (dummy order flow triggering admin alerts)
+- Track affiliate/reseller link clicks (referral URL metrics)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
 - Vendor Email Digest Notifications
-- AdminDashboard.jsx refactoring (3600+ lines)
+- AdminDashboard.jsx refactoring (3700+ lines)
