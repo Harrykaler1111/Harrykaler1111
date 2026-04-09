@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv('/app/backend/.env')
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://swipe-vendor-feed.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://pigma-notify-demo.preview.emergentagent.com').rstrip('/')
 
 # Test credentials
 VENDOR_EMAIL = "vendortest3@example.com"

@@ -86,5 +86,5 @@
     "Instagram Graph API": "DM rules and sending (from iteration 15)",
     "WhatsApp Business API": "Cart reminders (from iteration 15)"
   },
-  "rca_of_issue": "Video controls cannot be tested because the video file URL stored in the product database returns 404. The video URL 'https://swipe-vendor-feed.preview.emergentagent.com/api/uploads/files/pigma/videos/admin/509346cc-2b5f-4e06-9fcc-b7776c2a582d.mp4' does not exist on the server. This is a data/content issue, not a code issue. The video player code is correctly implemented."
+  "rca_of_issue": "Video controls cannot be tested because the video file URL stored in the product database returns 404. The video URL 'https://pigma-notify-demo.preview.emergentagent.com/api/uploads/files/pigma/videos/admin/509346cc-2b5f-4e06-9fcc-b7776c2a582d.mp4' does not exist on the server. This is a data/content issue, not a code issue. The video player code is correctly implemented."
 }
