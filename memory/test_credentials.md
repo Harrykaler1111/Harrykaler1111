@@ -14,8 +14,10 @@
 - Support: support@pigma.com / support123
 - Products: products@pigma.com / products123
 
-## Razorpay (TEST Mode)
-- Key ID: rzp_test_SbSgcuBWZ4jQjQ
-- Key Secret: L395NE4CaQXoyHfaojg0TEWq
+## Razorpay (LIVE Mode)
+- Key ID: rzp_live_SbSbKLlwxAZnYZ
+- Key Secret: rUzDm6sYL9ezNqeQiYDxerFz
 - Webhook Secret: pigma_razorpay_webhook_2024
-- Test Card: 4111 1111 1111 1111 (any future expiry, any CVV)
+
+## Production Domain
+- https://thepigma.com
