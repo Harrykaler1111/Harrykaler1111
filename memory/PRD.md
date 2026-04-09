@@ -7,49 +7,38 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Frontend: React, Tailwind CSS, framer-motion, Shadcn UI, react-easy-crop
 - Backend: FastAPI, Python, WebSockets
 - Database: MongoDB
-- Integrations: Interakt (WhatsApp API), Razorpay (LIVE), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR), Resend (email - pending API key)
+- Integrations: Interakt (WhatsApp API), Razorpay (LIVE), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR), Resend (Email - ACTIVE)
 
 ## What's Been Implemented
 - Multi-vendor product management with admin & vendor dashboards
-- Admin Product Photo Cropping (zoom, rotate, 4:5 aspect ratio)
-- Bulk Product Upload System (CSV/Excel + ZIP, chunked upload)
-- Cart Merge on Login, Quick Add buttons, Cart Drawer
-- Cart Boosters, Flash Sales, Quick Adds, FOMO notifications, Dummy Reviews
+- Admin Product Photo Cropping, Bulk Product Upload System
+- Cart Merge on Login, Quick Add buttons, Cart Drawer, Cart Boosters
+- Flash Sales, FOMO notifications, Dummy Reviews
 - Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
 - Dynamic RBAC, Affiliate & Reseller System with price overrides
-- Guest Cart System (LocalStorage), login only at checkout
-- Premium Zara/Blinkit-style ProductCard.jsx
-- Instagram-style Reels/Explore vertical feed with guest localStorage likes
-- Kuaishou-style Reels: Nested feed with vendor side-panel
-- Vendor Monetization System (credit wallet, reel boost, cart placement, featured vendor)
-- Admin-Controlled Vendor Promotion System: request -> approval workflow
-- Featured Sellers section on Homepage
-- Unified ID-Based Tracking System (VND-0001, RSL-0001, etc.)
-- Admin Master Search with Quick Actions (Suspend, Activate, Add Credits, Feature Vendor)
-- WhatsApp OTP Login with needs_registration handling
+- Guest Cart System, Premium ProductCard, Reels/Explore feed
+- Vendor Monetization System, Featured Sellers, Unified ID Tracking
+- Admin Master Search with Quick Actions
 - Comprehensive Vendor KYC with AI-Powered OCR auto-approve/auto-reject
-- Real-Time Notification System: WebSocket + NTF-XXXX IDs + sound + mute toggle
-- Browser Push Notifications (Notification API, fires when tab unfocused)
-- Notification Preferences: Per-user toggles for event types + sound per priority
-- Quiet Hours: User-configurable time range to suppress real-time push
-- **Razorpay Payment Gateway (LIVE)**: Checkout popup, signature verification, webhook support, vendor credit purchases
-- **Order Email Notification System**: Branded HTML emails for Admin/Vendor/Reseller with retry mechanism, DB logging, email delivery tracking (Resend integration — pending API key)
-- **Enhanced Admin Orders Dashboard**: Advanced search (Order ID, Customer Name, Phone, User ID), time filters (Today/7D/30D), payment filters, click-to-call, email delivery status, commission breakdown, WebSocket + fallback polling
+- Real-Time WebSocket Notification System (Admin + Vendor)
+- Browser Push Notifications, Notification Preferences, Quiet Hours
+- **Razorpay Payment Gateway (LIVE)**: Checkout popup, signature verification, webhook support
+- **Order Email Notification System**: Branded HTML emails via Resend to Admin/Vendor/Reseller with role-based sender addresses (orders@, support@, accounts@, noreply@ thepigma.com)
+- **Enhanced Admin Orders Dashboard**: Advanced search, time filters, payment filters, click-to-call, email status, commission breakdown
+- **Notification Click Navigation Fix**: Correct nested route URLs, old URL normalization, fallback routing
+- **User (Buyer) Notification System**: Full notification bell in storefront Header for ALL logged-in users. Triggers on: Order Placed, Order Confirmed, Order Shipped, Order Delivered, Order Cancelled, Return Updates, Support Replies, Promotions. Dropdown with unread badge, mark-all-read, click-to-navigate.
 
 ## Production Domain
-- https://thepigma.com (all API calls, Razorpay, webhooks route through this domain)
+- https://thepigma.com
 
-## Mocked / Pending Configuration
-- Resend email service — System built and logging emails as "skipped" (need RESEND_API_KEY)
-- Instagram Auto-DMs
+## Mocked / Pending
+- Instagram Auto-DMs (mock)
 
 ## P1 Upcoming Tasks
-- Configure Resend API key to activate email notifications
 - Track affiliate/reseller link clicks (referral URL metrics)
 - "Testing Mode" for Orders (dummy order flow triggering admin alerts)
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
 - Vendor Email Digest Notifications
-- A/B testing for hero videos
-- AdminDashboard.jsx refactoring (3600+ lines, needs chunking)
+- AdminDashboard.jsx refactoring (3600+ lines)
