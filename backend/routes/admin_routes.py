@@ -780,6 +780,13 @@ async def update_order_status(order_id: str, status: str, admin: Dict = Depends(
     except Exception as e:
         logger.warning(f"WhatsApp notification failed for order {order_id} status {status}: {e}")
 
+    # Notify buyer about status change
+    try:
+        from services.notification_service import notify_user_order_update
+        await notify_user_order_update(order, status)
+    except Exception as e:
+        logger.warning(f"User notification failed for order {order_id}: {e}")
+
     return {"message": f"Order status updated to {status}", "settlement": settlement_info}
 
 

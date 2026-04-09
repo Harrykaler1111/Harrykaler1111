@@ -390,8 +390,9 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
 
     # ============== REAL-TIME NOTIFICATIONS ==============
     try:
-        from services.notification_service import notify_new_order
+        from services.notification_service import notify_new_order, notify_user_order_placed
         await notify_new_order(order_doc)
+        await notify_user_order_placed(order_doc)
     except Exception as e:
         logger.warning(f"Notification trigger failed for order {order_id}: {e}")
 

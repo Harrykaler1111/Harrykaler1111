@@ -8,7 +8,7 @@ import {
   X, Store, Users, Share2, UserPlus, LayoutGrid, Zap, Phone, Clapperboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NotificationBell } from "@/components/NotificationSystem";
+import { UserNotificationBell } from "@/components/UserNotificationBell";
 import { PHONE_NUMBER, PHONE_LINK, whatsappLink } from "@/components/WhatsAppButton";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -432,7 +432,7 @@ export const Header = () => {
                 <Search className="h-5 w-5" />
               </Button>
 
-              <NotificationBell />
+              <UserNotificationBell />
 
               {user && (
                 <Button

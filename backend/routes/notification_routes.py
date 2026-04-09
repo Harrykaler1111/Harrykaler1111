@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from config import db
-from auth import get_admin_user, get_current_vendor
+from auth import get_admin_user, get_current_vendor, get_current_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -178,3 +178,48 @@ async def admin_update_prefs(body: NotifPrefsUpdate, admin: Dict = Depends(get_a
         upsert=True
     )
     return await _get_prefs(admin["admin_id"])
+
+
+# ---- User (buyer/customer) endpoints ----
+
+@router.get("/user/list")
+async def user_list_notifications(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    unread_only: bool = False,
+    user: Dict = Depends(get_current_user)
+):
+    uid = user["user_id"]
+    query = {"user_id": uid}
+    if unread_only:
+        query["is_read"] = False
+    items = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.notifications.count_documents(query)
+    unread = await db.notifications.count_documents({"user_id": uid, "is_read": False})
+    return {"notifications": items, "total": total, "unread_count": unread}
+
+
+@router.get("/user/unread-count")
+async def user_unread_count(user: Dict = Depends(get_current_user)):
+    count = await db.notifications.count_documents({"user_id": user["user_id"], "is_read": False})
+    return {"unread_count": count}
+
+
+@router.put("/user/read/{notification_id}")
+async def user_mark_read(notification_id: str, user: Dict = Depends(get_current_user)):
+    result = await db.notifications.update_one(
+        {"notification_id": notification_id, "user_id": user["user_id"]},
+        {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return {"message": "Marked as read"}
+
+
+@router.put("/user/read-all")
+async def user_mark_all_read(user: Dict = Depends(get_current_user)):
+    result = await db.notifications.update_many(
+        {"user_id": user["user_id"], "is_read": False},
+        {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"Marked {result.modified_count} as read"}

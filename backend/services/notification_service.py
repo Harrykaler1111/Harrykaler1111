@@ -50,16 +50,16 @@ async def create_notification(
 
     # Auto-generate redirect URL based on type + reference
     if not redirect_url and reference_id:
-        if type == "order":
-            redirect_url = "/vendor/orders" if user_role == "vendor" else "/admin/orders"
-        elif type == "issue":
-            redirect_url = "/vendor/support" if user_role == "vendor" else "/admin/returns"
-        elif type == "promotion":
-            redirect_url = "/vendor/promotions" if user_role == "vendor" else "/admin/monetization"
-        elif type == "kyc":
-            redirect_url = "/vendor/kyc" if user_role == "vendor" else "/admin/vendors"
-        elif type == "credit":
-            redirect_url = "/vendor/wallet" if user_role == "vendor" else "/admin/monetization"
+        if user_role == "user":
+            # Normal buyer routes
+            url_map = {"order": "/orders", "issue": "/support", "promotion": "/"}
+            redirect_url = url_map.get(type, "/")
+        elif user_role == "vendor":
+            url_map = {"order": "/vendor/orders", "issue": "/vendor/support", "promotion": "/vendor/promotions", "kyc": "/vendor/kyc", "credit": "/vendor/wallet"}
+            redirect_url = url_map.get(type, "/vendor")
+        else:
+            url_map = {"order": "/admin/orders", "issue": "/admin/returns", "promotion": "/admin/monetization", "kyc": "/admin/vendors", "credit": "/admin/monetization"}
+            redirect_url = url_map.get(type, "/admin")
 
     doc = {
         "notification_id": ntf_id,
@@ -260,7 +260,6 @@ async def notify_kyc_status(vendor_id: str, status: str, reason: str = ""):
 
 async def _notify_all_admins(type: str, title: str, message: str, reference_id: str = "", triggered_by: str = "", priority: str = "medium"):
     """Send notification to all connected admin users."""
-    # Get admin user IDs from DB
     admins = await db.admin_users.find({}, {"_id": 0, "admin_id": 1}).to_list(50)
     for admin in admins:
         aid = admin.get("admin_id")
@@ -275,3 +274,122 @@ async def _notify_all_admins(type: str, title: str, message: str, reference_id: 
                 triggered_by=triggered_by,
                 priority=priority,
             )
+
+
+# ═══════════════════════════════════════════════════
+# User (buyer) facing notifications
+# ═══════════════════════════════════════════════════
+
+async def notify_user_order_placed(order_doc: dict):
+    """Notify the buyer that their order is placed."""
+    user_id = order_doc.get("user_id")
+    if not user_id:
+        return
+    order_id = order_doc["order_id"]
+    total = order_doc.get("total", 0)
+    method = order_doc.get("payment_method", "prepaid").upper()
+
+    await create_notification(
+        user_id=user_id,
+        user_role="user",
+        type="order",
+        title="Order Placed!",
+        message=f"Order #{order_id[-6:]} — Rs.{total:,.0f} ({method}). We'll update you when it ships.",
+        reference_id=order_id,
+        redirect_url="/orders",
+        triggered_by="system",
+        priority="high",
+    )
+
+
+async def notify_user_order_update(order_doc: dict, new_status: str):
+    """Notify buyer on order status change (confirmed, shipped, delivered, cancelled)."""
+    user_id = order_doc.get("user_id")
+    if not user_id:
+        return
+    order_id = order_doc["order_id"]
+
+    status_msgs = {
+        "confirmed": ("Order Confirmed", "Your order has been confirmed and is being processed."),
+        "processing": ("Order Processing", "Your order is being prepared for shipment."),
+        "shipped": ("Order Shipped!", f"Your order is on the way! Tracking: {order_doc.get('tracking_id', 'will be updated')}"),
+        "delivered": ("Order Delivered", "Your order has been delivered. Enjoy your purchase!"),
+        "cancelled": ("Order Cancelled", "Your order has been cancelled. Refund will be processed if applicable."),
+        "payment_failed": ("Payment Failed", "Your payment could not be processed. Please retry or contact support."),
+    }
+
+    title, message = status_msgs.get(new_status, ("Order Update", f"Your order status has been updated to: {new_status}"))
+
+    await create_notification(
+        user_id=user_id,
+        user_role="user",
+        type="order",
+        title=title,
+        message=f"Order #{order_id[-6:]} — {message}",
+        reference_id=order_id,
+        redirect_url="/orders",
+        triggered_by="system",
+        priority="high" if new_status in ("shipped", "delivered", "cancelled") else "medium",
+    )
+
+
+async def notify_user_return_update(user_id: str, return_id: str, status: str, product_name: str = ""):
+    """Notify buyer when their return request is updated."""
+    if not user_id:
+        return
+
+    status_msgs = {
+        "approved": ("Return Approved", f"Your return for {product_name} has been approved. Follow the return instructions."),
+        "rejected": ("Return Rejected", f"Your return for {product_name} was not approved. Contact support for help."),
+        "refund_processed": ("Refund Processed", f"Refund for {product_name} has been initiated. It may take 5-7 business days."),
+        "pickup_scheduled": ("Return Pickup Scheduled", f"Pickup for {product_name} has been scheduled. Keep the item ready."),
+    }
+
+    title, message = status_msgs.get(status, ("Return Update", f"Your return request has been updated to: {status}"))
+
+    await create_notification(
+        user_id=user_id,
+        user_role="user",
+        type="issue",
+        title=title,
+        message=message,
+        reference_id=return_id,
+        redirect_url="/returns",
+        triggered_by="system",
+        priority="high",
+    )
+
+
+async def notify_user_support_reply(user_id: str, ticket_id: str, message_preview: str = ""):
+    """Notify buyer when support team replies to their ticket."""
+    if not user_id:
+        return
+
+    await create_notification(
+        user_id=user_id,
+        user_role="user",
+        type="issue",
+        title="Support Team Replied",
+        message=f"Ticket #{ticket_id[-6:]}: {message_preview[:80]}",
+        reference_id=ticket_id,
+        redirect_url="/support",
+        triggered_by="system",
+        priority="medium",
+    )
+
+
+async def notify_user_promotion(user_id: str, title: str, message: str, redirect_url: str = "/"):
+    """Notify a user about a promotion, flash sale, or special offer."""
+    if not user_id:
+        return
+
+    await create_notification(
+        user_id=user_id,
+        user_role="user",
+        type="promotion",
+        title=title,
+        message=message,
+        redirect_url=redirect_url,
+        triggered_by="system",
+        priority="low",
+    )

@@ -308,8 +308,9 @@ async def _confirm_order_payment(order_id: str, razorpay_payment_id: str, razorp
 
     # Real-time notification
     try:
-        from services.notification_service import notify_new_order
+        from services.notification_service import notify_new_order, notify_user_order_placed
         await notify_new_order(order)
+        await notify_user_order_placed(order)
     except Exception as e:
         logger.warning(f"Payment notification failed for {order_id}: {e}")
 
