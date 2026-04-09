@@ -38,6 +38,7 @@ import { PermissionsPanel } from "@/components/PermissionsPanel";
 import { AdminFomoPanel } from "@/components/AdminFomoPanel";
 import { AdminDummyReviewsPanel } from "@/components/AdminDummyReviewsPanel";
 import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
@@ -3648,6 +3649,7 @@ export const AdminDashboard = () => {
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
     { path: "/admin/users", icon: <Shield className="h-5 w-5" />, label: "Admin Users", permission: ["admin_users", "view"] },
     { path: "/admin/permissions", icon: <Lock className="h-5 w-5" />, label: "Permissions", permission: ["admin_users", "edit"] },
+    { path: "/admin/notifications", icon: <Bell className="h-5 w-5" />, label: "Notifications", permission: ["analytics", "view"] },
   ];
 
   // Filter nav items based on permissions
@@ -3756,6 +3758,7 @@ export const AdminDashboard = () => {
             <Route path="tickets" element={<SupportTicketsManagement />} />
             <Route path="users" element={<AdminUsersManagement />} />
             <Route path="permissions" element={<PermissionsPanel />} />
+            <Route path="notifications" element={<NotificationCenter prefix="admin" />} />
             <Route path="*" element={<DashboardOverview />} />
           </Routes>
         </main>

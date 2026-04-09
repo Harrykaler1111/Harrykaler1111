@@ -557,6 +557,17 @@ export const NotificationBell = ({ role, token }) => {
               ))
             )}
           </div>
+
+          {/* View All Link */}
+          <div className="sticky bottom-0 bg-neutral-900 border-t border-neutral-700 px-4 py-2.5">
+            <button
+              onClick={() => { setOpen(false); navigate(role === "vendor" ? "/vendor/notifications" : "/admin/notifications"); }}
+              className="w-full text-center text-xs text-gold hover:text-yellow-400 font-medium transition-colors"
+              data-testid="view-all-notifications"
+            >
+              View All Notifications
+            </button>
+          </div>
         </div>
       )}
     </div>

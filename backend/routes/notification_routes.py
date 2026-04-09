@@ -1,9 +1,9 @@
 """
 Notification API routes — list, mark-read, unread count, preferences.
 """
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
@@ -223,3 +223,141 @@ async def user_mark_all_read(user: Dict = Depends(get_current_user)):
         {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
     )
     return {"message": f"Marked {result.modified_count} as read"}
+
+
+
+# ════════════════════════════════════════════════
+# Notification Center — Advanced Query + Bulk Ops
+# ════════════════════════════════════════════════
+
+class BulkReadRequest(BaseModel):
+    notification_ids: List[str]
+
+class BulkDeleteRequest(BaseModel):
+    notification_ids: List[str]
+
+
+async def _center_query(user_id: str, skip: int, limit: int, search: str, ntype: str, status: str, priority: str, date_from: str, date_to: str):
+    """Shared center query logic for admin/vendor/user."""
+    query = {"user_id": user_id}
+
+    if search:
+        query["$or"] = [
+            {"title": {"$regex": search, "$options": "i"}},
+            {"message": {"$regex": search, "$options": "i"}},
+        ]
+    if ntype and ntype != "all":
+        query["type"] = ntype
+    if status == "unread":
+        query["is_read"] = False
+    elif status == "read":
+        query["is_read"] = True
+    if priority and priority != "all":
+        query["priority"] = priority
+    if date_from:
+        query.setdefault("created_at", {})["$gte"] = date_from
+    if date_to:
+        query.setdefault("created_at", {})["$lte"] = date_to
+
+    items = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    total = await db.notifications.count_documents(query)
+    unread = await db.notifications.count_documents({"user_id": user_id, "is_read": False})
+    return {"notifications": items, "total": total, "unread_count": unread, "page": skip // limit + 1, "pages": (total + limit - 1) // limit}
+
+
+@router.get("/admin/center")
+async def admin_notification_center(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(""),
+    type: str = Query("all"),
+    status: str = Query("all"),
+    priority: str = Query("all"),
+    date_from: str = Query(""),
+    date_to: str = Query(""),
+    admin: Dict = Depends(get_admin_user),
+):
+    return await _center_query(admin["admin_id"], skip, limit, search, type, status, priority, date_from, date_to)
+
+
+@router.get("/vendor/center")
+async def vendor_notification_center(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(""),
+    type: str = Query("all"),
+    status: str = Query("all"),
+    priority: str = Query("all"),
+    date_from: str = Query(""),
+    date_to: str = Query(""),
+    vendor: Dict = Depends(get_current_vendor),
+):
+    return await _center_query(vendor["vendor_id"], skip, limit, search, type, status, priority, date_from, date_to)
+
+
+@router.get("/user/center")
+async def user_notification_center(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(""),
+    type: str = Query("all"),
+    status: str = Query("all"),
+    priority: str = Query("all"),
+    date_from: str = Query(""),
+    date_to: str = Query(""),
+    user: Dict = Depends(get_current_user),
+):
+    return await _center_query(user["user_id"], skip, limit, search, type, status, priority, date_from, date_to)
+
+
+# Bulk mark as read
+@router.put("/admin/bulk-read")
+async def admin_bulk_read(body: BulkReadRequest, admin: Dict = Depends(get_admin_user)):
+    result = await db.notifications.update_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": admin["admin_id"]},
+        {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"modified": result.modified_count}
+
+
+@router.put("/vendor/bulk-read")
+async def vendor_bulk_read(body: BulkReadRequest, vendor: Dict = Depends(get_current_vendor)):
+    result = await db.notifications.update_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": vendor["vendor_id"]},
+        {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"modified": result.modified_count}
+
+
+@router.put("/user/bulk-read")
+async def user_bulk_read(body: BulkReadRequest, user: Dict = Depends(get_current_user)):
+    result = await db.notifications.update_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": user["user_id"]},
+        {"$set": {"is_read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"modified": result.modified_count}
+
+
+# Bulk delete
+@router.delete("/admin/bulk-delete")
+async def admin_bulk_delete(body: BulkDeleteRequest, admin: Dict = Depends(get_admin_user)):
+    result = await db.notifications.delete_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": admin["admin_id"]}
+    )
+    return {"deleted": result.deleted_count}
+
+
+@router.delete("/vendor/bulk-delete")
+async def vendor_bulk_delete(body: BulkDeleteRequest, vendor: Dict = Depends(get_current_vendor)):
+    result = await db.notifications.delete_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": vendor["vendor_id"]}
+    )
+    return {"deleted": result.deleted_count}
+
+
+@router.delete("/user/bulk-delete")
+async def user_bulk_delete(body: BulkDeleteRequest, user: Dict = Depends(get_current_user)):
+    result = await db.notifications.delete_many(
+        {"notification_id": {"$in": body.notification_ids}, "user_id": user["user_id"]}
+    )
+    return {"deleted": result.deleted_count}

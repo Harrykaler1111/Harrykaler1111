@@ -42,6 +42,7 @@ import { CartProvider, useCart } from "@/context/CartContext";
 import { BoosterBar } from "@/components/BoosterBar";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ChatWidget } from "@/components/ChatWidget";
+import UserNotificationsPage from "@/pages/UserNotificationsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -254,6 +255,14 @@ const AppRouter = () => {
         }
       />
       <Route path="/support" element={<SupportPage />} />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <UserNotificationsPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/returns"
         element={

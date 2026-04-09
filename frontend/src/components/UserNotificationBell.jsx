@@ -196,6 +196,17 @@ export const UserNotificationBell = () => {
                 })
               )}
             </div>
+
+            {/* View All */}
+            <div className="border-t border-neutral-800 px-4 py-2.5">
+              <button
+                onClick={() => { setOpen(false); navigate("/notifications"); }}
+                className="w-full text-center text-xs text-[#C9A050] hover:text-yellow-400 font-medium transition-colors"
+                data-testid="user-view-all-notifications"
+              >
+                View All Notifications
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

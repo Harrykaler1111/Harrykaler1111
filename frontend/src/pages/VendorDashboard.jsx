@@ -23,6 +23,7 @@ import { MediaUploader } from "@/components/MediaUploader";
 import { BulkUpload } from "@/components/BulkUpload";
 import { VendorCartBooster } from "@/components/VendorCartBooster";
 import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { whatsappLink, PHONE_NUMBER, PHONE_LINK } from "@/components/WhatsAppButton";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -185,6 +186,7 @@ export const VendorDashboard = () => {
             <Route path="influencers" element={<VendorInfluencers vendor={vendor} />} />
             <Route path="support" element={<VendorSupport vendor={vendor} />} />
             <Route path="returns" element={<VendorReturns vendor={vendor} />} />
+            <Route path="notifications" element={<NotificationCenter prefix="vendor" />} />
             <Route path="*" element={<VendorOverview vendor={vendor} />} />
           </Routes>
         </main>
