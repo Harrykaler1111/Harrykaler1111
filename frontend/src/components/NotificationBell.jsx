@@ -279,11 +279,36 @@ export const NotificationBell = ({ role, token }) => {
 
     setOpen(false);
 
-    // Smart redirect
-    const url = notif.redirect_url;
+    let url = notif.redirect_url;
+
+    // Normalize old-style URLs: /admin?tab=orders&id=xxx → /admin/orders
+    if (url && url.includes("?tab=")) {
+      try {
+        const parsed = new URL(url, window.location.origin);
+        const tab = parsed.searchParams.get("tab");
+        const basePath = parsed.pathname; // /admin
+        if (tab) {
+          url = `${basePath}/${tab}`;
+        }
+      } catch {
+        // URL parsing failed, use as-is
+      }
+    }
+
     if (url) {
-      const base = role === "vendor" ? "/vendor" : "";
-      navigate(`${base}${url}`);
+      navigate(url);
+    } else {
+      // Fallback: navigate to dashboard section based on type
+      const fallbackRoutes = {
+        order: role === "vendor" ? "/vendor/orders" : "/admin/orders",
+        issue: role === "vendor" ? "/vendor/support" : "/admin/returns",
+        promotion: role === "vendor" ? "/vendor/promotions" : "/admin/monetization",
+        credit: role === "vendor" ? "/vendor/wallet" : "/admin/monetization",
+        kyc: role === "vendor" ? "/vendor/kyc" : "/admin/vendors",
+        system: role === "vendor" ? "/vendor" : "/admin",
+      };
+      const fallback = fallbackRoutes[notif.type] || (role === "vendor" ? "/vendor" : "/admin");
+      navigate(fallback);
     }
   };
 

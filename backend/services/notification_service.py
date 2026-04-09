@@ -51,15 +51,15 @@ async def create_notification(
     # Auto-generate redirect URL based on type + reference
     if not redirect_url and reference_id:
         if type == "order":
-            redirect_url = f"/orders/{reference_id}" if user_role == "vendor" else f"/admin?tab=orders&id={reference_id}"
+            redirect_url = "/vendor/orders" if user_role == "vendor" else "/admin/orders"
         elif type == "issue":
-            redirect_url = f"/support/{reference_id}" if user_role == "vendor" else f"/admin?tab=issues&id={reference_id}"
+            redirect_url = "/vendor/support" if user_role == "vendor" else "/admin/returns"
         elif type == "promotion":
-            redirect_url = "/promotions" if user_role == "vendor" else "/admin?tab=monetization"
+            redirect_url = "/vendor/promotions" if user_role == "vendor" else "/admin/monetization"
         elif type == "kyc":
-            redirect_url = "/kyc" if user_role == "vendor" else "/admin?tab=vendors"
+            redirect_url = "/vendor/kyc" if user_role == "vendor" else "/admin/vendors"
         elif type == "credit":
-            redirect_url = "/wallet" if user_role == "vendor" else "/admin?tab=monetization"
+            redirect_url = "/vendor/wallet" if user_role == "vendor" else "/admin/monetization"
 
     doc = {
         "notification_id": ntf_id,
