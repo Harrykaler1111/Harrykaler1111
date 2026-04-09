@@ -902,6 +902,85 @@ async def get_new_order_count(since: str = None, admin: Dict = Depends(get_admin
     return {"count": count, "latest": latest}
 
 
+@router.get("/orders/search")
+async def search_orders(
+    q: str = "",
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    time_range: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    admin: Dict = Depends(get_admin_user),
+):
+    """Advanced order search by Order ID, Customer Name, Phone, User ID with time filters."""
+    if not check_permission(admin, "orders", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    query = {}
+
+    # Text search across multiple fields
+    if q and q.strip():
+        search_term = q.strip()
+        query["$or"] = [
+            {"order_id": {"$regex": search_term, "$options": "i"}},
+            {"shipping_address.name": {"$regex": search_term, "$options": "i"}},
+            {"shipping_address.phone": {"$regex": search_term, "$options": "i"}},
+            {"user_id": {"$regex": search_term, "$options": "i"}},
+            {"razorpay_payment_id": {"$regex": search_term, "$options": "i"}},
+        ]
+
+    # Status filter
+    if status and status != "all":
+        query["status"] = status
+    if payment_status and payment_status != "all":
+        query["payment_status"] = payment_status
+
+    # Time range filters
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    if time_range == "today":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        query["created_at"] = {"$gte": start.isoformat()}
+    elif time_range == "7d":
+        start = now - timedelta(days=7)
+        query["created_at"] = {"$gte": start.isoformat()}
+    elif time_range == "30d":
+        start = now - timedelta(days=30)
+        query["created_at"] = {"$gte": start.isoformat()}
+    elif time_range == "custom" and date_from:
+        date_query = {"$gte": date_from}
+        if date_to:
+            date_query["$lte"] = date_to
+        query["created_at"] = date_query
+
+    total = await db.orders.count_documents(query)
+    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    # Enrich with customer email
+    for o in orders:
+        if not o.get("customer", {}).get("email"):
+            user = await db.users.find_one({"user_id": o.get("user_id")}, {"_id": 0, "email": 1, "name": 1})
+            if user:
+                o["customer"] = user
+
+    # Summary stats for this query
+    total_value = sum(o.get("total", 0) for o in orders)
+
+    return {
+        "orders": orders,
+        "total": total,
+        "total_value": total_value,
+        "query_applied": {
+            "search": q,
+            "status": status,
+            "payment_status": payment_status,
+            "time_range": time_range,
+        }
+    }
+
+
 # ============== ADMIN CUSTOMER MANAGEMENT ==============
 
 @router.get("/customers")

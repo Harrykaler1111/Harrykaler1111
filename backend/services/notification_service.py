@@ -4,6 +4,7 @@ Central place to trigger notifications from any route.
 """
 
 import logging
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -138,6 +139,9 @@ async def notify_new_order(order_doc: dict):
     if len(items) > 3:
         product_names += f" +{len(items)-3} more"
 
+    # Determine priority (high-value orders get "critical")
+    priority = "critical" if total >= 5000 else "high"
+
     # Notify vendor
     vendor_id = order_doc.get("vendor_id")
     if vendor_id:
@@ -149,7 +153,7 @@ async def notify_new_order(order_doc: dict):
             message=f"Order #{order_id[-6:]} — Rs.{total:,.0f} for {product_names}",
             reference_id=order_id,
             triggered_by=order_doc.get("user_id", ""),
-            priority="high",
+            priority=priority,
         )
 
     # Notify all admins
@@ -159,8 +163,15 @@ async def notify_new_order(order_doc: dict):
         message=f"Order #{order_id[-6:]} — Rs.{total:,.0f} ({len(items)} items) from {order_doc.get('shipping_address', {}).get('name', 'Customer')}",
         reference_id=order_id,
         triggered_by=order_doc.get("user_id", ""),
-        priority="high",
+        priority=priority,
     )
+
+    # Send email notifications (fire-and-forget background)
+    try:
+        from services.email_service import send_order_emails
+        await send_order_emails(order_doc)
+    except Exception as e:
+        logger.error(f"Email notification trigger failed for {order_id}: {e}")
 
 
 async def notify_new_ticket(ticket_doc: dict):
