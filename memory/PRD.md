@@ -26,14 +26,10 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Order Email Notification System: Branded HTML emails via Resend
 - Enhanced Admin Orders Dashboard: Advanced search, time filters, payment filters
 - User (Buyer) Notification System: Full notification bell in storefront Header
-- Notification Bell Bug Fix: Optimistic updates, error rollback, token null-guard
-- **Notification Center**: Full-page history for Admin/Vendor/User with search, type/status/priority/date filters, pagination, bulk mark-read & delete
-- **Email Notification Preferences**: All roles (Admin, Vendor, User) can toggle 7 email categories:
-  - Order emails, Return & refund emails, Promotional emails, Support/ticket emails
-  - KYC status emails, Credit/wallet emails, Weekly digest
-  - Backend checks prefs via `should_send_email()` before sending
-  - Integrated into existing Notification Preferences panel
-- Resend Email Service verified and working (5/5 sent, 0 failed)
+- Notification Bell Bug Fix: Optimistic updates with error rollback, token null-guard
+- Notification Center: Full-page history for Admin/Vendor/User with search, filters, pagination, bulk ops
+- Email Notification Preferences: All roles can toggle 7 email categories
+- **Mobile Responsive Notifications**: Bell dropdowns use fixed positioning on mobile (inset-x-3 top-16) with backdrop overlay. Desktop uses absolute positioning. Notification Center, preferences panel, and all views fully responsive at 390px+.
 
 ## Production Domain
 - https://thepigma.com
@@ -47,5 +43,5 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
-- Vendor Email Digest Notifications (weekly digest implementation)
+- Weekly Digest email implementation (backend scheduled job)
 - AdminDashboard.jsx refactoring (3700+ lines)
