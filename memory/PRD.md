@@ -23,21 +23,17 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Real-Time WebSocket Notification System (Admin + Vendor + User)
 - Browser Push Notifications, Notification Preferences, Quiet Hours
 - Razorpay Payment Gateway (LIVE): Checkout popup, signature verification, webhook support
-- Order Email Notification System: Branded HTML emails via Resend to Admin/Vendor/Reseller
+- Order Email Notification System: Branded HTML emails via Resend
 - Enhanced Admin Orders Dashboard: Advanced search, time filters, payment filters
 - User (Buyer) Notification System: Full notification bell in storefront Header
-- **Notification Bell Bug Fix**: Optimistic updates with error rollback, token null-guard, error toasts
-- **Notification Center**: Full-page notification history for Admin, Vendor, and User with:
-  - Search by keyword
-  - Filter by type (order/issue/promotion/credit/kyc/system)
-  - Filter by read/unread status
-  - Filter by priority (high/medium/low)
-  - Date range filters
-  - Pagination
-  - Bulk mark-as-read and bulk delete
-  - "View All Notifications" link from bell dropdown
-  - Sidebar navigation link in Admin Dashboard
-- **Resend Email Service**: Verified working (5/5 sent, 0 failed, live health check passed)
+- Notification Bell Bug Fix: Optimistic updates, error rollback, token null-guard
+- **Notification Center**: Full-page history for Admin/Vendor/User with search, type/status/priority/date filters, pagination, bulk mark-read & delete
+- **Email Notification Preferences**: All roles (Admin, Vendor, User) can toggle 7 email categories:
+  - Order emails, Return & refund emails, Promotional emails, Support/ticket emails
+  - KYC status emails, Credit/wallet emails, Weekly digest
+  - Backend checks prefs via `should_send_email()` before sending
+  - Integrated into existing Notification Preferences panel
+- Resend Email Service verified and working (5/5 sent, 0 failed)
 
 ## Production Domain
 - https://thepigma.com
@@ -51,5 +47,5 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Transition Instagram Auto DM from Mock to real Meta API
 
 ## P2 Future/Backlog
-- Vendor Email Digest Notifications
+- Vendor Email Digest Notifications (weekly digest implementation)
 - AdminDashboard.jsx refactoring (3700+ lines)
