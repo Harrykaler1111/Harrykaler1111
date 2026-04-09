@@ -21,8 +21,12 @@
 
 ## Resend (Email Service — ACTIVE)
 - API Key: re_EWQHePQK_APfn1nFoR5LLryZBBn4n51wV
-- Sender Email: onboarding@resend.dev
 - Admin Email: paramjeetpigma@gmail.com
+- Sender Emails (verified domain: thepigma.com):
+  - orders@thepigma.com — Order alerts, payment confirmations, shipping updates
+  - support@thepigma.com — Support tickets, customer issues, returns
+  - accounts@thepigma.com — KYC, vendor onboarding, credit transactions
+  - noreply@thepigma.com — System notifications, password resets
 
 ## Production Domain
 - https://thepigma.com

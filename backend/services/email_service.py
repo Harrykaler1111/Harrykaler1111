@@ -17,9 +17,28 @@ from auth import generate_id
 logger = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "paramjeetpigma@gmail.com")
 MAX_RETRIES = 3
+
+# Role-based sender emails
+SENDERS = {
+    "orders": os.environ.get("EMAIL_ORDERS", "orders@thepigma.com"),
+    "support": os.environ.get("EMAIL_SUPPORT", "support@thepigma.com"),
+    "accounts": os.environ.get("EMAIL_ACCOUNTS", "accounts@thepigma.com"),
+    "noreply": os.environ.get("EMAIL_NOREPLY", "noreply@thepigma.com"),
+}
+
+def get_sender(category: str = "orders") -> str:
+    """Get the appropriate sender email with display name."""
+    names = {
+        "orders": "Pigma Orders",
+        "support": "Pigma Support",
+        "accounts": "Pigma Accounts",
+        "noreply": "Pigma",
+    }
+    email = SENDERS.get(category, SENDERS["noreply"])
+    name = names.get(category, "Pigma")
+    return f"{name} <{email}>"
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -198,13 +217,15 @@ def build_reseller_email(order: dict, reseller: dict) -> str:
 
 # ─── Send Email (with retry + logging) ───
 
-async def _send_email(to: str, subject: str, html: str, order_id: str = "", recipient_type: str = "admin") -> dict:
+async def _send_email(to: str, subject: str, html: str, order_id: str = "", recipient_type: str = "admin", category: str = "orders") -> dict:
     """Send email via Resend with retry and DB logging."""
+    sender = get_sender(category)
     log_entry = {
         "log_id": generate_id("eml_"),
         "order_id": order_id,
         "recipient_email": to,
         "recipient_type": recipient_type,
+        "sender": sender,
         "subject": subject,
         "status": "pending",
         "attempts": 0,
@@ -224,7 +245,7 @@ async def _send_email(to: str, subject: str, html: str, order_id: str = "", reci
         log_entry["attempts"] = attempt
         try:
             params = {
-                "from": SENDER_EMAIL,
+                "from": sender,
                 "to": [to],
                 "subject": subject,
                 "html": html,
@@ -256,7 +277,7 @@ async def send_order_emails(order: dict):
     order_id = order.get("order_id", "")
 
     try:
-        # 1. Admin email
+        # 1. Admin email (from orders@)
         admin_html = build_admin_email(order)
         await _send_email(
             to=ADMIN_EMAIL,
@@ -264,9 +285,10 @@ async def send_order_emails(order: dict):
             html=admin_html,
             order_id=order_id,
             recipient_type="admin",
+            category="orders",
         )
 
-        # 2. Vendor email (look up vendor's email)
+        # 2. Vendor email (from orders@)
         vendor_id = order.get("vendor_id")
         if vendor_id:
             vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0, "email": 1, "business_name": 1})
@@ -278,9 +300,10 @@ async def send_order_emails(order: dict):
                     html=vendor_html,
                     order_id=order_id,
                     recipient_type="vendor",
+                    category="orders",
                 )
 
-        # 3. Reseller email (if order was via affiliate/reseller)
+        # 3. Reseller email (from accounts@)
         affiliate_id = order.get("affiliate_id")
         if affiliate_id:
             reseller = await db.affiliates.find_one({"affiliate_id": affiliate_id}, {"_id": 0})
@@ -293,9 +316,10 @@ async def send_order_emails(order: dict):
                     html=reseller_html,
                     order_id=order_id,
                     recipient_type="reseller",
+                    category="accounts",
                 )
 
-        # Also check influencer
+        # Also check influencer (from accounts@)
         influencer_id = order.get("influencer_id")
         if influencer_id:
             influencer = await db.influencers.find_one({"influencer_id": influencer_id}, {"_id": 0})
@@ -309,6 +333,7 @@ async def send_order_emails(order: dict):
                     html=inf_html,
                     order_id=order_id,
                     recipient_type="influencer",
+                    category="accounts",
                 )
 
     except Exception as e:
