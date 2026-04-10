@@ -18,27 +18,45 @@ import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 import { whatsappProductLink, PHONE_NUMBER } from "@/components/WhatsAppButton";
 
-// ====== Image with Zoom on Hover ======
+// ====== Image with Zoom on Hover (Desktop) + Pinch/Tap Zoom (Mobile) ======
 const ZoomableImage = ({ src, alt }) => {
   const containerRef = useRef(null);
   const [zooming, setZooming] = useState(false);
   const [origin, setOrigin] = useState("50% 50%");
 
-  const handleMouseMove = useCallback((e) => {
+  const updateOrigin = useCallback((clientX, clientY) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
     setOrigin(`${x}% ${y}%`);
   }, []);
+
+  // Desktop mouse
+  const handleMouseMove = useCallback((e) => updateOrigin(e.clientX, e.clientY), [updateOrigin]);
+
+  // Mobile touch
+  const handleTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    if (t) { updateOrigin(t.clientX, t.clientY); setZooming(true); }
+  }, [updateOrigin]);
+  const handleTouchMove = useCallback((e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (t) updateOrigin(t.clientX, t.clientY);
+  }, [updateOrigin]);
+  const handleTouchEnd = useCallback(() => setZooming(false), []);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full cursor-crosshair overflow-hidden group"
+      className="relative w-full h-full cursor-crosshair overflow-hidden group touch-none"
       onMouseEnter={() => setZooming(true)}
       onMouseLeave={() => setZooming(false)}
       onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       data-testid="zoomable-image"
     >
       <img
@@ -53,10 +71,16 @@ const ZoomableImage = ({ src, alt }) => {
         onError={handleImageError}
         data-testid="product-main-image"
       />
-      {/* Zoom hint - shows on hover before zoom activates */}
+      {/* Zoom hint */}
       {!zooming && (
-        <span className="absolute bottom-3 right-3 bg-black/50 text-white text-[9px] px-2 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 pointer-events-none opacity-0 group-hover:opacity-70 transition-opacity">
+        <span className="absolute bottom-3 right-3 bg-black/50 text-white text-[9px] px-2 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 pointer-events-none opacity-0 group-hover:opacity-70 sm:group-hover:opacity-70 transition-opacity sm:flex hidden">
           <ZoomIn className="h-3 w-3" /> Hover to zoom
+        </span>
+      )}
+      {/* Mobile zoom hint */}
+      {!zooming && (
+        <span className="absolute bottom-3 right-3 bg-black/50 text-white text-[9px] px-2 py-1 rounded-full backdrop-blur-sm flex items-center gap-1 pointer-events-none opacity-70 sm:hidden">
+          <ZoomIn className="h-3 w-3" /> Hold to zoom
         </span>
       )}
     </div>

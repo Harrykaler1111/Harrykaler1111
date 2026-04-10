@@ -29,7 +29,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Notification Bell Bug Fix: Optimistic updates with error rollback, token null-guard
 - Notification Center: Full-page history for Admin/Vendor/User with search, filters, pagination, bulk ops
 - Email Notification Preferences: All roles can toggle 7 email categories
-- **Mobile Responsive Notifications**: Bell dropdowns use fixed positioning on mobile (inset-x-3 top-16) with backdrop overlay. Desktop uses absolute positioning. Notification Center, preferences panel, and all views fully responsive at 390px+.
+- Mobile Responsive Notifications: Bell dropdowns use fixed positioning on mobile with backdrop overlay
+- **Mobile Product Zoom**: Added touch event support (touchstart/touchmove/touchend) to ZoomableImage. Shows "Hold to zoom" hint on mobile, "Hover to zoom" on desktop. Uses `touch-none` CSS to prevent scroll interference during zoom.
 
 ## Production Domain
 - https://thepigma.com
