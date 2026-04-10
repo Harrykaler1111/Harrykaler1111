@@ -138,7 +138,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
   };
 
   return (
-    <div className={`relative w-full h-full snap-start snap-always flex-shrink-0 bg-black overflow-hidden ${isVendorMode ? "rounded-lg" : ""}`} data-testid={`reel-card-${product.product_id}`}>
+    <div className={`relative w-full h-full snap-start snap-always flex-shrink-0 bg-black overflow-hidden ${isVendorMode ? "rounded-2xl" : ""}`} data-testid={`reel-card-${product.product_id}`}>
       <div className="absolute inset-0" onClick={goToProduct}>
         {renderSlide()}
         <div className="absolute bottom-0 left-0 right-0 h-64 sm:h-52 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
@@ -418,7 +418,7 @@ export default function ReelsPage() {
 
         {/* ─── Main Content Area ─── */}
         <div
-          className="h-full flex-1 min-w-0 transition-all duration-300 ease-out"
+          className={`h-full flex-1 min-w-0 transition-all duration-300 ease-out ${isVendorMode ? "py-6 px-1" : ""}`}
         >
           {/* GLOBAL FEED */}
           <div
@@ -443,7 +443,7 @@ export default function ReelsPage() {
           {isVendorMode && (
             <div
               ref={vendorContainerRef}
-              className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+              className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide rounded-2xl"
               style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
               data-testid="vendor-feed"
             >
@@ -457,7 +457,7 @@ export default function ReelsPage() {
                 </div>
               ) : (
                 vendorProducts.map((product, idx) => (
-                  <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0 relative p-1" style={{ scrollSnapAlign: "start" }}>
+                  <div key={product.product_id} data-reel-index={idx} className="w-full h-full flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
                     <ReelCard product={product} isActive={idx === vendorActiveIdx} isVendorMode={true} />
                   </div>
                 ))
@@ -471,10 +471,10 @@ export default function ReelsPage() {
           {isVendorMode && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "18%", opacity: 1 }}
+              animate={{ width: "14%", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full overflow-hidden flex-shrink-0 max-w-[100px] md:max-w-[160px]"
+              className="h-full overflow-hidden flex-shrink-0 max-w-[68px] md:max-w-[120px]"
             >
               <VendorThumbnailPanel
                 products={vendorProducts}
