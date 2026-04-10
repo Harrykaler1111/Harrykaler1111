@@ -32,6 +32,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 - Mobile Responsive Notifications: Bell dropdowns use fixed positioning on mobile with backdrop overlay
 - **Mobile Product Zoom**: Added touch event support (touchstart/touchmove/touchend) to ZoomableImage. Shows "Hold to zoom" hint on mobile, "Hover to zoom" on desktop. Uses `touch-none` CSS to prevent scroll interference during zoom.
 
+- **Reels Vendor Mode Dimensions Fix (Apr 2026)**: Adjusted to match reference screenshots — 6:9 portrait thumbnails, 10vh top / 20vh bottom asymmetric padding, 20% side panel width, 2% gap between video and panel
+
 ## Production Domain
 - https://thepigma.com
 

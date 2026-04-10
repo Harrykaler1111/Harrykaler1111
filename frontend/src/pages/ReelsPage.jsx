@@ -9,12 +9,12 @@ import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
 /* ─────────────────────────────────────────────────
-   Kuaishou-style Side Panel (thin ~15% thumbnails)
+   Kuaishou-style Side Panel (vertical 6:9 thumbnails)
    ───────────────────────────────────────────────── */
 const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount }) => (
   <div className="h-full flex flex-col bg-black" data-testid="vendor-side-panel">
     {/* Works count badge */}
-    <div className="flex justify-end px-1 pt-2 pb-1">
+    <div className="flex justify-center px-1 pt-2 pb-1">
       <div className="bg-white/90 text-black text-[8px] font-bold px-1.5 py-0.5 rounded leading-tight text-center" data-testid="vendor-works-count">
         <div className="text-[7px] font-medium leading-none">Works</div>
         <div className="text-[10px] leading-none">{totalCount}</div>
@@ -23,7 +23,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
 
     {/* Scrollable thumbnail list */}
     <div className="flex-1 overflow-y-auto scrollbar-hide px-[3px] pb-2">
-      <div className="flex flex-col gap-[3px]">
+      <div className="flex flex-col gap-[4px]">
         {products.map((p) => {
           const isCurrent = p.product_id === activeProductId;
           return (
@@ -33,7 +33,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
               className={`relative rounded-[4px] overflow-hidden cursor-pointer flex-shrink-0 transition-all duration-200 ${isCurrent ? "ring-[2px] ring-white opacity-100" : "opacity-70 hover:opacity-100"}`}
               data-testid={`vendor-thumb-${p.product_id}`}
             >
-              <div className="aspect-[4/3]">
+              <div className="aspect-[2/3]">
                 <img
                   src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE}
                   alt={p.name}
@@ -418,7 +418,8 @@ export default function ReelsPage() {
 
         {/* ─── Main Content Area ─── */}
         <div
-          className={`h-full flex-1 min-w-0 transition-all duration-300 ease-out ${isVendorMode ? "py-6 px-1" : ""}`}
+          className={`h-full flex-1 min-w-0 transition-all duration-300 ease-out`}
+          style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "20vh", paddingLeft: "4px", paddingRight: "0" } : {}}
         >
           {/* GLOBAL FEED */}
           <div
@@ -471,10 +472,11 @@ export default function ReelsPage() {
           {isVendorMode && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "14%", opacity: 1 }}
+              animate={{ width: "20%", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full overflow-hidden flex-shrink-0 max-w-[68px] md:max-w-[120px]"
+              className="h-full overflow-hidden flex-shrink-0 max-w-[90px] md:max-w-[140px] ml-[2%]"
+              style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "20vh" } : {}}
             >
               <VendorThumbnailPanel
                 products={vendorProducts}
