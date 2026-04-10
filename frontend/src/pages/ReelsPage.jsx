@@ -33,7 +33,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
               className={`relative rounded-[4px] overflow-hidden cursor-pointer flex-shrink-0 transition-all duration-200 ${isCurrent ? "ring-[2px] ring-white opacity-100" : "opacity-70 hover:opacity-100"}`}
               data-testid={`vendor-thumb-${p.product_id}`}
             >
-              <div className="aspect-[3/7]">
+              <div className="aspect-[1/3]">
                 <img
                   src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE}
                   alt={p.name}
@@ -419,7 +419,7 @@ export default function ReelsPage() {
         {/* ─── Main Content Area ─── */}
         <div
           className={`h-full flex-1 min-w-0 transition-all duration-300 ease-out`}
-          style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "20vh", paddingLeft: "4px", paddingRight: "0" } : {}}
+          style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "12vh", paddingLeft: "4px", paddingRight: "0" } : {}}
         >
           {/* GLOBAL FEED */}
           <div
@@ -475,8 +475,8 @@ export default function ReelsPage() {
               animate={{ width: "20%", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full overflow-hidden flex-shrink-0 max-w-[65px] md:max-w-[100px] ml-[2%]"
-              style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "20vh" } : {}}
+              className="h-full overflow-hidden flex-shrink-0 max-w-[50px] md:max-w-[80px] ml-[2%]"
+              style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "12vh" } : {}}
             >
               <VendorThumbnailPanel
                 products={vendorProducts}
