@@ -36,6 +36,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 - **Checkout Page Premium Redesign (Apr 2026)**: Real payment gateway SVG icons (Visa, MC, UPI, RuPay, GPay, PhonePe, NetBanking), premium gold gradient CTA button with shimmer, "Secured by Razorpay" badge, upgraded trust signals
 
+- **Product On/Off Toggle (Apr 2026)**: Admin and vendor can toggle products active/inactive. Auto-deactivation when stock reaches 0. Inactive products hidden from frontend. Toggle UI in admin (AdminProductsHub) and vendor dashboards.
+
 ## Production Domain
 - https://thepigma.com
 
