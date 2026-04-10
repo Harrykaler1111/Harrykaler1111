@@ -33,7 +33,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
               className={`relative rounded-[4px] overflow-hidden cursor-pointer flex-shrink-0 transition-all duration-200 ${isCurrent ? "ring-[2px] ring-white opacity-100" : "opacity-70 hover:opacity-100"}`}
               data-testid={`vendor-thumb-${p.product_id}`}
             >
-              <div className="aspect-[2/3]">
+              <div className="aspect-[3/7]">
                 <img
                   src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE}
                   alt={p.name}
@@ -475,7 +475,7 @@ export default function ReelsPage() {
               animate={{ width: "20%", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full overflow-hidden flex-shrink-0 max-w-[90px] md:max-w-[140px] ml-[2%]"
+              className="h-full overflow-hidden flex-shrink-0 max-w-[65px] md:max-w-[100px] ml-[2%]"
               style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "20vh" } : {}}
             >
               <VendorThumbnailPanel
