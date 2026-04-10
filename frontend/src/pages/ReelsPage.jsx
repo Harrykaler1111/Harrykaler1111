@@ -33,7 +33,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
               className={`relative rounded-[4px] overflow-hidden cursor-pointer flex-shrink-0 transition-all duration-200 ${isCurrent ? "ring-[2px] ring-white opacity-100" : "opacity-70 hover:opacity-100"}`}
               data-testid={`vendor-thumb-${p.product_id}`}
             >
-              <div className="aspect-[3/7]">
+              <div className="aspect-[3/5]">
                 <img
                   src={normalizeImageUrl(p.images?.[0]) || FALLBACK_IMAGE}
                   alt={p.name}
