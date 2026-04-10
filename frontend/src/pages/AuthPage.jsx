@@ -171,8 +171,15 @@ export const AuthPage = () => {
         toast.error("Too many attempts. Please try again later.");
       } else if (error.code === "auth/invalid-phone-number") {
         toast.error("Invalid phone number format");
+      } else if (error.code === "auth/captcha-check-failed") {
+        toast.error("reCAPTCHA verification failed. Please try again.");
+      } else if (error.code === "auth/quota-exceeded") {
+        toast.error("SMS quota exceeded. Please try later.");
+      } else if (error.code === "auth/operation-not-allowed") {
+        toast.error("Phone auth not enabled in Firebase Console.");
       } else {
-        toast.error("Failed to send OTP. Please try again.");
+        toast.error(`OTP Error: ${error.code || error.message || "Unknown error"}`);
+        console.error("Full Firebase error:", JSON.stringify(error, null, 2));
       }
     } finally {
       setIsLoading(false);
