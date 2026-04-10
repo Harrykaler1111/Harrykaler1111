@@ -14,32 +14,27 @@ import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
-// UPI Logo SVGs
-const PaytmLogo = () => (
-  <div className="flex items-center justify-center w-8 h-8 bg-[#00BAF2] rounded-md" data-testid="upi-paytm">
-    <span className="text-white text-[7px] font-black leading-none">Pay<br/>tm</span>
-  </div>
-);
-
-const PhonePeLogo = () => (
-  <div className="flex items-center justify-center w-8 h-8 bg-[#5F259F] rounded-md" data-testid="upi-phonepe">
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="white">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15.5v-4.34l-3.5 3.5-1.42-1.42L10.34 12l-4.26-3.24 1.42-1.42L11 10.84V6.5h2v11h-2z"/>
+// UPI / Payment brand strip (clean, subtle)
+const PaymentBrandStrip = () => (
+  <div className="flex items-center justify-center gap-3 py-1" data-testid="payment-brand-strip">
+    {/* Visa */}
+    <svg viewBox="0 0 48 16" className="h-3 w-auto opacity-40">
+      <path d="M17.4 1.2L14.7 14.8h-3.1L14.3 1.2h3.1zm14.8 8.8l1.6-4.5.9 4.5h-2.5zm3.5 5.8h2.9L36.1 1.2h-2.6c-.6 0-1.1.3-1.3.8L27.7 15.8h3.2l.6-1.8h3.9l.3 1.8zm-8.5-4.5c0-3.6-5-3.8-5-5.4 0-.5.5-1 1.6-1.1.8-.1 2.3 0 2.9.4l.5-2.5c-.7-.3-1.6-.5-2.8-.5-3 0-5.1 1.6-5.1 3.8 0 1.7 1.5 2.6 2.6 3.1 1.1.6 1.5 1 1.5 1.5 0 .8-.9 1.2-1.7 1.2-1.5 0-2.3-.4-3-.7l-.5 2.5c.7.3 2 .6 3.3.6 3.2 0 5.3-1.6 5.3-3.9h-.6zM12 1.2L7.4 15.8H4.2L1.7 3.5c-.2-.7-.3-1-.8-1.2C.3 2.1-.1 1.7-.1 1.7L0 1.2h5.2c.7 0 1.3.5 1.4 1.2l1.3 6.8L11 1.2H12z" fill="#1A1F71"/>
     </svg>
-  </div>
-);
-
-const GPayLogo = () => (
-  <div className="flex items-center justify-center w-8 h-8 bg-white border border-neutral-200 rounded-md" data-testid="upi-gpay">
-    <svg viewBox="0 0 24 24" className="w-5 h-5">
-      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" fill="#4285F4"/>
+    {/* Mastercard */}
+    <svg viewBox="0 0 32 20" className="h-3.5 w-auto opacity-40">
+      <circle cx="12" cy="10" r="7" fill="#EB001B"/>
+      <circle cx="20" cy="10" r="7" fill="#F79E1B"/>
+      <path d="M16 4.5c1.5 1.3 2.5 3.2 2.5 5.5s-1 4.2-2.5 5.5c-1.5-1.3-2.5-3.2-2.5-5.5s1-4.2 2.5-5.5z" fill="#FF5F00"/>
     </svg>
-  </div>
-);
-
-const UPIBadge = () => (
-  <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-0.5">
-    <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider">UPI</span>
+    {/* UPI text */}
+    <span className="text-[9px] font-bold text-neutral-400 tracking-wider">UPI</span>
+    {/* GPay */}
+    <span className="text-[8px] font-semibold text-neutral-400">GPay</span>
+    {/* PhonePe */}
+    <span className="text-[8px] font-semibold text-neutral-400">PhonePe</span>
+    {/* COD */}
+    <span className="text-[8px] font-semibold text-neutral-400">COD</span>
   </div>
 );
 
@@ -447,29 +442,27 @@ export const CartDrawer = () => {
 
             {/* Sticky Footer - Checkout */}
             {items.length > 0 && (
-              <div className="border-t border-neutral-100 bg-white px-4 py-3 space-y-2 shrink-0" data-testid="cart-drawer-footer">
-                {/* Checkout Button */}
-                <Button
-                  onClick={handleCheckout}
-                  className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black font-bold py-6 rounded-xl text-base relative overflow-hidden group"
-                  data-testid="drawer-checkout-btn"
-                >
-                  <span className="flex items-center gap-2">
-                    CHECKOUT
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                  </span>
-                  {/* UPI Logos */}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                    <PaytmLogo />
-                    <PhonePeLogo />
-                    <GPayLogo />
-                  </div>
-                </Button>
+              <div className="border-t border-neutral-100 bg-white px-4 pt-3 shrink-0" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }} data-testid="cart-drawer-footer">
+                {/* Checkout Button — clean, bold, no clutter */}
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                  <Button
+                    onClick={handleCheckout}
+                    className="w-full bg-black hover:bg-neutral-900 text-white font-bold py-6 rounded-2xl text-base relative overflow-hidden group shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
+                    data-testid="drawer-checkout-btn"
+                  >
+                    {/* Shimmer sweep */}
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
+                    <span className="relative z-10 flex items-center justify-center gap-3">
+                      <span className="tracking-wider">CHECKOUT</span>
+                      <span className="text-neutral-400">|</span>
+                      <span className="font-black">₹{finalTotal.toLocaleString()}</span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                  </Button>
+                </motion.div>
 
-                {/* Extra Discount on UPI */}
-                <p className="text-center text-[10px] text-neutral-400" data-testid="upi-extra-discount">
-                  Extra Discount On <span className="font-bold text-neutral-600">UPI</span> Payments
-                </p>
+                {/* Payment brands strip */}
+                <PaymentBrandStrip />
               </div>
             )}
           </motion.div>
