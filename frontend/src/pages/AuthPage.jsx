@@ -104,12 +104,14 @@ export const AuthPage = () => {
 
   // Initialize reCAPTCHA once on mount, reuse on every send
   const recaptchaWidgetId = useRef(null);
+  const recaptchaInitialized = useRef(false);
 
-  useEffect(() => {
-    // Only create if not already initialized
-    if (!window.recaptchaVerifier) {
-      const container = document.getElementById("recaptcha-container");
-      if (!container) return;
+  const initRecaptcha = useCallback(() => {
+    if (recaptchaInitialized.current || window.recaptchaVerifier) return;
+    const container = document.getElementById("recaptcha-container");
+    if (!container) return;
+
+    try {
       window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
         callback: () => setRecaptchaReady(true),
@@ -117,17 +119,24 @@ export const AuthPage = () => {
       });
       window.recaptchaVerifier.render().then((widgetId) => {
         recaptchaWidgetId.current = widgetId;
+        recaptchaInitialized.current = true;
       });
+    } catch (e) {
+      console.error("reCAPTCHA init error:", e);
     }
-    // Cleanup on unmount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount only
+  useEffect(() => {
     return () => {
       if (window.recaptchaVerifier) {
         try { window.recaptchaVerifier.clear(); } catch (_) {}
         window.recaptchaVerifier = null;
         recaptchaWidgetId.current = null;
+        recaptchaInitialized.current = false;
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSendOtp = async () => {
     const phone = otpPhone.trim().replace(/\s|-/g, "");
@@ -138,16 +147,23 @@ export const AuthPage = () => {
     }
     const fullPhone = `+91${digits}`;
 
+    // Initialize reCAPTCHA on first send (container guaranteed to exist by now)
     if (!window.recaptchaVerifier) {
-      toast.error("Security check loading. Please wait a moment and try again.");
+      initRecaptcha();
+      // Wait for render to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    if (!window.recaptchaVerifier) {
+      toast.error("Security check failed. Please refresh the page.");
       return;
     }
 
     setIsLoading(true);
     try {
-      // Reset the reCAPTCHA token for re-use (does NOT re-render the widget)
+      // Reset token for re-use without re-rendering
       if (recaptchaWidgetId.current !== null && window.grecaptcha) {
-        window.grecaptcha.reset(recaptchaWidgetId.current);
+        try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (_) {}
       }
 
       const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
