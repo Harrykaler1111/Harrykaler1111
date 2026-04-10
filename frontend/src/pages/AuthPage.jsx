@@ -102,62 +102,8 @@ export const AuthPage = () => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // Initialize reCAPTCHA once, attached to the send button
+  // reCAPTCHA state
   const recaptchaWidgetId = useRef(null);
-  const recaptchaInitialized = useRef(false);
-  const pendingPhone = useRef(null);
-
-  const initAndSendOtp = async (fullPhone) => {
-    // Create verifier attached to the send button — invisible reCAPTCHA auto-fires on click
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, "send-otp-button", {
-        size: "invisible",
-        callback: () => {
-          // reCAPTCHA solved — now send OTP
-          fireOtp(pendingPhone.current);
-        },
-        "expired-callback": () => {
-          toast.error("Verification expired. Click Send OTP again.");
-          setIsLoading(false);
-        },
-      });
-      recaptchaInitialized.current = true;
-    } else if (recaptchaWidgetId.current !== null && window.grecaptcha) {
-      try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (_) {}
-    }
-
-    pendingPhone.current = fullPhone;
-    try {
-      const widgetId = await window.recaptchaVerifier.render();
-      recaptchaWidgetId.current = widgetId;
-      await window.recaptchaVerifier.verify();
-    } catch (e) {
-      console.error("reCAPTCHA error:", e);
-      setIsLoading(false);
-    }
-  };
-
-  const fireOtp = async (fullPhone) => {
-    if (!fullPhone) return;
-    try {
-      const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
-      setConfirmationResult(result);
-      setOtpSent(true);
-      setResendTimer(30);
-      toast.success("OTP sent to your phone via SMS");
-    } catch (error) {
-      console.error("Firebase OTP error:", error);
-      if (error.code === "auth/too-many-requests") {
-        toast.error("Too many attempts. Try again later.");
-      } else if (error.code === "auth/invalid-phone-number") {
-        toast.error("Invalid phone number");
-      } else {
-        toast.error(`OTP Error: ${error.code || error.message || "Failed"}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Cleanup on unmount only
   useEffect(() => {
@@ -165,11 +111,23 @@ export const AuthPage = () => {
       if (window.recaptchaVerifier) {
         try { window.recaptchaVerifier.clear(); } catch (_) {}
         window.recaptchaVerifier = null;
-        recaptchaWidgetId.current = null;
-        recaptchaInitialized.current = false;
       }
     };
   }, []);
+
+  const getRecaptchaVerifier = () => {
+    if (window.recaptchaVerifier) {
+      // Reset existing widget token
+      if (recaptchaWidgetId.current !== null && window.grecaptcha) {
+        try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (_) {}
+      }
+      return window.recaptchaVerifier;
+    }
+    const verifier = new RecaptchaVerifier(auth, "send-otp-button", { size: "invisible" });
+    window.recaptchaVerifier = verifier;
+    verifier.render().then(id => { recaptchaWidgetId.current = id; });
+    return verifier;
+  };
 
   const handleSendOtp = async () => {
     const phone = otpPhone.trim().replace(/\s|-/g, "");
@@ -178,8 +136,33 @@ export const AuthPage = () => {
       toast.error("Enter a valid 10-digit Indian mobile number");
       return;
     }
+    const fullPhone = `+91${digits}`;
     setIsLoading(true);
-    initAndSendOtp(`+91${digits}`);
+    try {
+      const verifier = getRecaptchaVerifier();
+      const result = await signInWithPhoneNumber(auth, fullPhone, verifier);
+      setConfirmationResult(result);
+      setOtpSent(true);
+      setResendTimer(30);
+      toast.success("OTP sent to your phone via SMS");
+    } catch (error) {
+      console.error("Firebase OTP error:", error.code, error.message);
+      // On any error, destroy verifier so next attempt creates fresh one
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
+        recaptchaWidgetId.current = null;
+      }
+      if (error.code === "auth/too-many-requests") {
+        toast.error("Too many attempts. Try again in a few minutes.");
+      } else if (error.code === "auth/invalid-phone-number") {
+        toast.error("Invalid phone number");
+      } else {
+        toast.error(`OTP Error: ${error.code || error.message}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOtpDigitChange = (index, value) => {
