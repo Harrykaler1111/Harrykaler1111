@@ -142,7 +142,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
     <div className={`relative w-full h-full snap-start snap-always flex-shrink-0 bg-black overflow-hidden ${isVendorMode ? "rounded-lg" : ""}`} data-testid={`reel-card-${product.product_id}`}>
       <div className="absolute inset-0" onClick={goToProduct}>
         {renderSlide()}
-        <div className="absolute bottom-0 left-0 right-0 h-52 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-64 sm:h-52 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
       </div>
 
       {/* Boost badge */}
@@ -170,7 +170,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
       )}
 
       {/* Right side action buttons */}
-      <div className="absolute right-3 bottom-28 flex flex-col items-center gap-4 z-10">
+      <div className="absolute right-3 bottom-44 sm:bottom-28 flex flex-col items-center gap-4 z-10">
         {/* Store / Seller button */}
         {onStoreClick && (
           <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-vendor-${product.product_id}`}>
@@ -206,7 +206,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
       </div>
 
       {/* Bottom info */}
-      <div className="absolute bottom-4 left-4 right-16 z-10" onClick={goToProduct}>
+      <div className="absolute bottom-10 sm:bottom-4 left-4 right-16 z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} onClick={goToProduct}>
         {sellerLabel && (
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-white text-[11px] font-semibold">@{sellerLabel}</span>
@@ -495,7 +495,7 @@ export default function ReelsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none"
+            className="absolute bottom-8 sm:bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none"
           >
             <span className="text-white/25 text-[9px] tracking-wider">Swipe left for more from seller</span>
           </motion.div>
@@ -505,7 +505,7 @@ export default function ReelsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute bottom-2 left-0 z-10 flex justify-center pointer-events-none"
+            className="absolute bottom-8 sm:bottom-2 left-0 z-10 flex justify-center pointer-events-none"
             style={{ width: "82%" }}
           >
             <span className="text-white/25 text-[9px] tracking-wider">Swipe right to go back</span>
