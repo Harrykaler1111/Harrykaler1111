@@ -1,5 +1,6 @@
 .App {
     min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Remove old styles that conflict with new design */
