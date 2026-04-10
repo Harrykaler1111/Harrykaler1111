@@ -1245,6 +1245,16 @@ async def get_platform_stats(admin: Dict = Depends(get_admin_user)):
 
 # ============== ADMIN PRODUCT CRUD (Super Admin + Product Manager) ==============
 
+
+@router.get("/products/all")
+async def admin_get_all_products(limit: int = 100, admin: Dict = Depends(get_admin_user)):
+    """Get ALL products including inactive ones (admin only)"""
+    if not check_permission(admin, "products", "view"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    products = await db.products.find({}, {"_id": 0}).sort("created_at", -1).limit(limit).to_list(limit)
+    return products
+
+
 @router.post("/products")
 async def admin_create_product(product: Dict, admin: Dict = Depends(get_admin_user)):
     if not check_permission(admin, "products", "create"):
@@ -1299,14 +1309,50 @@ async def admin_update_stock(product_id: str, stock: int, admin: Dict = Depends(
     if not check_permission(admin, "products", "edit"):
         raise HTTPException(status_code=403, detail="Permission denied")
 
+    update_fields = {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if stock <= 0:
+        update_fields["is_active"] = False
+        update_fields["auto_deactivated"] = True
     result = await db.products.update_one(
         {"product_id": product_id},
-        {"$set": {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": update_fields}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
 
     return {"message": f"Stock updated to {stock}"}
+
+
+@router.put("/products/{product_id}/toggle-active")
+async def admin_toggle_product_active(product_id: str, admin: Dict = Depends(get_admin_user)):
+    if not check_permission(admin, "products", "edit"):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    product = await db.products.find_one({"product_id": product_id})
+    if not product:
+        # Check vendor_products too
+        product = await db.vendor_products.find_one({"product_id": product_id})
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        new_status = not product.get("is_active", True)
+        await db.vendor_products.update_one(
+            {"product_id": product_id},
+            {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        # Also update in products collection if exists there
+        await db.products.update_one(
+            {"product_id": product_id},
+            {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": f"Product {'activated' if new_status else 'deactivated'}", "is_active": new_status}
+
+    new_status = not product.get("is_active", True)
+    await db.products.update_one(
+        {"product_id": product_id},
+        {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"Product {'activated' if new_status else 'deactivated'}", "is_active": new_status}
+
 
 
 # ============== TOP LISTING MANUAL CONTROL ==============

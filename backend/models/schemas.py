@@ -460,6 +460,7 @@ class VendorProductResponse(BaseModel):
     approval_status: str
     rejection_reason: Optional[str] = None
     is_active: bool
+    auto_deactivated: bool = False
     total_sold: int = 0
     total_revenue: float = 0.0
     created_at: str

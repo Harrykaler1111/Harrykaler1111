@@ -653,12 +653,18 @@ async def delete_vendor_product(product_id: str, vendor: Dict = Depends(get_curr
 @router.put("/products/{product_id}/stock")
 async def update_vendor_product_stock(product_id: str, stock: int, vendor: Dict = Depends(get_current_vendor)):
     """Update stock without triggering re-approval"""
+    update_fields = {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if stock <= 0:
+        update_fields["is_active"] = False
+        update_fields["auto_deactivated"] = True
     result = await db.vendor_products.update_one(
         {"product_id": product_id, "vendor_id": vendor["vendor_id"]},
-        {"$set": {"stock": stock, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": update_fields}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
+    # Sync to products collection
+    await db.products.update_one({"product_id": product_id}, {"$set": update_fields})
     return {"message": f"Stock updated to {stock}"}
 
 
@@ -672,6 +678,26 @@ async def update_vendor_product_price(product_id: str, price: float, vendor: Dic
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
     return {"message": f"Price updated to {price}"}
+
+
+
+@router.put("/products/{product_id}/toggle-active")
+async def toggle_vendor_product_active(product_id: str, vendor: Dict = Depends(get_current_vendor)):
+    product = await db.vendor_products.find_one({"product_id": product_id, "vendor_id": vendor["vendor_id"]})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    new_status = not product.get("is_active", True)
+    await db.vendor_products.update_one(
+        {"product_id": product_id, "vendor_id": vendor["vendor_id"]},
+        {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    # Sync to products collection
+    await db.products.update_one(
+        {"product_id": product_id},
+        {"$set": {"is_active": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": f"Product {'activated' if new_status else 'deactivated'}", "is_active": new_status}
 
 
 # ============== VENDOR ORDERS ==============

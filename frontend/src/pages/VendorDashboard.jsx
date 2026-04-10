@@ -668,6 +668,14 @@ const VendorProducts = ({ vendor }) => {
     } catch { toast.error("Failed to update price"); }
   };
 
+  const toggleProductActive = async (productId) => {
+    try {
+      const res = await axios.put(`${API}/vendors/products/${productId}/toggle-active`, {}, { headers: getVendorHeaders() });
+      toast.success(res.data.message);
+      fetchProducts();
+    } catch { toast.error("Failed to toggle product"); }
+  };
+
   const statusBadge = (s) => {
     const map = { approved: "bg-green-500/20 text-green-400", pending_approval: "bg-yellow-500/20 text-yellow-400", rejected: "bg-red-500/20 text-red-400", draft: "bg-neutral-500/20 text-neutral-400", delisted: "bg-neutral-600/20 text-neutral-500" };
     return map[s] || map.draft;
@@ -812,7 +820,8 @@ const VendorProducts = ({ vendor }) => {
               <TableHead className="text-neutral-400">Category</TableHead>
               <TableHead className="text-neutral-400">Price</TableHead>
               <TableHead className="text-neutral-400">Stock</TableHead>
-              <TableHead className="text-neutral-400">Status</TableHead>
+              <TableHead className="text-neutral-400">On/Off</TableHead>
+              <TableHead className="text-neutral-400">Approval</TableHead>
               <TableHead className="text-neutral-400">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -849,6 +858,16 @@ const VendorProducts = ({ vendor }) => {
                       {p.stock} {p.stock < 10 && "(Low)"}
                     </span>
                   )}
+                </TableCell>
+                <TableCell>
+                  <button
+                    onClick={() => toggleProductActive(p.product_id)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${p.is_active !== false ? "bg-green-500" : "bg-neutral-600"} cursor-pointer`}
+                    data-testid={`toggle-product-${p.product_id}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${p.is_active !== false ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                  </button>
+                  {p.stock <= 0 && p.auto_deactivated && <p className="text-[9px] text-red-400 mt-0.5">Out of stock</p>}
                 </TableCell>
                 <TableCell>
                   <span className={`text-xs px-2 py-1 rounded capitalize ${statusBadge(p.approval_status)}`}>{p.approval_status?.replace("_", " ")}</span>

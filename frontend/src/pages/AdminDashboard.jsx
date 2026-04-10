@@ -1080,7 +1080,7 @@ const ProductsManagement = () => {
   const fetchData = async () => {
     try {
       const [prodRes, catRes] = await Promise.all([
-        axios.get(`${API}/products?limit=100`),
+        axios.get(`${API}/admin/products/all?limit=100`, { headers: getAdminHeaders() }),
         axios.get(`${API}/admin/settings/categories`, { headers: getAdminHeaders() }).catch(() => ({ data: [] }))
       ]);
       setProducts(prodRes.data);
@@ -1165,6 +1165,14 @@ const ProductsManagement = () => {
       setEditingPrice(null);
       fetchData();
     } catch { toast.error("Failed to update price"); }
+  };
+
+  const toggleProductActive = async (productId) => {
+    try {
+      const res = await axios.put(`${API}/admin/products/${productId}/toggle-active`, {}, { headers: getAdminHeaders() });
+      toast.success(res.data.message);
+      fetchData();
+    } catch { toast.error("Failed to toggle product"); }
   };
 
   const canCreate = hasPermission("products", "create");
@@ -1315,6 +1323,7 @@ const ProductsManagement = () => {
               <TableHead className="text-neutral-400">Category</TableHead>
               <TableHead className="text-neutral-400">Price</TableHead>
               <TableHead className="text-neutral-400">Stock</TableHead>
+              <TableHead className="text-neutral-400">Status</TableHead>
               <TableHead className="text-neutral-400">Limited</TableHead>
               <TableHead className="text-neutral-400">Actions</TableHead>
             </TableRow>
@@ -1352,6 +1361,16 @@ const ProductsManagement = () => {
                       {p.stock}
                     </span>
                   )}
+                </TableCell>
+                <TableCell>
+                  <button
+                    onClick={() => canEdit && toggleProductActive(p.product_id)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${p.is_active !== false ? "bg-green-500" : "bg-neutral-600"} ${canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+                    data-testid={`toggle-product-${p.product_id}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${p.is_active !== false ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                  </button>
+                  {p.stock <= 0 && p.auto_deactivated && <p className="text-[9px] text-red-400 mt-0.5">Out of stock</p>}
                 </TableCell>
                 <TableCell>{p.is_limited_edition ? <Badge variant="outline" className="border-gold text-gold">Limited</Badge> : "-"}</TableCell>
                 <TableCell>

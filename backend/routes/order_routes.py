@@ -325,6 +325,18 @@ async def create_order(order: OrderCreate, user: Dict = Depends(get_current_user
                 {"product_id": item["product_id"]},
                 {"$inc": {"stock": -item["quantity"]}}
             )
+        # Auto-deactivate if stock reaches 0
+        updated_prod = await db.products.find_one({"product_id": item["product_id"]}, {"stock": 1})
+        if updated_prod and updated_prod.get("stock", 0) <= 0:
+            await db.products.update_one(
+                {"product_id": item["product_id"]},
+                {"$set": {"is_active": False, "auto_deactivated": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+            if item.get("vendor_id"):
+                await db.vendor_products.update_one(
+                    {"product_id": item["product_id"]},
+                    {"$set": {"is_active": False, "auto_deactivated": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
 
     await db.carts.update_one(
         {"user_id": user["user_id"]},

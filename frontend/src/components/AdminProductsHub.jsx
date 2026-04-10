@@ -116,7 +116,7 @@ const ProductsTable = ({ onEdit, onAddInCategory }) => {
   const fetchData = useCallback(async () => {
     try {
       const [prodRes, catRes] = await Promise.all([
-        axios.get(`${API}/products?limit=200`),
+        axios.get(`${API}/admin/products/all?limit=200`, { headers: getAdminHeaders() }),
         axios.get(`${API}/categories`)
       ]);
       setProducts(prodRes.data);
@@ -134,6 +134,14 @@ const ProductsTable = ({ onEdit, onAddInCategory }) => {
       toast.success("Product deleted");
       setProducts(prev => prev.filter(p => p.product_id !== productId));
     } catch (e) { toast.error(e.response?.data?.detail || "Failed to delete"); }
+  };
+
+  const toggleProductActive = async (productId) => {
+    try {
+      const res = await axios.put(`${API}/admin/products/${productId}/toggle-active`, {}, { headers: getAdminHeaders() });
+      toast.success(res.data.message);
+      setProducts(prev => prev.map(p => p.product_id === productId ? { ...p, is_active: res.data.is_active } : p));
+    } catch { toast.error("Failed to toggle product"); }
   };
 
   const filtered = products.filter(p => {
@@ -186,6 +194,7 @@ const ProductsTable = ({ onEdit, onAddInCategory }) => {
               <TableHead className="text-neutral-400 font-semibold">Category</TableHead>
               <TableHead className="text-neutral-400 font-semibold">Price</TableHead>
               <TableHead className="text-neutral-400 font-semibold">Stock</TableHead>
+              <TableHead className="text-neutral-400 font-semibold">On/Off</TableHead>
               <TableHead className="text-neutral-400 font-semibold">Tags</TableHead>
               <TableHead className="text-neutral-400 font-semibold text-right">Actions</TableHead>
             </TableRow>
@@ -219,6 +228,16 @@ const ProductsTable = ({ onEdit, onAddInCategory }) => {
                   <span className={`font-medium ${p.stock < 10 ? "text-red-400" : p.stock < 30 ? "text-amber-400" : "text-green-400"}`}>
                     {p.stock}
                   </span>
+                </TableCell>
+                <TableCell>
+                  <button
+                    onClick={() => canEdit && toggleProductActive(p.product_id)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${p.is_active !== false ? "bg-green-500" : "bg-neutral-600"} ${canEdit ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+                    data-testid={`toggle-product-${p.product_id}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${p.is_active !== false ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+                  </button>
+                  {p.stock <= 0 && !p.is_active && <p className="text-[9px] text-red-400 mt-0.5">Out of stock</p>}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1 flex-wrap">
