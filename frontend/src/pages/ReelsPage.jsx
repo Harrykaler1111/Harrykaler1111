@@ -128,7 +128,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
       return (
         <div className="relative w-full h-full bg-black">
           <video ref={videoRef} src={product.video_url} className="w-full h-full object-cover" loop muted={muted} playsInline />
-          <button onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }} className="absolute top-14 right-4 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white" data-testid="reel-mute-toggle">
+          <button onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }} className="absolute top-24 right-4 w-8 h-8 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white" data-testid="reel-mute-toggle">
             {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </button>
         </div>
@@ -147,7 +147,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
 
       {/* Boost badge */}
       {product.is_boosted && (
-        <div className="absolute top-12 left-3 z-10 flex items-center gap-1 bg-amber-500/90 backdrop-blur-sm text-white text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" data-testid="boosted-badge">
+        <div className="absolute top-24 left-3 z-10 flex items-center gap-1 bg-amber-500/90 backdrop-blur-sm text-white text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" data-testid="boosted-badge">
           <Zap className="h-2.5 w-2.5" /> Promoted
         </div>
       )}

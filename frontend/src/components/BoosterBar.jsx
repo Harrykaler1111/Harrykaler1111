@@ -398,26 +398,46 @@ export const BoosterBar = () => {
       {/* Spacer */}
       <div className="hidden lg:block h-[48px] bg-black" />
 
-      {/* Mobile Bar — sticky below header (or at top on reels page) */}
-      <div className={`lg:hidden fixed left-0 right-0 z-[55] ${location.pathname === "/reels" ? "top-0" : "top-16"}`} data-testid="booster-bar-mobile">
-        <motion.div
-          initial={{ y: -50 }}
-          animate={{ y: 0 }}
-          className="bg-black border-b border-gold/20"
-        >
-          {/* Expandable section */}
+      {/* Mobile Bar — sticky below header (or compact floating on reels page) */}
+      {location.pathname === "/reels" ? (
+        /* ── Reels-specific: compact floating pill ── */
+        <div className="lg:hidden fixed top-12 left-3 right-3 z-[55] pointer-events-none" data-testid="booster-bar-mobile">
+          <div className="pointer-events-auto flex items-center gap-2 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-3 py-1.5 shadow-lg" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className="flex-1 min-w-0">
+              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gold rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <Zap className="h-2.5 w-2.5 text-gold flex-shrink-0" />
+                {active ? (
+                  <span className="text-green-400 text-[9px] font-bold truncate">{active.reward_label} unlocked!</span>
+                ) : next ? (
+                  <span className="text-white/70 text-[9px] truncate">Rs.{amountToNext.toLocaleString()} more for {next.reward_label}</span>
+                ) : (
+                  <span className="text-white/50 text-[9px]">Add items</span>
+                )}
+              </div>
+            </div>
+            <span className="text-gold text-[10px] font-bold whitespace-nowrap">Rs.{cartTotal.toLocaleString()}</span>
+            <button onClick={(e) => { e.stopPropagation(); openCart(); }}
+              className="relative bg-gold text-black p-1.5 rounded-full flex-shrink-0" data-testid="mobile-cart-btn">
+              <ShoppingBag className="h-3.5 w-3.5" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+          {/* Expandable slabs */}
           <AnimatePresence>
             {isExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="border-b border-neutral-800 px-4 py-3"
-              >
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                className="pointer-events-auto mt-2 bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-lg">
                 <div className="flex flex-wrap gap-2 mb-2">
                   {enabledSlabs.map(s => (
                     <span key={s.slab_id} className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                      cartTotal >= s.min_cart_value ? "border-gold/50 text-gold bg-gold/10" : "border-neutral-700 text-neutral-500"
+                      cartTotal >= s.min_cart_value ? "border-gold/50 text-gold bg-gold/10" : "border-white/10 text-white/40"
                     }`}>
                       Rs.{s.min_cart_value.toLocaleString()} = {s.reward_label}
                     </span>
@@ -426,46 +446,83 @@ export const BoosterBar = () => {
                 {next && amountToNext > 0 && (
                   <Button onClick={() => { setShowUpsell(true); setIsExpanded(false); }} size="sm"
                     className="w-full bg-gold text-black text-xs font-bold rounded-full mt-1" data-testid="mobile-upsell-btn">
-                    <Gift className="h-3.5 w-3.5 mr-1.5" /> Add more to unlock rewards <ChevronRight className="h-3 w-3 ml-1" />
+                    <Gift className="h-3.5 w-3.5 mr-1.5" /> Add more <ChevronRight className="h-3 w-3 ml-1" />
                   </Button>
                 )}
               </motion.div>
             )}
           </AnimatePresence>
-
-          <div className="px-4 py-2.5 flex items-center gap-3" onClick={() => setIsExpanded(!isExpanded)}>
-            {/* Progress */}
-            <div className="flex-1">
-              <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-1.5">
-                <motion.div className="h-full bg-gold rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <Zap className="h-3 w-3 text-gold" />
-                  {active ? (
-                    <span className="text-green-400 text-[10px] font-bold">{active.reward_label} unlocked!</span>
-                  ) : next ? (
-                    <span className="text-neutral-300 text-[10px]">Rs.{amountToNext.toLocaleString()} more for {next.reward_label}</span>
-                  ) : (
-                    <span className="text-neutral-400 text-[10px]">Add items</span>
+        </div>
+      ) : (
+        /* ── Standard mobile bar for all other pages ── */
+        <div className="lg:hidden fixed left-0 right-0 z-[55] top-16" data-testid="booster-bar-mobile">
+          <motion.div
+            initial={{ y: -50 }}
+            animate={{ y: 0 }}
+            className="bg-black border-b border-gold/20"
+          >
+            {/* Expandable section */}
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="border-b border-neutral-800 px-4 py-3"
+                >
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {enabledSlabs.map(s => (
+                      <span key={s.slab_id} className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                        cartTotal >= s.min_cart_value ? "border-gold/50 text-gold bg-gold/10" : "border-neutral-700 text-neutral-500"
+                      }`}>
+                        Rs.{s.min_cart_value.toLocaleString()} = {s.reward_label}
+                      </span>
+                    ))}
+                  </div>
+                  {next && amountToNext > 0 && (
+                    <Button onClick={() => { setShowUpsell(true); setIsExpanded(false); }} size="sm"
+                      className="w-full bg-gold text-black text-xs font-bold rounded-full mt-1" data-testid="mobile-upsell-btn">
+                      <Gift className="h-3.5 w-3.5 mr-1.5" /> Add more to unlock rewards <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
                   )}
-                </div>
-                <span className="text-gold text-xs font-bold">Rs.{cartTotal.toLocaleString()}</span>
-              </div>
-            </div>
-            {/* Cart icon */}
-            <button onClick={(e) => { e.stopPropagation(); openCart(); }}
-              className="relative bg-gold text-black p-2 rounded-full" data-testid="mobile-cart-btn">
-              <ShoppingBag className="h-4 w-4" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
+                </motion.div>
               )}
-            </button>
-          </div>
-        </motion.div>
-      </div>
+            </AnimatePresence>
+
+            <div className="px-4 py-2.5 flex items-center gap-3" onClick={() => setIsExpanded(!isExpanded)}>
+              {/* Progress */}
+              <div className="flex-1">
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden mb-1.5">
+                  <motion.div className="h-full bg-gold rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Zap className="h-3 w-3 text-gold" />
+                    {active ? (
+                      <span className="text-green-400 text-[10px] font-bold">{active.reward_label} unlocked!</span>
+                    ) : next ? (
+                      <span className="text-neutral-300 text-[10px]">Rs.{amountToNext.toLocaleString()} more for {next.reward_label}</span>
+                    ) : (
+                      <span className="text-neutral-400 text-[10px]">Add items</span>
+                    )}
+                  </div>
+                  <span className="text-gold text-xs font-bold">Rs.{cartTotal.toLocaleString()}</span>
+                </div>
+              </div>
+              {/* Cart icon */}
+              <button onClick={(e) => { e.stopPropagation(); openCart(); }}
+                className="relative bg-gold text-black p-2 rounded-full" data-testid="mobile-cart-btn">
+                <ShoppingBag className="h-4 w-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </>
   );
 };
