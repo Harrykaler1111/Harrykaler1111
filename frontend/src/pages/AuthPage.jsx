@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, Timer, Shield } from "lucide-react";
@@ -102,29 +102,62 @@ export const AuthPage = () => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // Initialize reCAPTCHA once on mount, reuse on every send
+  // Initialize reCAPTCHA once, attached to the send button
   const recaptchaWidgetId = useRef(null);
   const recaptchaInitialized = useRef(false);
+  const pendingPhone = useRef(null);
 
-  const initRecaptcha = useCallback(() => {
-    if (recaptchaInitialized.current || window.recaptchaVerifier) return;
-    const container = document.getElementById("recaptcha-container");
-    if (!container) return;
-
-    try {
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+  const initAndSendOtp = async (fullPhone) => {
+    // Create verifier attached to the send button — invisible reCAPTCHA auto-fires on click
+    if (!window.recaptchaVerifier) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "send-otp-button", {
         size: "invisible",
-        callback: () => setRecaptchaReady(true),
-        "expired-callback": () => setRecaptchaReady(false),
+        callback: () => {
+          // reCAPTCHA solved — now send OTP
+          fireOtp(pendingPhone.current);
+        },
+        "expired-callback": () => {
+          toast.error("Verification expired. Click Send OTP again.");
+          setIsLoading(false);
+        },
       });
-      window.recaptchaVerifier.render().then((widgetId) => {
-        recaptchaWidgetId.current = widgetId;
-        recaptchaInitialized.current = true;
-      });
-    } catch (e) {
-      console.error("reCAPTCHA init error:", e);
+      recaptchaInitialized.current = true;
+    } else if (recaptchaWidgetId.current !== null && window.grecaptcha) {
+      try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (_) {}
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    pendingPhone.current = fullPhone;
+    try {
+      const widgetId = await window.recaptchaVerifier.render();
+      recaptchaWidgetId.current = widgetId;
+      await window.recaptchaVerifier.verify();
+    } catch (e) {
+      console.error("reCAPTCHA error:", e);
+      setIsLoading(false);
+    }
+  };
+
+  const fireOtp = async (fullPhone) => {
+    if (!fullPhone) return;
+    try {
+      const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
+      setConfirmationResult(result);
+      setOtpSent(true);
+      setResendTimer(30);
+      toast.success("OTP sent to your phone via SMS");
+    } catch (error) {
+      console.error("Firebase OTP error:", error);
+      if (error.code === "auth/too-many-requests") {
+        toast.error("Too many attempts. Try again later.");
+      } else if (error.code === "auth/invalid-phone-number") {
+        toast.error("Invalid phone number");
+      } else {
+        toast.error(`OTP Error: ${error.code || error.message || "Failed"}`);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Cleanup on unmount only
   useEffect(() => {
@@ -145,50 +178,8 @@ export const AuthPage = () => {
       toast.error("Enter a valid 10-digit Indian mobile number");
       return;
     }
-    const fullPhone = `+91${digits}`;
-
-    // Initialize reCAPTCHA on first send (container guaranteed to exist by now)
-    if (!window.recaptchaVerifier) {
-      initRecaptcha();
-      // Wait for render to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    if (!window.recaptchaVerifier) {
-      toast.error("Security check failed. Please refresh the page.");
-      return;
-    }
-
     setIsLoading(true);
-    try {
-      // Reset token for re-use without re-rendering
-      if (recaptchaWidgetId.current !== null && window.grecaptcha) {
-        try { window.grecaptcha.reset(recaptchaWidgetId.current); } catch (_) {}
-      }
-
-      const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
-      setConfirmationResult(result);
-      setOtpSent(true);
-      setResendTimer(30);
-      toast.success("OTP sent to your phone via SMS");
-    } catch (error) {
-      console.error("Firebase OTP error:", error);
-      if (error.code === "auth/too-many-requests") {
-        toast.error("Too many attempts. Please try again later.");
-      } else if (error.code === "auth/invalid-phone-number") {
-        toast.error("Invalid phone number format");
-      } else if (error.code === "auth/captcha-check-failed") {
-        toast.error("reCAPTCHA failed. Please try again.");
-      } else if (error.code === "auth/quota-exceeded") {
-        toast.error("SMS quota exceeded. Please try later.");
-      } else if (error.code === "auth/operation-not-allowed") {
-        toast.error("Phone auth not enabled in Firebase Console.");
-      } else {
-        toast.error(`OTP Error: ${error.code || error.message || "Unknown error"}`);
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    initAndSendOtp(`+91${digits}`);
   };
 
   const handleOtpDigitChange = (index, value) => {
@@ -320,8 +311,8 @@ export const AuthPage = () => {
 
   return (
     <div className="min-h-screen pt-20 flex items-center justify-center bg-neutral-50" data-testid="auth-page">
-      {/* reCAPTCHA container - always in DOM, never removed */}
-      <div id="recaptcha-container" style={{ position: "fixed", top: 0, left: 0, zIndex: 9999 }} />
+      {/* Hidden reCAPTCHA container for invisible mode */}
+      <div id="recaptcha-container" style={{ display: "none" }} />
       <div className="w-full max-w-md mx-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -590,15 +581,16 @@ export const AuthPage = () => {
                     <p className="text-[11px] text-neutral-500 flex items-center gap-1">
                       <Shield className="h-3 w-3" /> We'll send an SMS with a 6-digit verification code
                     </p>
-                    <Button
+                    <button
+                      id="send-otp-button"
                       type="button"
                       onClick={handleSendOtp}
-                      className="w-full bg-black hover:bg-neutral-800 text-white py-6 uppercase tracking-widest"
+                      className="w-full bg-black hover:bg-neutral-800 text-white py-3 rounded-md uppercase tracking-widest font-semibold text-sm disabled:opacity-50"
                       disabled={isLoading}
                       data-testid="send-otp-btn"
                     >
                       {isLoading ? "Sending..." : "Send OTP"}
-                    </Button>
+                    </button>
                   </>
                 ) : (
                   <>

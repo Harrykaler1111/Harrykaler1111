@@ -10,6 +10,6 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 const auth = getAuth(app);
-auth.useDeviceLanguage();
+auth.languageCode = "en";
 
 export { auth, RecaptchaVerifier, signInWithPhoneNumber };
