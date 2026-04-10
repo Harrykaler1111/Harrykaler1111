@@ -110,7 +110,7 @@ export const CartProvider = ({ children }) => {
     }
   }, [token]);
 
-  const addToCart = async (productId, quantity = 1, size = null, color = null, productData = null) => {
+  const addToCart = async (productId, quantity = 1, size = null, color = null, productData = null, { silent = false } = {}) => {
     // Guest mode: store in localStorage
     if (!token) {
       const guest = getGuestCart();
@@ -132,7 +132,7 @@ export const CartProvider = ({ children }) => {
       saveGuestCart(guest);
       setCartItems(guest);
       computeTotals(guest);
-      toast.success("Added to cart!");
+      if (!silent) toast.success("Added to cart!");
       return true;
     }
 
@@ -142,7 +142,7 @@ export const CartProvider = ({ children }) => {
         product_id: productId, quantity, size, color
       }, { headers });
       await fetchCart();
-      toast.success("Added to cart!");
+      if (!silent) toast.success("Added to cart!");
       return true;
     } catch (e) {
       toast.error(e.response?.data?.detail || "Failed to add to cart");

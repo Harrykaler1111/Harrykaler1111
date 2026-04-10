@@ -108,8 +108,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
     e.stopPropagation();
     if (product.stock <= 0) { toast.error("Out of stock"); return; }
     setAdding(true);
-    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product);
-    if (ok) toast.success("Added to cart");
+    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product, { silent: true });
     setAdding(false);
   };
 
