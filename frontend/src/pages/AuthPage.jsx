@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, Timer, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
+import { auth, RecaptchaVerifier, signInWithPhoneNumber } from "@/lib/firebase";
 
 export const AuthPage = () => {
   const navigate = useNavigate();
@@ -34,10 +35,15 @@ export const AuthPage = () => {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupPhone, setSignupPhone] = useState("");
 
-  // OTP form
+  // OTP form (Firebase Phone Auth)
   const [otpPhone, setOtpPhone] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const [otpSent, setOtpSent] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
+  const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
+  const recaptchaContainerRef = useRef(null);
 
   // Reset password
   const [showReset, setShowReset] = useState(false);
@@ -90,48 +96,158 @@ export const AuthPage = () => {
     }
   };
 
+  // Resend timer countdown
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => setResendTimer(t => t - 1), 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  // Setup invisible reCAPTCHA
+  const setupRecaptcha = useCallback(() => {
+    if (window.recaptchaVerifier) return;
+    try {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+        callback: () => setRecaptchaReady(true),
+        "expired-callback": () => {
+          setRecaptchaReady(false);
+          window.recaptchaVerifier = null;
+        },
+      });
+      window.recaptchaVerifier.render();
+    } catch (e) {
+      console.error("reCAPTCHA setup error:", e);
+    }
+  }, []);
+
   const handleSendOtp = async () => {
-    if (!otpPhone) {
-      toast.error("Please enter phone number");
+    const phone = otpPhone.trim().replace(/\s|-/g, "");
+    // Validate Indian phone
+    const digits = phone.replace(/^\+91/, "").replace(/^91/, "");
+    if (!/^[6-9]\d{9}$/.test(digits)) {
+      toast.error("Enter a valid 10-digit Indian mobile number");
       return;
     }
+    const fullPhone = `+91${digits}`;
+
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/otp/send`, { phone: otpPhone });
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      if (!appVerifier) {
+        toast.error("Security check failed. Please refresh and try again.");
+        return;
+      }
+      const result = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+      setConfirmationResult(result);
       setOtpSent(true);
-      toast.success("OTP sent to your WhatsApp");
+      setResendTimer(30);
+      toast.success("OTP sent to your phone via SMS");
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Failed to send OTP");
+      console.error("Firebase OTP error:", error);
+      // Reset recaptcha on failure
+      window.recaptchaVerifier = null;
+      if (error.code === "auth/too-many-requests") {
+        toast.error("Too many attempts. Please try again later.");
+      } else if (error.code === "auth/invalid-phone-number") {
+        toast.error("Invalid phone number format");
+      } else {
+        toast.error("Failed to send OTP. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e) => {
+  const handleOtpDigitChange = (index, value) => {
+    if (!/^\d*$/.test(value)) return;
+    const newDigits = [...otpDigits];
+    newDigits[index] = value.slice(-1);
+    setOtpDigits(newDigits);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      otpRefs[index + 1].current?.focus();
+    }
+
+    // Auto-submit when all 6 digits entered
+    const fullOtp = newDigits.join("");
+    if (fullOtp.length === 6) {
+      verifyFirebaseOtp(fullOtp);
+    }
+  };
+
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleOtpPaste = (e) => {
     e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted.length === 0) return;
+    const newDigits = [...otpDigits];
+    for (let i = 0; i < 6; i++) {
+      newDigits[i] = pasted[i] || "";
+    }
+    setOtpDigits(newDigits);
+    const focusIdx = Math.min(pasted.length, 5);
+    otpRefs[focusIdx].current?.focus();
+    if (pasted.length === 6) {
+      verifyFirebaseOtp(pasted);
+    }
+  };
+
+  const verifyFirebaseOtp = async (otpCode) => {
+    if (!confirmationResult) {
+      toast.error("Please send OTP first");
+      return;
+    }
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API}/auth/otp/verify`, {
-        phone: otpPhone,
-        otp
-      });
-      if (response.data.needs_registration) {
-        // Phone verified but no account — switch to signup tab with phone pre-filled
-        setSignupPhone(otpPhone);
-        setActiveTab("signup");
-        setOtpSent(false);
-        setOtp("");
-        toast.success("Phone verified! Complete registration below.");
-        return;
-      }
+      const userCredential = await confirmationResult.confirm(otpCode);
+      const idToken = await userCredential.user.getIdToken();
+
+      // Send Firebase ID token to our backend
+      const response = await axios.post(`${API}/auth/firebase/verify`, { id_token: idToken });
       login(response.data.user, response.data.token);
       toast.success("Welcome!");
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Invalid OTP");
+      console.error("OTP verify error:", error);
+      if (error.code === "auth/invalid-verification-code") {
+        toast.error("Invalid OTP. Please check and try again.");
+      } else if (error.code === "auth/code-expired") {
+        toast.error("OTP expired. Please resend.");
+      } else {
+        toast.error(error.response?.data?.detail || "Verification failed");
+      }
+      // Clear OTP digits on error
+      setOtpDigits(["", "", "", "", "", ""]);
+      otpRefs[0].current?.focus();
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerifyOtp = (e) => {
+    e.preventDefault();
+    const otpCode = otpDigits.join("");
+    if (otpCode.length !== 6) {
+      toast.error("Enter complete 6-digit OTP");
+      return;
+    }
+    verifyFirebaseOtp(otpCode);
+  };
+
+  const handleResendOtp = () => {
+    window.recaptchaVerifier = null;
+    setOtpSent(false);
+    setOtpDigits(["", "", "", "", "", ""]);
+    setConfirmationResult(null);
+    handleSendOtp();
   };
 
   const handleGoogleLogin = () => {
@@ -421,60 +537,100 @@ export const AuthPage = () => {
               </form>
             </TabsContent>
 
-            {/* OTP Tab */}
+            {/* OTP Tab - Firebase Phone Auth */}
             <TabsContent value="otp">
+              <div id="recaptcha-container" ref={recaptchaContainerRef} />
               <form onSubmit={handleVerifyOtp} className="space-y-4">
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                  <Input
-                    type="tel"
-                    placeholder="Phone number (+91...)"
-                    value={otpPhone}
-                    onChange={(e) => setOtpPhone(e.target.value)}
-                    className="pl-10"
-                    disabled={otpSent}
-                    required
-                    data-testid="otp-phone"
-                  />
-                </div>
                 {!otpSent ? (
-                  <Button
-                    type="button"
-                    onClick={handleSendOtp}
-                    className="w-full bg-black hover:bg-neutral-800 text-white py-6 uppercase tracking-widest"
-                    disabled={isLoading}
-                    data-testid="send-otp-btn"
-                  >
-                    {isLoading ? "Sending..." : "Send OTP"}
-                  </Button>
+                  <>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                      <Input
+                        type="tel"
+                        placeholder="Enter 10-digit mobile number"
+                        value={otpPhone}
+                        onChange={(e) => setOtpPhone(e.target.value)}
+                        className="pl-10"
+                        required
+                        autoComplete="tel"
+                        data-testid="otp-phone"
+                      />
+                    </div>
+                    <p className="text-[11px] text-neutral-500 flex items-center gap-1">
+                      <Shield className="h-3 w-3" /> We'll send an SMS with a 6-digit verification code
+                    </p>
+                    <Button
+                      type="button"
+                      onClick={handleSendOtp}
+                      className="w-full bg-black hover:bg-neutral-800 text-white py-6 uppercase tracking-widest"
+                      disabled={isLoading}
+                      data-testid="send-otp-btn"
+                    >
+                      {isLoading ? "Sending..." : "Send OTP"}
+                    </Button>
+                  </>
                 ) : (
                   <>
-                    <Input
-                      type="text"
-                      placeholder="Enter 6-digit OTP"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className="text-center text-lg tracking-widest"
-                      maxLength={6}
-                      required
-                      data-testid="otp-input"
-                    />
+                    <div className="text-center mb-2">
+                      <p className="text-sm text-neutral-600">OTP sent to <span className="font-semibold text-black">+91 {otpPhone.replace(/^\+?91/, "").replace(/(\d{5})(\d{5})/, "$1 $2")}</span></p>
+                    </div>
+
+                    {/* 6-digit OTP input boxes */}
+                    <div className="flex justify-center gap-2" data-testid="otp-boxes">
+                      {otpDigits.map((digit, i) => (
+                        <input
+                          key={i}
+                          ref={otpRefs[i]}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete={i === 0 ? "one-time-code" : "off"}
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpDigitChange(i, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                          onPaste={i === 0 ? handleOtpPaste : undefined}
+                          className="w-11 h-12 text-center text-lg font-bold rounded-xl border-2 border-neutral-200 focus:border-black focus:ring-0 outline-none transition-colors bg-neutral-50"
+                          data-testid={`otp-digit-${i}`}
+                        />
+                      ))}
+                    </div>
+
                     <Button
                       type="submit"
                       className="w-full bg-black hover:bg-neutral-800 text-white py-6 uppercase tracking-widest"
-                      disabled={isLoading}
+                      disabled={isLoading || otpDigits.join("").length < 6}
                       data-testid="verify-otp-btn"
                     >
                       {isLoading ? "Verifying..." : "Verify OTP"}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => { setOtpSent(false); setOtp(""); }}
-                      className="w-full"
-                    >
-                      Change Phone Number
-                    </Button>
+
+                    {/* Resend / Change number */}
+                    <div className="flex items-center justify-between text-sm">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); window.recaptchaVerifier = null; }}
+                        className="text-neutral-500 hover:text-black text-xs px-0"
+                      >
+                        Change Number
+                      </Button>
+                      {resendTimer > 0 ? (
+                        <span className="text-neutral-400 text-xs flex items-center gap-1">
+                          <Timer className="h-3 w-3" /> Resend in {resendTimer}s
+                        </span>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={handleResendOtp}
+                          disabled={isLoading}
+                          className="text-gold hover:text-gold-dark text-xs px-0 font-semibold"
+                          data-testid="resend-otp-btn"
+                        >
+                          Resend OTP
+                        </Button>
+                      )}
+                    </div>
                   </>
                 )}
               </form>

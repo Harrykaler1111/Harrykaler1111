@@ -38,6 +38,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 - **Product On/Off Toggle (Apr 2026)**: Admin and vendor can toggle products active/inactive. Auto-deactivation when stock reaches 0. Inactive products hidden from frontend. Toggle UI in admin (AdminProductsHub) and vendor dashboards.
 
+- **Firebase Phone OTP Auth (Apr 2026)**: Replaced WhatsApp OTP with Firebase Phone Auth. 6-digit OTP boxes, auto-focus, 30s resend timer, invisible reCAPTCHA, auto-create user on first login, rate limiting, user_events for WhatsApp integration readiness.
+
 ## Production Domain
 - https://thepigma.com
 

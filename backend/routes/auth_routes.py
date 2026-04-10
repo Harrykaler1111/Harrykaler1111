@@ -387,3 +387,103 @@ async def verify_otp(request: OTPVerify):
         "token": token,
         "user": UserResponse(**{k: v for k, v in user.items() if k != "password"}).model_dump()
     }
+
+
+# ============== FIREBASE PHONE AUTH ==============
+
+class FirebaseVerifyRequest(BaseModel):
+    id_token: str
+
+@router.post("/firebase/verify", response_model=Dict)
+async def firebase_phone_verify(request: FirebaseVerifyRequest):
+    """Verify Firebase ID token after phone OTP verification.
+    Creates user if new, or logs in existing user."""
+    from services.firebase_service import verify_firebase_token
+
+    result = verify_firebase_token(request.id_token)
+    if not result["success"]:
+        raise HTTPException(status_code=401, detail=result.get("error", "Firebase verification failed"))
+
+    phone = result.get("phone_number")
+    firebase_uid = result.get("uid")
+    if not phone:
+        raise HTTPException(status_code=400, detail="No phone number in Firebase token")
+
+    # Normalize phone to +91 format
+    clean_phone = phone if phone.startswith("+") else f"+91{phone}"
+
+    # Rate limiting: max 10 verifications per number in 10 mins
+    rate_record = await db.firebase_rate_limits.find_one({"phone": clean_phone}, {"_id": 0})
+    now = datetime.now(timezone.utc)
+    if rate_record:
+        window_start = datetime.fromisoformat(rate_record["window_start"])
+        if window_start.tzinfo is None:
+            window_start = window_start.replace(tzinfo=timezone.utc)
+        if (now - window_start).total_seconds() < 600:
+            if rate_record.get("count", 0) >= 10:
+                raise HTTPException(status_code=429, detail="Too many verification attempts. Try again later.")
+            await db.firebase_rate_limits.update_one(
+                {"phone": clean_phone}, {"$inc": {"count": 1}}
+            )
+        else:
+            await db.firebase_rate_limits.update_one(
+                {"phone": clean_phone},
+                {"$set": {"count": 1, "window_start": now.isoformat()}}
+            )
+    else:
+        await db.firebase_rate_limits.insert_one({
+            "phone": clean_phone, "count": 1, "window_start": now.isoformat()
+        })
+
+    # Mark phone as verified for registration flow
+    await db.otp_verified_phones.update_one(
+        {"phone": clean_phone},
+        {"$set": {"phone": clean_phone, "verified_at": now.isoformat(), "method": "firebase"}},
+        upsert=True
+    )
+
+    # Find or create user
+    user = await db.users.find_one({"phone": clean_phone}, {"_id": 0})
+
+    if not user:
+        # Auto-create user from Firebase phone auth
+        user_id = generate_id("user")
+        new_user = {
+            "user_id": user_id,
+            "name": f"User {clean_phone[-4:]}",
+            "email": "",
+            "phone": clean_phone,
+            "password": "",
+            "role": "user",
+            "is_active": True,
+            "firebase_uid": firebase_uid,
+            "auth_method": "firebase_phone",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+        await db.users.insert_one(new_user)
+        user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+
+        # Emit user_registered event for future WhatsApp integration
+        await db.user_events.insert_one({
+            "event_id": generate_id("evt"),
+            "event_type": "user_registered",
+            "user_id": user_id,
+            "phone": clean_phone,
+            "method": "firebase_phone",
+            "created_at": now.isoformat(),
+        })
+    else:
+        # Update Firebase UID if not set
+        if not user.get("firebase_uid"):
+            await db.users.update_one(
+                {"phone": clean_phone},
+                {"$set": {"firebase_uid": firebase_uid, "updated_at": now.isoformat()}}
+            )
+
+    token = create_jwt_token(user["user_id"], user["role"])
+    return {
+        "token": token,
+        "user": UserResponse(**{k: v for k, v in user.items() if k != "password"}).model_dump(),
+        "is_new_user": user.get("auth_method") == "firebase_phone" and not user.get("email"),
+    }
