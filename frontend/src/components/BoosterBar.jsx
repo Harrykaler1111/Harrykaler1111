@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "@/context/CartContext";
 import { Zap, Gift, Sparkles, ChevronRight, X, Plus, Minus, Star, ShoppingBag, Check } from "lucide-react";
@@ -248,6 +248,111 @@ const UpsellModal = ({ open, onClose, amountNeeded, rewardLabel }) => {
   );
 };
 
+// ============== REELS BOOSTER NOTIFICATION ==============
+// Slides down like a notification when cart changes, shows discounts, then slides back up
+const ReelsBoosterNotification = ({ cartCount, cartTotal, progress, active, next, amountToNext, enabledSlabs, openCart }) => {
+  const [visible, setVisible] = useState(false);
+  const [prevCount, setPrevCount] = useState(cartCount);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    // Detect cart item added (count increased)
+    if (cartCount > prevCount) {
+      // Show the notification
+      setVisible(true);
+      // Clear any existing timer
+      if (timerRef.current) clearTimeout(timerRef.current);
+      // Auto-hide after 3 seconds
+      timerRef.current = setTimeout(() => setVisible(false), 3000);
+    }
+    setPrevCount(cartCount);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [cartCount]);
+
+  return (
+    <div className="lg:hidden fixed top-0 left-0 right-0 z-[55] pointer-events-none" data-testid="booster-bar-mobile">
+      <AnimatePresence>
+        {visible && (
+          <motion.div
+            initial={{ y: -120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -120, opacity: 0 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className="pointer-events-auto mx-3 mt-12"
+            data-testid="reels-booster-toast"
+          >
+            <div className="bg-black/70 backdrop-blur-2xl border border-gold/30 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+              {/* Progress bar top accent */}
+              <div className="h-1 bg-neutral-800">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-gold via-yellow-400 to-gold"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                />
+              </div>
+
+              <div className="px-4 py-3">
+                {/* Main info row */}
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gold/15 flex items-center justify-center flex-shrink-0">
+                    <ShoppingBag className="h-4 w-4 text-gold" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-xs font-semibold">Added to cart!</p>
+                    {active ? (
+                      <p className="text-green-400 text-[10px] font-bold mt-0.5 flex items-center gap-1">
+                        <Sparkles className="h-3 w-3" /> {active.reward_label} unlocked!
+                      </p>
+                    ) : next ? (
+                      <p className="text-white/60 text-[10px] mt-0.5">
+                        Rs.<span className="text-gold font-bold">{amountToNext.toLocaleString()}</span> more for <span className="text-gold font-semibold">{next.reward_label}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-gold text-sm font-bold">Rs.{cartTotal.toLocaleString()}</p>
+                    <p className="text-white/40 text-[9px]">{cartCount} item{cartCount > 1 ? "s" : ""}</p>
+                  </div>
+                </div>
+
+                {/* Reward slabs */}
+                {enabledSlabs.length > 0 && (
+                  <div className="flex gap-1.5 mt-2.5 overflow-x-auto no-scrollbar">
+                    {enabledSlabs.map(s => {
+                      const unlocked = cartTotal >= s.min_cart_value;
+                      return (
+                        <span key={s.slab_id} className={`text-[9px] whitespace-nowrap px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                          unlocked
+                            ? "border-gold/50 text-gold bg-gold/10 font-semibold"
+                            : "border-white/10 text-white/30"
+                        }`}>
+                          {unlocked ? "✓ " : ""}{s.reward_label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* CTA button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); openCart(); setVisible(false); }}
+                  className="w-full mt-2.5 bg-gold text-black text-[11px] font-bold py-2 rounded-full flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                  data-testid="reels-booster-cart-btn"
+                >
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  View Cart
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
 // ============== MAIN STICKY BOOSTER BAR ==============
 export const BoosterBar = () => {
   const navigate = useNavigate();
@@ -398,61 +503,19 @@ export const BoosterBar = () => {
       {/* Spacer */}
       <div className="hidden lg:block h-[48px] bg-black" />
 
-      {/* Mobile Bar — sticky below header (or compact floating on reels page) */}
+      {/* Mobile Bar — sticky below header (or notification-style on reels page) */}
       {location.pathname === "/reels" ? (
-        /* ── Reels-specific: compact floating pill ── */
-        <div className="lg:hidden fixed top-12 left-3 right-3 z-[55] pointer-events-none" data-testid="booster-bar-mobile">
-          <div className="pointer-events-auto flex items-center gap-2 bg-black/50 backdrop-blur-xl border border-white/10 rounded-full px-3 py-1.5 shadow-lg" onClick={() => setIsExpanded(!isExpanded)}>
-            <div className="flex-1 min-w-0">
-              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                <motion.div className="h-full bg-gold rounded-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.5 }} />
-              </div>
-              <div className="flex items-center gap-1 mt-0.5">
-                <Zap className="h-2.5 w-2.5 text-gold flex-shrink-0" />
-                {active ? (
-                  <span className="text-green-400 text-[9px] font-bold truncate">{active.reward_label} unlocked!</span>
-                ) : next ? (
-                  <span className="text-white/70 text-[9px] truncate">Rs.{amountToNext.toLocaleString()} more for {next.reward_label}</span>
-                ) : (
-                  <span className="text-white/50 text-[9px]">Add items</span>
-                )}
-              </div>
-            </div>
-            <span className="text-gold text-[10px] font-bold whitespace-nowrap">Rs.{cartTotal.toLocaleString()}</span>
-            <button onClick={(e) => { e.stopPropagation(); openCart(); }}
-              className="relative bg-gold text-black p-1.5 rounded-full flex-shrink-0" data-testid="mobile-cart-btn">
-              <ShoppingBag className="h-3.5 w-3.5" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-          </div>
-          {/* Expandable slabs */}
-          <AnimatePresence>
-            {isExpanded && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="pointer-events-auto mt-2 bg-black/70 backdrop-blur-xl border border-white/10 rounded-2xl px-4 py-3 shadow-lg">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {enabledSlabs.map(s => (
-                    <span key={s.slab_id} className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                      cartTotal >= s.min_cart_value ? "border-gold/50 text-gold bg-gold/10" : "border-white/10 text-white/40"
-                    }`}>
-                      Rs.{s.min_cart_value.toLocaleString()} = {s.reward_label}
-                    </span>
-                  ))}
-                </div>
-                {next && amountToNext > 0 && (
-                  <Button onClick={() => { setShowUpsell(true); setIsExpanded(false); }} size="sm"
-                    className="w-full bg-gold text-black text-xs font-bold rounded-full mt-1" data-testid="mobile-upsell-btn">
-                    <Gift className="h-3.5 w-3.5 mr-1.5" /> Add more <ChevronRight className="h-3 w-3 ml-1" />
-                  </Button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        /* ── Reels-specific: notification-style slide-down on cart add ── */
+        <ReelsBoosterNotification
+          cartCount={cartCount}
+          cartTotal={cartTotal}
+          progress={progress}
+          active={active}
+          next={next}
+          amountToNext={amountToNext}
+          enabledSlabs={enabledSlabs}
+          openCart={openCart}
+        />
       ) : (
         /* ── Standard mobile bar for all other pages ── */
         <div className="lg:hidden fixed left-0 right-0 z-[55] top-16" data-testid="booster-bar-mobile">
