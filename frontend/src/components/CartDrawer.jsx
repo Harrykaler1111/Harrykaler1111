@@ -189,14 +189,14 @@ export const CartDrawer = () => {
           />
 
           {/* Center Modal Wrapper */}
-          <div className="fixed inset-0 z-[10001] flex items-center justify-center pointer-events-none p-4">
+          <div className="fixed inset-0 z-[10001] flex items-end sm:items-center justify-center pointer-events-none p-3 sm:p-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 28, stiffness: 350 }}
-              className="w-full max-w-[480px] bg-white flex flex-col shadow-2xl rounded-2xl overflow-hidden pointer-events-auto"
-              style={{ maxHeight: 'calc(100vh - 32px)' }}
+              className="w-full max-w-[420px] bg-white flex flex-col shadow-2xl rounded-3xl overflow-hidden pointer-events-auto"
+              style={{ maxHeight: 'calc(100vh - 100px)' }}
               data-testid="cart-drawer"
             >
             {/* Header */}
