@@ -43,7 +43,6 @@ export const AuthPage = () => {
   const [resendTimer, setResendTimer] = useState(0);
   const [recaptchaReady, setRecaptchaReady] = useState(false);
   const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
-  const recaptchaContainerRef = useRef(null);
 
   // Reset password
   const [showReset, setShowReset] = useState(false);
@@ -103,39 +102,35 @@ export const AuthPage = () => {
     return () => clearInterval(interval);
   }, [resendTimer]);
 
-  // Setup invisible reCAPTCHA
-  const setupRecaptcha = useCallback(() => {
-    try {
-      // Clear any existing verifier first
-      if (window.recaptchaVerifier) {
-        try { window.recaptchaVerifier.clear(); } catch (_) {}
-        window.recaptchaVerifier = null;
-      }
-      // Clear the container DOM to prevent "already rendered" error
-      const container = document.getElementById("recaptcha-container");
-      if (container) container.innerHTML = "";
+  // Initialize reCAPTCHA once on mount, reuse on every send
+  const recaptchaWidgetId = useRef(null);
 
+  useEffect(() => {
+    // Only create if not already initialized
+    if (!window.recaptchaVerifier) {
+      const container = document.getElementById("recaptcha-container");
+      if (!container) return;
       window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
         callback: () => setRecaptchaReady(true),
-        "expired-callback": () => {
-          setRecaptchaReady(false);
-          if (window.recaptchaVerifier) {
-            try { window.recaptchaVerifier.clear(); } catch (_) {}
-            window.recaptchaVerifier = null;
-          }
-        },
+        "expired-callback": () => setRecaptchaReady(false),
       });
-      return window.recaptchaVerifier.render();
-    } catch (e) {
-      console.error("reCAPTCHA setup error:", e);
-      return Promise.reject(e);
+      window.recaptchaVerifier.render().then((widgetId) => {
+        recaptchaWidgetId.current = widgetId;
+      });
     }
-  }, []);
+    // Cleanup on unmount
+    return () => {
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
+        recaptchaWidgetId.current = null;
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSendOtp = async () => {
     const phone = otpPhone.trim().replace(/\s|-/g, "");
-    // Validate Indian phone
     const digits = phone.replace(/^\+91/, "").replace(/^91/, "");
     if (!/^[6-9]\d{9}$/.test(digits)) {
       toast.error("Enter a valid 10-digit Indian mobile number");
@@ -143,43 +138,37 @@ export const AuthPage = () => {
     }
     const fullPhone = `+91${digits}`;
 
+    if (!window.recaptchaVerifier) {
+      toast.error("Security check loading. Please wait a moment and try again.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await setupRecaptcha();
-      const appVerifier = window.recaptchaVerifier;
-      if (!appVerifier) {
-        toast.error("Security check failed. Please refresh and try again.");
-        setIsLoading(false);
-        return;
+      // Reset the reCAPTCHA token for re-use (does NOT re-render the widget)
+      if (recaptchaWidgetId.current !== null && window.grecaptcha) {
+        window.grecaptcha.reset(recaptchaWidgetId.current);
       }
-      const result = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+
+      const result = await signInWithPhoneNumber(auth, fullPhone, window.recaptchaVerifier);
       setConfirmationResult(result);
       setOtpSent(true);
       setResendTimer(30);
       toast.success("OTP sent to your phone via SMS");
     } catch (error) {
       console.error("Firebase OTP error:", error);
-      // Always clean up recaptcha on failure
-      if (window.recaptchaVerifier) {
-        try { window.recaptchaVerifier.clear(); } catch (_) {}
-        window.recaptchaVerifier = null;
-      }
-      const container = document.getElementById("recaptcha-container");
-      if (container) container.innerHTML = "";
-
       if (error.code === "auth/too-many-requests") {
         toast.error("Too many attempts. Please try again later.");
       } else if (error.code === "auth/invalid-phone-number") {
         toast.error("Invalid phone number format");
       } else if (error.code === "auth/captcha-check-failed") {
-        toast.error("reCAPTCHA verification failed. Please try again.");
+        toast.error("reCAPTCHA failed. Please try again.");
       } else if (error.code === "auth/quota-exceeded") {
         toast.error("SMS quota exceeded. Please try later.");
       } else if (error.code === "auth/operation-not-allowed") {
         toast.error("Phone auth not enabled in Firebase Console.");
       } else {
         toast.error(`OTP Error: ${error.code || error.message || "Unknown error"}`);
-        console.error("Full Firebase error:", JSON.stringify(error, null, 2));
       }
     } finally {
       setIsLoading(false);
@@ -268,17 +257,7 @@ export const AuthPage = () => {
     verifyFirebaseOtp(otpCode);
   };
 
-  const cleanupRecaptcha = () => {
-    if (window.recaptchaVerifier) {
-      try { window.recaptchaVerifier.clear(); } catch (_) {}
-      window.recaptchaVerifier = null;
-    }
-    const container = document.getElementById("recaptcha-container");
-    if (container) container.innerHTML = "";
-  };
-
   const handleResendOtp = () => {
-    cleanupRecaptcha();
     setOtpSent(false);
     setOtpDigits(["", "", "", "", "", ""]);
     setConfirmationResult(null);
@@ -325,6 +304,8 @@ export const AuthPage = () => {
 
   return (
     <div className="min-h-screen pt-20 flex items-center justify-center bg-neutral-50" data-testid="auth-page">
+      {/* reCAPTCHA container - always in DOM, never removed */}
+      <div id="recaptcha-container" style={{ position: "fixed", top: 0, left: 0, zIndex: 9999 }} />
       <div className="w-full max-w-md mx-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -574,7 +555,6 @@ export const AuthPage = () => {
 
             {/* OTP Tab - Firebase Phone Auth */}
             <TabsContent value="otp">
-              <div id="recaptcha-container" ref={recaptchaContainerRef} />
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 {!otpSent ? (
                   <>
@@ -644,7 +624,7 @@ export const AuthPage = () => {
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); cleanupRecaptcha(); }}
+                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); }}
                         className="text-neutral-500 hover:text-black text-xs px-0"
                       >
                         Change Number
