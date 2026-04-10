@@ -105,19 +105,31 @@ export const AuthPage = () => {
 
   // Setup invisible reCAPTCHA
   const setupRecaptcha = useCallback(() => {
-    if (window.recaptchaVerifier) return;
     try {
+      // Clear any existing verifier first
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
+      }
+      // Clear the container DOM to prevent "already rendered" error
+      const container = document.getElementById("recaptcha-container");
+      if (container) container.innerHTML = "";
+
       window.recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
         size: "invisible",
         callback: () => setRecaptchaReady(true),
         "expired-callback": () => {
           setRecaptchaReady(false);
-          window.recaptchaVerifier = null;
+          if (window.recaptchaVerifier) {
+            try { window.recaptchaVerifier.clear(); } catch (_) {}
+            window.recaptchaVerifier = null;
+          }
         },
       });
-      window.recaptchaVerifier.render();
+      return window.recaptchaVerifier.render();
     } catch (e) {
       console.error("reCAPTCHA setup error:", e);
+      return Promise.reject(e);
     }
   }, []);
 
@@ -133,10 +145,11 @@ export const AuthPage = () => {
 
     setIsLoading(true);
     try {
-      setupRecaptcha();
+      await setupRecaptcha();
       const appVerifier = window.recaptchaVerifier;
       if (!appVerifier) {
         toast.error("Security check failed. Please refresh and try again.");
+        setIsLoading(false);
         return;
       }
       const result = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
@@ -146,8 +159,14 @@ export const AuthPage = () => {
       toast.success("OTP sent to your phone via SMS");
     } catch (error) {
       console.error("Firebase OTP error:", error);
-      // Reset recaptcha on failure
-      window.recaptchaVerifier = null;
+      // Always clean up recaptcha on failure
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (_) {}
+        window.recaptchaVerifier = null;
+      }
+      const container = document.getElementById("recaptcha-container");
+      if (container) container.innerHTML = "";
+
       if (error.code === "auth/too-many-requests") {
         toast.error("Too many attempts. Please try again later.");
       } else if (error.code === "auth/invalid-phone-number") {
@@ -242,12 +261,21 @@ export const AuthPage = () => {
     verifyFirebaseOtp(otpCode);
   };
 
+  const cleanupRecaptcha = () => {
+    if (window.recaptchaVerifier) {
+      try { window.recaptchaVerifier.clear(); } catch (_) {}
+      window.recaptchaVerifier = null;
+    }
+    const container = document.getElementById("recaptcha-container");
+    if (container) container.innerHTML = "";
+  };
+
   const handleResendOtp = () => {
-    window.recaptchaVerifier = null;
+    cleanupRecaptcha();
     setOtpSent(false);
     setOtpDigits(["", "", "", "", "", ""]);
     setConfirmationResult(null);
-    handleSendOtp();
+    setTimeout(() => handleSendOtp(), 100);
   };
 
   const handleGoogleLogin = () => {
@@ -609,7 +637,7 @@ export const AuthPage = () => {
                       <Button
                         type="button"
                         variant="ghost"
-                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); window.recaptchaVerifier = null; }}
+                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); cleanupRecaptcha(); }}
                         className="text-neutral-500 hover:text-black text-xs px-0"
                       >
                         Change Number
