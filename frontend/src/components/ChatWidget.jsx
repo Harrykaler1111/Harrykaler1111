@@ -33,10 +33,10 @@ export const ChatWidget = () => {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-14 right-6 z-[9999] bg-gold hover:bg-gold-dark text-black p-4 rounded-full shadow-gold-glow transition-all duration-300"
+            className="fixed bottom-16 right-4 z-[9999] bg-gold hover:bg-gold-dark text-black p-2.5 rounded-full shadow-gold-glow transition-all duration-300"
             data-testid="chat-widget-btn"
           >
-            <MessageCircle className="h-6 w-6" />
+            <MessageCircle className="h-5 w-5" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -48,7 +48,7 @@ export const ChatWidget = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-14 right-6 z-[9999] w-[380px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200"
+            className="fixed bottom-16 right-4 z-[9999] w-[380px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-neutral-200"
             data-testid="chat-widget"
           >
             {/* Header */}
