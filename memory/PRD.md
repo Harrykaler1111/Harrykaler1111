@@ -34,6 +34,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 - **Reels Vendor Mode Dimensions Fix (Apr 2026)**: Adjusted to match reference screenshots — 6:9 portrait thumbnails, 10vh top / 20vh bottom asymmetric padding, 20% side panel width, 2% gap between video and panel
 
+- **Checkout Page Premium Redesign (Apr 2026)**: Real payment gateway SVG icons (Visa, MC, UPI, RuPay, GPay, PhonePe, NetBanking), premium gold gradient CTA button with shimmer, "Secured by Razorpay" badge, upgraded trust signals
+
 ## Production Domain
 - https://thepigma.com
 

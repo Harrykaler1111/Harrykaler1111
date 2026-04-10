@@ -124,7 +124,65 @@ const PincodeInput = ({ value, onChange, onAutoFill }) => {
   );
 };
 
-// ========== PAYMENT METHOD CARD ==========
+// ========== PAYMENT GATEWAY ICONS (SVG) ==========
+const PaymentIcons = {
+  Visa: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#1A1F71"/>
+      <path d="M19.5 21h-3l1.9-11.5h3L19.5 21zm12.3-11.2c-.6-.2-1.5-.5-2.7-.5-3 0-5.1 1.5-5.1 3.7 0 1.6 1.5 2.5 2.6 3.1 1.2.6 1.5 1 1.5 1.5 0 .8-1 1.2-1.8 1.2-1.2 0-1.9-.2-2.9-.6l-.4-.2-.4 2.5c.7.3 2 .6 3.4.6 3.2 0 5.2-1.5 5.2-3.8 0-1.3-.8-2.2-2.5-3-1-.5-1.7-.9-1.7-1.4 0-.5.5-1 1.7-1 1 0 1.7.2 2.2.4l.3.1.4-2.6zm7.9-.3h-2.3c-.7 0-1.3.2-1.6 1L32 21h3.2l.6-1.7h3.9l.3 1.7H43l-2.6-11.5h-1.7zm-2.5 7.4l1.2-3.2.4-1.1.2 1 .7 3.3h-2.5zM16.3 9.5L13.4 18l-.3-1.5c-.5-1.8-2.2-3.7-4-4.7l2.7 9.2h3.2l4.8-11.5h-3.5z" fill="white"/>
+      <path d="M10.5 9.5H5.6l-.1.3c3.8.9 6.3 3.2 7.3 5.9l-1-5.2c-.2-.8-.7-1-1.3-1z" fill="#F9A533"/>
+    </svg>
+  ),
+  Mastercard: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#252525"/>
+      <circle cx="19" cy="16" r="8" fill="#EB001B"/>
+      <circle cx="29" cy="16" r="8" fill="#F79E1B"/>
+      <path d="M24 9.8c1.8 1.5 3 3.7 3 6.2s-1.2 4.7-3 6.2c-1.8-1.5-3-3.7-3-6.2s1.2-4.7 3-6.2z" fill="#FF5F00"/>
+    </svg>
+  ),
+  UPI: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#fff" stroke="#e5e5e5" strokeWidth="1"/>
+      <text x="24" y="18" textAnchor="middle" fontSize="10" fontWeight="bold" fontFamily="Arial" fill="#00897B">UPI</text>
+      <path d="M12 8l4 16M16 8l4 16" stroke="#097939" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M32 8l4 16M36 8l4 16" stroke="#ED752E" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  ),
+  RuPay: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#fff" stroke="#e5e5e5" strokeWidth="1"/>
+      <text x="24" y="13" textAnchor="middle" fontSize="6.5" fontWeight="bold" fontFamily="Arial" fill="#097939">Ru</text>
+      <text x="24" y="22" textAnchor="middle" fontSize="6.5" fontWeight="bold" fontFamily="Arial" fill="#F37021">Pay</text>
+      <circle cx="37" cy="10" r="3" fill="#097939" opacity="0.6"/>
+      <circle cx="37" cy="10" r="3" fill="#F37021" opacity="0.3" transform="translate(2,2)"/>
+    </svg>
+  ),
+  GPay: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#fff" stroke="#e5e5e5" strokeWidth="1"/>
+      <text x="24" y="14" textAnchor="middle" fontSize="6" fontWeight="600" fontFamily="Arial" fill="#5F6368">Google</text>
+      <text x="24" y="23" textAnchor="middle" fontSize="7" fontWeight="bold" fontFamily="Arial" fill="#4285F4">Pay</text>
+    </svg>
+  ),
+  PhonePe: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#5F259F"/>
+      <text x="24" y="19" textAnchor="middle" fontSize="7" fontWeight="bold" fontFamily="Arial" fill="white">PhonePe</text>
+    </svg>
+  ),
+  NetBanking: () => (
+    <svg viewBox="0 0 48 32" className="h-6 w-auto">
+      <rect width="48" height="32" rx="4" fill="#1e3a5f"/>
+      <path d="M14 22h20M14 13h20M24 8l12 5H12l12-5z" stroke="white" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <rect x="16" y="13" width="3" height="9" fill="white" opacity="0.7" rx="0.5"/>
+      <rect x="22.5" y="13" width="3" height="9" fill="white" opacity="0.7" rx="0.5"/>
+      <rect x="29" y="13" width="3" height="9" fill="white" opacity="0.7" rx="0.5"/>
+    </svg>
+  ),
+};
+
+// ========== PAYMENT METHOD CARD (REDESIGNED) ==========
 const PaymentMethodCard = ({ method, selected, onClick, savings, charge, disabled, reason }) => {
   const isPrepaid = method === "prepaid";
   return (
@@ -156,29 +214,41 @@ const PaymentMethodCard = ({ method, selected, onClick, savings, charge, disable
             />
           )}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             {isPrepaid ? <CreditCard className="h-4 w-4 text-green-400" /> : <Banknote className="h-4 w-4 text-gold" />}
             <span className="font-semibold text-white text-sm">
               {isPrepaid ? "Pay Online" : "Cash on Delivery"}
             </span>
+            {savings > 0 && isPrepaid && !disabled && (
+              <motion.span initial={{ scale: 0.8 }} animate={{ scale: 1 }}
+                className="bg-green-500/20 border border-green-500/40 text-green-400 text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-0.5">
+                <Sparkles className="h-2.5 w-2.5" /> SAVE Rs.{savings}
+              </motion.span>
+            )}
+            {charge > 0 && !isPrepaid && !disabled && (
+              <span className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                +Rs.{charge} fee
+              </span>
+            )}
           </div>
-          <p className="text-xs text-neutral-400 mt-1">
-            {isPrepaid ? "UPI, Credit/Debit Card, Net Banking, Wallets" : "Pay when your order arrives"}
+          <p className="text-[11px] text-neutral-500 mt-1">
+            {isPrepaid ? "UPI, Cards, Net Banking, Wallets" : "Pay when your order arrives"}
           </p>
+          {/* Real payment icons for prepaid */}
+          {isPrepaid && (
+            <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+              <PaymentIcons.Visa />
+              <PaymentIcons.Mastercard />
+              <PaymentIcons.UPI />
+              <PaymentIcons.RuPay />
+              <PaymentIcons.GPay />
+              <PaymentIcons.PhonePe />
+              <PaymentIcons.NetBanking />
+            </div>
+          )}
           {disabled && reason && <p className="text-xs text-red-400 mt-1">{reason}</p>}
         </div>
-        {savings > 0 && isPrepaid && !disabled && (
-          <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-            className="bg-green-500/20 border border-green-500/40 text-green-400 text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap flex items-center gap-1">
-            <Sparkles className="h-3 w-3" /> SAVE Rs.{savings}
-          </motion.div>
-        )}
-        {charge > 0 && !isPrepaid && !disabled && (
-          <div className="bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
-            +Rs.{charge} fee
-          </div>
-        )}
       </div>
     </motion.button>
   );
@@ -739,26 +809,39 @@ export const CheckoutPage = () => {
               )}
 
               {/* Place Order Button */}
-              <Button
-                onClick={handlePlaceOrder}
-                disabled={placing}
-                className="w-full h-12 bg-gold hover:bg-yellow-500 text-black font-bold text-sm rounded-xl transition-all shadow-[0_0_20px_rgba(201,160,80,0.2)]"
-                data-testid="place-order-btn"
-              >
-                {placing ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4 mr-2" />
-                    {isPrepaid
-                      ? `Pay Rs.${total.toLocaleString()}`
-                      : codAdvanceRequired
-                        ? `Pay Advance Rs.${codAdvanceAmount.toLocaleString()}`
-                        : `Place COD Order  Rs.${total.toLocaleString()}`
-                    }
-                  </>
-                )}
-              </Button>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  onClick={handlePlaceOrder}
+                  disabled={placing}
+                  className="relative w-full h-14 bg-gradient-to-r from-gold via-yellow-400 to-gold text-black font-bold text-base rounded-2xl transition-all shadow-[0_4px_30px_rgba(201,160,80,0.35)] overflow-hidden group"
+                  data-testid="place-order-btn"
+                >
+                  {/* Shimmer sweep */}
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out" />
+                  {placing ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <Lock className="h-4 w-4" />
+                      {isPrepaid
+                        ? `Pay Rs.${total.toLocaleString()}`
+                        : codAdvanceRequired
+                          ? `Pay Advance Rs.${codAdvanceAmount.toLocaleString()}`
+                          : `Place COD Order  Rs.${total.toLocaleString()}`
+                      }
+                    </span>
+                  )}
+                </Button>
+              </motion.div>
+
+              {/* Powered by Razorpay */}
+              <div className="flex items-center justify-center gap-2 mt-3 opacity-50">
+                <Lock className="h-3 w-3 text-neutral-500" />
+                <span className="text-[10px] text-neutral-500 tracking-wide">Secured by</span>
+                <svg viewBox="0 0 100 24" className="h-3.5 w-auto">
+                  <text x="0" y="18" fontSize="16" fontWeight="bold" fontFamily="Arial" fill="#3395FF">Razorpay</text>
+                </svg>
+              </div>
 
 
               {/* WhatsApp Support Note */}
@@ -770,15 +853,18 @@ export const CheckoutPage = () => {
               </a>
 
               {/* Trust Signals */}
-              <div className="grid grid-cols-3 gap-2 mt-4">
+              <div className="grid grid-cols-3 gap-2 mt-4 bg-neutral-900/50 rounded-xl p-3 border border-neutral-800/50">
                 {[
-                  { icon: Shield, label: "Secure\nCheckout" },
-                  { icon: Truck, label: "Fast\nShipping" },
-                  { icon: Package, label: "Easy\nReturns" }
+                  { icon: Shield, label: "100% Secure", sub: "SSL Encrypted" },
+                  { icon: Truck, label: "Fast Delivery", sub: "2-5 Business Days" },
+                  { icon: Package, label: "Easy Returns", sub: "7 Day Policy" }
                 ].map((t, i) => (
-                  <div key={i} className="text-center py-2">
-                    <t.icon className="h-4 w-4 text-neutral-500 mx-auto mb-1" />
-                    <p className="text-[9px] text-neutral-500 leading-tight whitespace-pre-line">{t.label}</p>
+                  <div key={i} className="text-center py-1">
+                    <div className="w-8 h-8 mx-auto mb-1.5 rounded-full bg-gold/10 flex items-center justify-center">
+                      <t.icon className="h-3.5 w-3.5 text-gold" />
+                    </div>
+                    <p className="text-[10px] text-white font-medium leading-tight">{t.label}</p>
+                    <p className="text-[8px] text-neutral-500 leading-tight mt-0.5">{t.sub}</p>
                   </div>
                 ))}
               </div>
