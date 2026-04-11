@@ -705,11 +705,19 @@ export const CheckoutPage = () => {
 
               {/* Cart Items */}
               <div className="space-y-3 pb-5 border-b border-neutral-800 max-h-[260px] overflow-y-auto">
-                {cart?.items?.map((item) => (
+                {cart?.items?.map((item) => {
+                  const itemImages = (item.product?.images || []).filter(Boolean);
+                  const itemColors = item.product?.colors || [];
+                  let variantImg = normalizeImageUrl(itemImages[0]);
+                  if (item.color && itemColors.length > 1 && itemImages.length > 1) {
+                    const cIdx = itemColors.findIndex(c => c.toLowerCase() === item.color.toLowerCase());
+                    if (cIdx >= 0 && cIdx < itemImages.length) variantImg = normalizeImageUrl(itemImages[cIdx]);
+                  }
+                  return (
                   <div key={`${item.product_id}-${item.size}-${item.color}`} className="flex gap-3">
                     <div className="w-14 h-16 bg-neutral-800 rounded-lg shrink-0 overflow-hidden">
                       <img
-                        src={normalizeImageUrl(item.product?.images?.[0])}
+                        src={variantImg}
                         alt="" className="w-full h-full object-cover"
                         onError={handleImageError}
                       />
@@ -722,7 +730,8 @@ export const CheckoutPage = () => {
                       Rs.{((item.product?.price || 0) * item.quantity).toLocaleString()}
                     </p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Price Breakdown */}

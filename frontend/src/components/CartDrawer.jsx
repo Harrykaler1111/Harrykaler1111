@@ -78,6 +78,21 @@ export const CartDrawer = () => {
     updateQuantity: ctxUpdateQty, removeFromCart, fetchCart
   } = useCart();
 
+  // Get the correct image for a cart item based on its selected color variant
+  const getCartItemImage = (item) => {
+    const product = item.product;
+    if (!product) return FALLBACK_IMAGE;
+    const images = (product.images || []).filter(Boolean);
+    const colors = product.colors || [];
+    if (item.color && colors.length > 1 && images.length > 1) {
+      const colorIdx = colors.findIndex(c => c.toLowerCase() === item.color.toLowerCase());
+      if (colorIdx >= 0 && colorIdx < images.length) {
+        return normalizeImageUrl(images[colorIdx]) || FALLBACK_IMAGE;
+      }
+    }
+    return normalizeImageUrl(images[0]) || FALLBACK_IMAGE;
+  };
+
   const [isOpen, setIsOpen] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -242,10 +257,10 @@ export const CartDrawer = () => {
                         className="flex gap-3 pb-3 border-b border-neutral-50 last:border-0"
                         data-testid={`drawer-item-${item.product_id}`}
                       >
-                        {/* Thumbnail */}
+                        {/* Thumbnail — show variant image matching selected color */}
                         <Link to={`/product/${item.product_id}`} onClick={closeCart}
                           className="w-16 h-20 flex-shrink-0 bg-neutral-50 rounded-lg overflow-hidden">
-                          <img src={normalizeImageUrl(item.product?.images?.[0]) || FALLBACK_IMAGE}
+                          <img src={getCartItemImage(item)}
                             alt={item.product?.name}
                             className="w-full h-full object-cover"
                             onError={handleImageError} />
