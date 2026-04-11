@@ -51,11 +51,11 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
    Single Reel Card
    cycleSignal: incremented by parent to advance carousel
    ───────────────────────────────────────────────── */
-const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, cycleSignal }) => {
+const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImgIdx }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart } = useCart();
-  const [imgIdx, setImgIdx] = useState(0);
+  const [internalImgIdx, setInternalImgIdx] = useState(0);
   const [liked, setLiked] = useState(() => {
     const stored = JSON.parse(localStorage.getItem("pigma_reel_likes") || "[]");
     return stored.includes(product.product_id);
@@ -63,22 +63,15 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, cycleSignal }
   const [adding, setAdding] = useState(false);
   const [muted, setMuted] = useState(true);
   const videoRef = useRef(null);
-  const prevSignalRef = useRef(cycleSignal || 0);
 
   const sellerLabel = product.vendor_name || product.brand || product.category || "Pigma";
   const images = (product.images || []).filter(Boolean);
   const hasVideo = !!product.video_url;
   const totalSlides = hasVideo ? images.length + 1 : images.length;
 
-  // Respond to parent's cycleSignal to advance carousel
-  useEffect(() => {
-    if (cycleSignal !== undefined && cycleSignal !== prevSignalRef.current) {
-      prevSignalRef.current = cycleSignal;
-      if (totalSlides > 1) {
-        setImgIdx(i => (i + 1) % totalSlides);
-      }
-    }
-  }, [cycleSignal, totalSlides]);
+  // Use parent-controlled index in vendor mode, internal otherwise
+  const imgIdx = (controlledImgIdx !== undefined) ? controlledImgIdx : internalImgIdx;
+  const setImgIdx = (controlledImgIdx !== undefined) ? () => {} : setInternalImgIdx;
 
   useEffect(() => {
     if (isActive) {
@@ -94,7 +87,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, cycleSignal }
 
   const cycleSlide = useCallback((dir) => {
     if (totalSlides <= 1) return;
-    setImgIdx(i => dir > 0 ? (i + 1) % totalSlides : (i - 1 + totalSlides) % totalSlides);
+    setInternalImgIdx(i => dir > 0 ? (i + 1) % totalSlides : (i - 1 + totalSlides) % totalSlides);
   }, [totalSlides]);
 
   const handleLike = async (e) => {
@@ -255,8 +248,8 @@ export default function ReelsPage() {
   const [vendorLoading, setVendorLoading] = useState(false);
   const vendorContainerRef = useRef(null);
 
-  // Carousel cycle signal — increments to tell active vendor card to advance image
-  const [cycleSignal, setCycleSignal] = useState(0);
+  // Image index for active vendor product (parent-controlled for swipe navigation)
+  const [vendorImgIdx, setVendorImgIdx] = useState(0);
 
   // Touch tracking
   const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
@@ -302,6 +295,11 @@ export default function ReelsPage() {
     return () => observer.disconnect();
   }, [vendorProducts, feedMode]);
 
+  // Reset image index when active vendor product changes (scrolled to new product)
+  useEffect(() => {
+    setVendorImgIdx(0);
+  }, [vendorActiveIdx]);
+
   // ── Enter vendor mode ──
   const enterVendorMode = useCallback(async (product) => {
     const groupKey = product.vendor_id ? "vendor_id" : "category";
@@ -310,7 +308,7 @@ export default function ReelsPage() {
 
     setVendorLoading(true);
     setFeedMode("vendor");
-    setCycleSignal(0);
+    setVendorImgIdx(0);
     try {
       const { data } = await axios.get(`${API}/vendor-credits/group-products?group_key=${groupKey}&group_value=${encodeURIComponent(groupValue)}`);
       const prods = data.products || [];
@@ -336,7 +334,7 @@ export default function ReelsPage() {
     setFeedMode("global");
     setVendorProducts([]);
     setVendorLabel("");
-    setCycleSignal(0);
+    setVendorImgIdx(0);
   }, []);
 
   // ── Select thumbnail in vendor panel ──
@@ -363,15 +361,22 @@ export default function ReelsPage() {
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 30) {
       if (dx < 0) {
         if (feedMode === "global") setSwipeHint("vendor");
-        else if (feedMode === "vendor") setSwipeHint("photo");
+        else if (feedMode === "vendor") {
+          const p = vendorProducts[vendorActiveIdx];
+          const total = p ? ((p.images || []).filter(Boolean).length + (p.video_url ? 1 : 0)) : 0;
+          setSwipeHint(total > 1 && vendorImgIdx < total - 1 ? "photo" : "");
+        }
       } else {
-        if (feedMode === "vendor") setSwipeHint("global");
-        else if (feedMode === "global") setSwipeHint("home");
+        if (feedMode === "vendor") {
+          setSwipeHint(vendorImgIdx > 0 ? "photo-back" : "global");
+        } else if (feedMode === "global") {
+          setSwipeHint("home");
+        }
       }
     } else {
       setSwipeHint("");
     }
-  }, [feedMode]);
+  }, [feedMode, vendorProducts, vendorActiveIdx, vendorImgIdx]);
 
   const onTouchEnd = useCallback((e) => {
     const { startX, startY, startTime } = touchRef.current;
@@ -388,13 +393,27 @@ export default function ReelsPage() {
           const activeProduct = globalProducts[globalActiveIdx];
           if (activeProduct) enterVendorMode(activeProduct);
         } else if (feedMode === "vendor") {
-          // Cycle to next image of current product (inline carousel)
-          setCycleSignal(s => s + 1);
+          // Advance to next image of current product
+          const activeProduct = vendorProducts[vendorActiveIdx];
+          if (activeProduct) {
+            const imgs = (activeProduct.images || []).filter(Boolean);
+            const hasVid = !!activeProduct.video_url;
+            const total = hasVid ? imgs.length + 1 : imgs.length;
+            if (total > 1 && vendorImgIdx < total - 1) {
+              setVendorImgIdx(i => i + 1);
+            }
+          }
         }
       } else {
         // Swipe RIGHT
         if (feedMode === "vendor") {
-          exitVendorMode();
+          if (vendorImgIdx > 0) {
+            // Go back to previous image
+            setVendorImgIdx(i => i - 1);
+          } else {
+            // On first image — exit vendor mode
+            exitVendorMode();
+          }
         } else if (feedMode === "global") {
           navigate("/");
         }
@@ -515,7 +534,7 @@ export default function ReelsPage() {
                         product={product}
                         isActive={idx === vendorActiveIdx}
                         isVendorMode={true}
-                        cycleSignal={idx === vendorActiveIdx ? cycleSignal : undefined}
+                        controlledImgIdx={idx === vendorActiveIdx ? vendorImgIdx : 0}
                       />
                     </div>
                   ))
@@ -557,10 +576,11 @@ export default function ReelsPage() {
             >
               <div className="bg-black/60 backdrop-blur-sm px-5 py-2.5 rounded-full flex items-center gap-2">
                 {(swipeHint === "vendor" || swipeHint === "photo") && <ChevronLeft className="h-4 w-4 text-white/80" />}
-                {(swipeHint === "global" || swipeHint === "home") && <ChevronRight className="h-4 w-4 text-white/80" />}
+                {(swipeHint === "global" || swipeHint === "home" || swipeHint === "photo-back") && <ChevronRight className="h-4 w-4 text-white/80" />}
                 <span className="text-white text-xs font-medium">
                   {swipeHint === "vendor" && "Seller Products"}
                   {swipeHint === "photo" && "Next Photo"}
+                  {swipeHint === "photo-back" && "Previous Photo"}
                   {swipeHint === "global" && "Back to Feed"}
                   {swipeHint === "home" && "Exit to Home"}
                 </span>
