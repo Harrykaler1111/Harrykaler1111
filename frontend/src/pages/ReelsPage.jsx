@@ -187,17 +187,6 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
         </div>
       )}
 
-      {/* Color variant badge — shown in vendor carousel mode */}
-      {showColorBadge && (
-        <div className="absolute top-[70px] left-0 right-0 flex justify-center z-10 pointer-events-none" data-testid="color-variant-badge">
-          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ backgroundColor: getColorHex(currentColor) }} />
-            <span className="text-white text-[10px] font-semibold tracking-wide">{currentColor}</span>
-            <span className="text-white/40 text-[9px]">{currentImageIndex + 1}/{Math.min(images.length, colors.length)}</span>
-          </div>
-        </div>
-      )}
-
       {/* Tap zones for image carousel (desktop click) */}
       {totalSlides > 1 && (
         <>
@@ -244,6 +233,16 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
 
       {/* Bottom info */}
       <div className="absolute bottom-10 sm:bottom-4 left-4 right-16 z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} onClick={goToProduct}>
+        {/* Color variant badge */}
+        {showColorBadge && (
+          <div className="mb-2" data-testid="color-variant-badge">
+            <div className="inline-flex items-center gap-1.5 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-full">
+              <div className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ backgroundColor: getColorHex(currentColor) }} />
+              <span className="text-white text-[10px] font-semibold tracking-wide">{currentColor}</span>
+              <span className="text-white/40 text-[9px]">{currentImageIndex + 1}/{Math.min(images.length, colors.length)}</span>
+            </div>
+          </div>
+        )}
         {sellerLabel && (
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-white text-[11px] font-semibold">@{sellerLabel}</span>
