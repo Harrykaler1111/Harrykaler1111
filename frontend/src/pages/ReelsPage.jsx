@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap } from "lucide-react";
+import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight, Images } from "lucide-react";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -13,15 +13,12 @@ import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/ima
    ───────────────────────────────────────────────── */
 const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount }) => (
   <div className="h-full flex flex-col bg-black" data-testid="vendor-side-panel">
-    {/* Works count badge */}
     <div className="flex justify-center px-1 pt-2 pb-1">
       <div className="bg-white/90 text-black text-[8px] font-bold px-1.5 py-0.5 rounded leading-tight text-center" data-testid="vendor-works-count">
         <div className="text-[7px] font-medium leading-none">Works</div>
         <div className="text-[10px] leading-none">{totalCount}</div>
       </div>
     </div>
-
-    {/* Scrollable thumbnail list */}
     <div className="flex-1 overflow-y-auto scrollbar-hide px-[3px] pb-2">
       <div className="flex flex-col gap-[4px]">
         {products.map((p) => {
@@ -51,9 +48,81 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
 );
 
 /* ─────────────────────────────────────────────────
+   Product Gallery — full-screen image/video viewer
+   Vertical scroll through product media
+   ───────────────────────────────────────────────── */
+const ProductGallery = ({ product, isActive }) => {
+  const navigate = useNavigate();
+  const [muted, setMuted] = useState(true);
+  const videoRefs = useRef({});
+
+  if (!product) return null;
+
+  const images = (product.images || []).filter(Boolean);
+  const hasVideo = !!product.video_url;
+  const slides = [];
+
+  if (hasVideo) slides.push({ type: "video", src: product.video_url });
+  images.forEach((img, i) => slides.push({ type: "image", src: normalizeImageUrl(img), idx: i }));
+
+  if (slides.length === 0) return null;
+
+  return (
+    <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide" style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }} data-testid="product-gallery">
+      {slides.map((slide, i) => (
+        <div key={i} className="w-full h-full snap-start snap-always flex-shrink-0 relative bg-black" style={{ scrollSnapAlign: "start" }}>
+          {slide.type === "video" ? (
+            <div className="relative w-full h-full">
+              <video
+                ref={el => { videoRefs.current[i] = el; }}
+                src={slide.src}
+                className="w-full h-full object-contain"
+                loop
+                muted={muted}
+                playsInline
+                autoPlay={isActive}
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }}
+                className="absolute top-20 right-4 w-9 h-9 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white z-10"
+              >
+                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+              </button>
+            </div>
+          ) : (
+            <img
+              src={slide.src || FALLBACK_IMAGE}
+              alt={`${product.name} - ${i + 1}`}
+              className="w-full h-full object-contain"
+              onError={handleImageError}
+            />
+          )}
+
+          {/* Slide counter */}
+          <div className="absolute top-14 left-0 right-0 flex justify-center z-10 pointer-events-none">
+            <span className="bg-black/50 backdrop-blur-sm text-white/80 text-[10px] px-2.5 py-1 rounded-full font-medium">
+              {i + 1} / {slides.length}
+            </span>
+          </div>
+
+          {/* Product info overlay at bottom */}
+          <div className="absolute bottom-16 left-4 right-4 z-10 pointer-events-none">
+            <h3 className="text-white text-sm font-medium line-clamp-1 mb-1">{product.name}</h3>
+            <div className="flex items-baseline gap-2">
+              <span className="text-white text-base font-bold">Rs.{product.price?.toLocaleString()}</span>
+              {product.compare_price && <span className="text-white/40 text-xs line-through">Rs.{product.compare_price?.toLocaleString()}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────
    Single Reel Card (used in both global & vendor feeds)
    ───────────────────────────────────────────────── */
-const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
+const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClick }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart } = useCart();
@@ -108,7 +177,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
     e.stopPropagation();
     if (product.stock <= 0) { toast.error("Out of stock"); return; }
     setAdding(true);
-    const ok = await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product, { silent: true });
+    await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product, { silent: true });
     setAdding(false);
   };
 
@@ -121,6 +190,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
 
   const goToProduct = () => navigate(`/product/${product.product_id}`);
   const discount = product.compare_price ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100) : 0;
+  const mediaCount = (images.length || 0) + (hasVideo ? 1 : 0);
 
   const renderSlide = () => {
     if (hasVideo && imgIdx === 0) {
@@ -182,6 +252,16 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
           </button>
         )}
 
+        {/* Gallery button (vendor mode only, if product has multiple media) */}
+        {onGalleryClick && mediaCount > 1 && (
+          <button onClick={(e) => { e.stopPropagation(); onGalleryClick(e); }} className="flex flex-col items-center gap-0.5" data-testid={`reel-gallery-${product.product_id}`}>
+            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
+              <Images className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-[9px] text-white/70">{mediaCount}</span>
+          </button>
+        )}
+
         <button onClick={handleLike} className="flex flex-col items-center gap-0.5" data-testid={`reel-like-${product.product_id}`}>
           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${liked ? "bg-red-500" : "bg-white/15 backdrop-blur-sm"}`}>
             <Heart className={`h-5 w-5 ${liked ? "fill-white text-white" : "text-white"}`} />
@@ -226,7 +306,8 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick }) => {
 };
 
 /* ─────────────────────────────────────────────────
-   MAIN REELS PAGE — Kuaishou nested feed system
+   MAIN REELS PAGE — 3-layer horizontal swipe system
+   Global ←→ Vendor ←→ Gallery
    ───────────────────────────────────────────────── */
 export default function ReelsPage() {
   const navigate = useNavigate();
@@ -238,15 +319,18 @@ export default function ReelsPage() {
   const globalContainerRef = useRef(null);
 
   // Vendor (nested) feed
-  const [feedMode, setFeedMode] = useState("global"); // "global" | "vendor"
+  const [feedMode, setFeedMode] = useState("global"); // "global" | "vendor" | "gallery"
   const [vendorProducts, setVendorProducts] = useState([]);
   const [vendorActiveIdx, setVendorActiveIdx] = useState(0);
   const [vendorLabel, setVendorLabel] = useState("");
   const [vendorLoading, setVendorLoading] = useState(false);
   const vendorContainerRef = useRef(null);
 
-  // Touch tracking for horizontal swipe (mode switching)
+  // Touch tracking for horizontal swipe
   const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
+
+  // Swipe indicator
+  const [swipeHint, setSwipeHint] = useState("");
 
   // ── Load global feed ──
   useEffect(() => {
@@ -301,10 +385,8 @@ export default function ReelsPage() {
       const prods = data.products || [];
       setVendorProducts(prods);
       setVendorLabel(data.group_label || groupValue);
-      // Find current product index in vendor feed
       const currentIdx = prods.findIndex(p => p.product_id === product.product_id);
       setVendorActiveIdx(currentIdx >= 0 ? currentIdx : 0);
-      // Scroll to the current product after render
       setTimeout(() => {
         if (vendorContainerRef.current && currentIdx > 0) {
           const target = vendorContainerRef.current.querySelector(`[data-reel-index="${currentIdx}"]`);
@@ -318,11 +400,29 @@ export default function ReelsPage() {
     setVendorLoading(false);
   }, []);
 
-  // ── Exit vendor mode ──
+  // ── Exit vendor mode → global ──
   const exitVendorMode = useCallback(() => {
     setFeedMode("global");
     setVendorProducts([]);
     setVendorLabel("");
+  }, []);
+
+  // ── Enter gallery mode ──
+  const enterGalleryMode = useCallback(() => {
+    const activeProduct = vendorProducts[vendorActiveIdx];
+    if (!activeProduct) return;
+    const imgs = (activeProduct.images || []).filter(Boolean);
+    const hasVid = !!activeProduct.video_url;
+    if (imgs.length + (hasVid ? 1 : 0) <= 1) {
+      toast("Only 1 photo available", { duration: 1500 });
+      return;
+    }
+    setFeedMode("gallery");
+  }, [vendorProducts, vendorActiveIdx]);
+
+  // ── Exit gallery → vendor ──
+  const exitGalleryMode = useCallback(() => {
+    setFeedMode("vendor");
   }, []);
 
   // ── Select thumbnail in vendor panel ──
@@ -333,14 +433,32 @@ export default function ReelsPage() {
     if (target) target.scrollIntoView({ behavior: "smooth" });
   }, [vendorProducts]);
 
-  // ── Touch handlers for horizontal swipe (mode switching) ──
+  // ── Touch handlers for horizontal swipe ──
   const onTouchStart = useCallback((e) => {
     touchRef.current = {
       startX: e.touches[0].clientX,
       startY: e.touches[0].clientY,
       startTime: Date.now()
     };
+    setSwipeHint("");
   }, []);
+
+  const onTouchMove = useCallback((e) => {
+    const dx = e.touches[0].clientX - touchRef.current.startX;
+    const dy = e.touches[0].clientY - touchRef.current.startY;
+    if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 30) {
+      if (dx < 0) {
+        if (feedMode === "global") setSwipeHint("vendor");
+        else if (feedMode === "vendor") setSwipeHint("gallery");
+      } else {
+        if (feedMode === "gallery") setSwipeHint("vendor");
+        else if (feedMode === "vendor") setSwipeHint("global");
+        else if (feedMode === "global") setSwipeHint("home");
+      }
+    } else {
+      setSwipeHint("");
+    }
+  }, [feedMode]);
 
   const onTouchEnd = useCallback((e) => {
     const { startX, startY, startTime } = touchRef.current;
@@ -348,20 +466,32 @@ export default function ReelsPage() {
     const dy = e.changedTouches[0].clientY - startY;
     const dt = Date.now() - startTime;
 
-    // Only handle horizontal swipes (ignore vertical scroll)
-    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && dt < 400) {
-      if (dx < 0 && feedMode === "global") {
-        // Swipe LEFT → Enter vendor mode
-        const activeProduct = globalProducts[globalActiveIdx];
-        if (activeProduct) enterVendorMode(activeProduct);
-      } else if (dx > 0 && feedMode === "vendor") {
-        // Swipe RIGHT → Exit vendor mode
-        exitVendorMode();
+    setSwipeHint("");
+
+    // Only handle horizontal swipes
+    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && dt < 500) {
+      if (dx < 0) {
+        // Swipe LEFT
+        if (feedMode === "global") {
+          const activeProduct = globalProducts[globalActiveIdx];
+          if (activeProduct) enterVendorMode(activeProduct);
+        } else if (feedMode === "vendor") {
+          enterGalleryMode();
+        }
+      } else {
+        // Swipe RIGHT
+        if (feedMode === "gallery") {
+          exitGalleryMode();
+        } else if (feedMode === "vendor") {
+          exitVendorMode();
+        } else if (feedMode === "global") {
+          navigate("/");
+        }
       }
     }
-  }, [feedMode, globalProducts, globalActiveIdx, enterVendorMode, exitVendorMode]);
+  }, [feedMode, globalProducts, globalActiveIdx, enterVendorMode, exitVendorMode, enterGalleryMode, exitGalleryMode, navigate]);
 
-  // ── Desktop: click Store button to enter vendor mode ──
+  // ── Desktop: Store button ──
   const handleStoreClick = useCallback((e, product) => {
     e.stopPropagation();
     if (feedMode === "global") {
@@ -370,6 +500,21 @@ export default function ReelsPage() {
       exitVendorMode();
     }
   }, [feedMode, enterVendorMode, exitVendorMode]);
+
+  // ── Desktop: Gallery button ──
+  const handleGalleryClick = useCallback((e) => {
+    e.stopPropagation();
+    if (feedMode === "vendor") {
+      enterGalleryMode();
+    }
+  }, [feedMode, enterGalleryMode]);
+
+  // ── Back button logic ──
+  const handleBack = useCallback(() => {
+    if (feedMode === "gallery") exitGalleryMode();
+    else if (feedMode === "vendor") exitVendorMode();
+    else navigate("/");
+  }, [feedMode, exitGalleryMode, exitVendorMode, navigate]);
 
   // ── Render ──
   if (loading) {
@@ -389,130 +534,166 @@ export default function ReelsPage() {
     );
   }
 
-  const activeGlobalProduct = globalProducts[globalActiveIdx];
   const activeVendorProduct = vendorProducts[vendorActiveIdx];
   const isVendorMode = feedMode === "vendor";
+  const isGalleryMode = feedMode === "gallery";
+
+  // Mode label
+  const modeLabel = isGalleryMode
+    ? (activeVendorProduct?.name || "Gallery")
+    : isVendorMode
+      ? vendorLabel
+      : "Explore";
+
+  // Swipe hint text
+  const hintText = feedMode === "global"
+    ? "Swipe left for seller"
+    : feedMode === "vendor"
+      ? "Swipe left for photos  |  right to go back"
+      : "Swipe right to go back";
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" data-testid="reels-page">
-      {/* Centered container — mobile-like on desktop */}
       <div className="relative w-full h-full max-w-[480px] mx-auto">
         {/* Back button */}
         <button
-          onClick={() => isVendorMode ? exitVendorMode() : navigate(-1)}
+          onClick={handleBack}
           className="absolute top-3 left-3 z-20 w-9 h-9 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/50"
           data-testid="reels-back-btn"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        {/* Title */}
+        {/* Title + mode indicator */}
         <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
-          <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase">
-            {isVendorMode ? vendorLabel : "Explore"}
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Mode dots */}
+            <div className="flex items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "global" ? "bg-white w-3" : "bg-white/30"}`} />
+              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "vendor" ? "bg-white w-3" : "bg-white/30"}`} />
+              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "gallery" ? "bg-white w-3" : "bg-white/30"}`} />
+            </div>
+            <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase line-clamp-1 max-w-[200px]">
+              {modeLabel}
+            </span>
+          </div>
         </div>
 
-      {/* ════════ LAYOUT: Main + Side Panel ════════ */}
-      <div className="w-full h-full flex" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+        {/* ════════ LAYOUT: Main + Side Panel ════════ */}
+        <div className="w-full h-full flex" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
 
-        {/* ─── Main Content Area ─── */}
-        <div
-          className={`h-full flex-1 min-w-0 transition-all duration-300 ease-out`}
-          style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "12vh", paddingLeft: "4px", paddingRight: "0" } : {}}
-        >
-          {/* GLOBAL FEED */}
+          {/* ─── Main Content Area ─── */}
           <div
-            ref={globalContainerRef}
-            className={`w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide ${isVendorMode ? "hidden" : ""}`}
-            style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
-            data-testid="global-feed"
+            className="h-full flex-1 min-w-0 transition-all duration-300 ease-out"
+            style={(isVendorMode || isGalleryMode) ? { paddingTop: "10vh", paddingBottom: "12vh", paddingLeft: "4px", paddingRight: "0" } : {}}
           >
-            {globalProducts.map((product, idx) => (
-              <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
-                <ReelCard
-                  product={product}
-                  isActive={idx === globalActiveIdx}
-                  isVendorMode={false}
-                  onStoreClick={(product.vendor_id || product.category) ? ((e) => handleStoreClick(e, product)) : undefined}
-                />
+            {/* GLOBAL FEED */}
+            <div
+              ref={globalContainerRef}
+              className={`w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide ${feedMode !== "global" ? "hidden" : ""}`}
+              style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
+              data-testid="global-feed"
+            >
+              {globalProducts.map((product, idx) => (
+                <div key={product.product_id} data-reel-index={idx} className="w-full h-screen flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
+                  <ReelCard
+                    product={product}
+                    isActive={idx === globalActiveIdx}
+                    isVendorMode={false}
+                    onStoreClick={(product.vendor_id || product.category) ? ((e) => handleStoreClick(e, product)) : undefined}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* VENDOR FEED */}
+            {isVendorMode && (
+              <div
+                ref={vendorContainerRef}
+                className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide rounded-2xl"
+                style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
+                data-testid="vendor-feed"
+              >
+                {vendorLoading ? (
+                  <div className="w-full h-screen flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/20 border-t-white" />
+                  </div>
+                ) : vendorProducts.length === 0 ? (
+                  <div className="w-full h-screen flex flex-col items-center justify-center text-white">
+                    <p className="text-sm text-white/50">No products from this seller</p>
+                  </div>
+                ) : (
+                  vendorProducts.map((product, idx) => (
+                    <div key={product.product_id} data-reel-index={idx} className="w-full h-full flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
+                      <ReelCard
+                        product={product}
+                        isActive={idx === vendorActiveIdx}
+                        isVendorMode={true}
+                        onGalleryClick={handleGalleryClick}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
-            ))}
+            )}
+
+            {/* GALLERY MODE */}
+            {isGalleryMode && activeVendorProduct && (
+              <div className="w-full h-full rounded-2xl overflow-hidden" data-testid="gallery-mode">
+                <ProductGallery product={activeVendorProduct} isActive={true} />
+              </div>
+            )}
           </div>
 
-          {/* VENDOR FEED */}
-          {isVendorMode && (
-            <div
-              ref={vendorContainerRef}
-              className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide rounded-2xl"
-              style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
-              data-testid="vendor-feed"
-            >
-              {vendorLoading ? (
-                <div className="w-full h-screen flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/20 border-t-white" />
-                </div>
-              ) : vendorProducts.length === 0 ? (
-                <div className="w-full h-screen flex flex-col items-center justify-center text-white">
-                  <p className="text-sm text-white/50">No products from this seller</p>
-                </div>
-              ) : (
-                vendorProducts.map((product, idx) => (
-                  <div key={product.product_id} data-reel-index={idx} className="w-full h-full flex-shrink-0 relative" style={{ scrollSnapAlign: "start" }}>
-                    <ReelCard product={product} isActive={idx === vendorActiveIdx} isVendorMode={true} />
-                  </div>
-                ))
-              )}
-            </div>
-          )}
+          {/* ─── Side Thumbnail Panel (Vendor mode only) ─── */}
+          <AnimatePresence>
+            {isVendorMode && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "20%", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="h-full overflow-hidden flex-shrink-0 max-w-[50px] md:max-w-[80px] ml-[2%]"
+                style={{ paddingTop: "10vh", paddingBottom: "12vh" }}
+              >
+                <VendorThumbnailPanel
+                  products={vendorProducts}
+                  activeProductId={activeVendorProduct?.product_id}
+                  onSelect={handleThumbSelect}
+                  totalCount={vendorProducts.length}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* ─── Side Thumbnail Panel (Kuaishou-style) ─── */}
+        {/* Swipe direction indicator during touch */}
         <AnimatePresence>
-          {isVendorMode && (
+          {swipeHint && (
             <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "20%", opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full overflow-hidden flex-shrink-0 max-w-[50px] md:max-w-[80px] ml-[2%]"
-              style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "12vh" } : {}}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
             >
-              <VendorThumbnailPanel
-                products={vendorProducts}
-                activeProductId={activeVendorProduct?.product_id}
-                onSelect={handleThumbSelect}
-                totalCount={vendorProducts.length}
-              />
+              <div className="bg-black/60 backdrop-blur-sm px-5 py-2.5 rounded-full flex items-center gap-2">
+                {(swipeHint === "vendor" || swipeHint === "gallery") && <ChevronLeft className="h-4 w-4 text-white/80" />}
+                {(swipeHint === "global" || swipeHint === "home") && <ChevronRight className="h-4 w-4 text-white/80" />}
+                <span className="text-white text-xs font-medium">
+                  {swipeHint === "vendor" && "Seller Products"}
+                  {swipeHint === "gallery" && "View Photos"}
+                  {swipeHint === "global" && "Back to Feed"}
+                  {swipeHint === "home" && "Exit to Home"}
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
-      {/* Swipe hints */}
-      <AnimatePresence>
-        {!isVendorMode && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute bottom-8 sm:bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none"
-          >
-            <span className="text-white/25 text-[9px] tracking-wider">Swipe left for more from seller</span>
-          </motion.div>
-        )}
-        {isVendorMode && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute bottom-8 sm:bottom-2 left-0 z-10 flex justify-center pointer-events-none"
-            style={{ width: "82%" }}
-          >
-            <span className="text-white/25 text-[9px] tracking-wider">Swipe right to go back</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Bottom hint */}
+        <div className="absolute bottom-8 sm:bottom-2 left-0 right-0 z-10 flex justify-center pointer-events-none">
+          <span className="text-white/25 text-[9px] tracking-wider">{hintText}</span>
+        </div>
       </div>
     </div>
   );
