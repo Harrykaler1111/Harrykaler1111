@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ExternalLink } from "lucide-react";
+import { X, ArrowRight } from "lucide-react";
 import axios from "axios";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -15,12 +15,8 @@ export const SitePopup = () => {
       try {
         const { data } = await axios.get(`${API}/api/popup/config`);
         if (!data.enabled) return;
-
-        // Check localStorage unless force_show is on
         if (!data.force_show && localStorage.getItem(STORAGE_KEY)) return;
-
         setConfig(data);
-        // Delay before showing
         const delay = (data.delay_seconds || 1) * 1000;
         setTimeout(() => setVisible(true), delay);
       } catch (_) {}
@@ -42,86 +38,100 @@ export const SitePopup = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+          transition={{ duration: 0.4 }}
+          className="fixed inset-0 z-[99999] flex items-center justify-center p-5"
           data-testid="site-popup-overlay"
         >
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleClose} />
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={handleClose} />
 
-          {/* Content box */}
+          {/* Glassmorphic card */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, scale: 0.85, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden z-10"
+            exit={{ opacity: 0, scale: 0.85, y: 30 }}
+            transition={{ type: "spring", damping: 22, stiffness: 260 }}
+            className="relative w-full max-w-md z-10"
             data-testid="site-popup-box"
           >
-            {/* Close button */}
-            <button
-              onClick={handleClose}
-              className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 transition-colors"
-              data-testid="popup-close-btn"
-            >
-              <X className="h-4 w-4 text-neutral-600" />
-            </button>
+            {/* Outer glow ring */}
+            <div className="absolute -inset-[1px] rounded-[28px] bg-gradient-to-br from-gold/40 via-white/10 to-gold/20 blur-[1px]" />
 
-            {/* Media */}
-            {config.video ? (
-              <div className="w-full aspect-video bg-black">
-                <video
-                  src={config.video}
-                  controls
-                  autoPlay
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                  data-testid="popup-video"
-                />
+            {/* Card body */}
+            <div className="relative rounded-[26px] overflow-hidden border border-white/15 bg-black/40 backdrop-blur-2xl shadow-[0_8px_60px_rgba(201,160,80,0.15)]">
+
+              {/* Close button */}
+              <button
+                onClick={handleClose}
+                className="absolute top-3.5 right-3.5 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                data-testid="popup-close-btn"
+              >
+                <X className="h-3.5 w-3.5 text-white/70" />
+              </button>
+
+              {/* Media */}
+              {config.video ? (
+                <div className="w-full aspect-video">
+                  <video
+                    src={config.video}
+                    controls
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                    data-testid="popup-video"
+                  />
+                </div>
+              ) : config.image ? (
+                <div className="w-full max-h-[200px] overflow-hidden">
+                  <img
+                    src={config.image}
+                    alt={config.title}
+                    className="w-full h-full object-cover opacity-90"
+                    data-testid="popup-image"
+                  />
+                  {/* Image bottom fade */}
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />
+                </div>
+              ) : null}
+
+              {/* Content */}
+              <div className="px-6 pt-6 pb-7 text-center">
+                {/* Gold accent line */}
+                <div className="w-10 h-[2px] mx-auto mb-4 rounded-full bg-gradient-to-r from-transparent via-gold to-transparent" />
+
+                {config.title && (
+                  <h2
+                    className="text-lg sm:text-xl font-bold text-white leading-snug tracking-tight"
+                    data-testid="popup-title"
+                  >
+                    {config.title}
+                  </h2>
+                )}
+                {config.description && (
+                  <p
+                    className="mt-2.5 text-xs sm:text-sm text-white/50 leading-relaxed max-w-[90%] mx-auto"
+                    data-testid="popup-description"
+                  >
+                    {config.description}
+                  </p>
+                )}
+
+                {/* CTA */}
+                {config.cta_text && (
+                  <a
+                    href={config.cta_link || "#"}
+                    onClick={config.cta_link ? undefined : handleClose}
+                    className="group inline-flex items-center gap-2 mt-5 px-6 py-2.5 rounded-full text-sm font-semibold text-black bg-gradient-to-r from-gold to-yellow-400 shadow-[0_4px_20px_rgba(201,160,80,0.3)] hover:shadow-[0_4px_30px_rgba(201,160,80,0.5)] transition-all relative overflow-hidden"
+                    data-testid="popup-cta-btn"
+                  >
+                    {/* Shimmer */}
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    <span className="relative z-10">{config.cta_text}</span>
+                    <ArrowRight className="relative z-10 h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                )}
               </div>
-            ) : config.image ? (
-              <div className="w-full max-h-[240px] overflow-hidden bg-neutral-100">
-                <img
-                  src={config.image}
-                  alt={config.title}
-                  className="w-full h-full object-cover"
-                  data-testid="popup-image"
-                />
-              </div>
-            ) : null}
-
-            {/* Text content */}
-            <div className="p-6 sm:p-8 text-center">
-              {config.title && (
-                <h2
-                  className="text-xl sm:text-2xl font-bold text-neutral-900 leading-tight"
-                  data-testid="popup-title"
-                >
-                  {config.title}
-                </h2>
-              )}
-              {config.description && (
-                <p
-                  className="mt-3 text-sm sm:text-base text-neutral-500 leading-relaxed"
-                  data-testid="popup-description"
-                >
-                  {config.description}
-                </p>
-              )}
-
-              {/* CTA Button */}
-              {config.cta_text && (
-                <a
-                  href={config.cta_link || "#"}
-                  onClick={config.cta_link ? undefined : handleClose}
-                  className="inline-flex items-center gap-2 mt-5 px-6 py-3 bg-black text-white font-semibold text-sm rounded-full hover:bg-neutral-800 transition-colors"
-                  data-testid="popup-cta-btn"
-                >
-                  {config.cta_text}
-                  {config.cta_link && <ExternalLink className="h-3.5 w-3.5" />}
-                </a>
-              )}
             </div>
           </motion.div>
         </motion.div>

@@ -1,58 +1,75 @@
-# Pigma - Premium Multi-Vendor E-Commerce Platform
+# Pigma - AI-Powered Multi-Vendor E-Commerce Platform
 
-## Original Problem Statement
-Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform. Maximize conversions with advanced COD/Prepaid systems, cart boosters, bundles, flash sales, and comprehensive WhatsApp-driven automation and retention (Interakt).
+## Problem Statement
+Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform. Maximize conversions with advanced COD/Prepaid systems, cart boosters, bundles, flash sales, and comprehensive WhatsApp-driven automation and retention.
 
-## Tech Stack
-- Frontend: React, Tailwind CSS, framer-motion, Shadcn UI, react-easy-crop
-- Backend: FastAPI, Python, WebSockets
-- Database: MongoDB
-- Integrations: Interakt (WhatsApp API), Razorpay (LIVE), Emergent Object Storage, GPT-4o-mini Vision (KYC OCR), Resend (Email - ACTIVE)
+## Core Architecture
+- **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
+- **Backend**: FastAPI + MongoDB
+- **Auth**: JWT + Firebase Phone OTP
+- **Integrations**: Firebase, Razorpay, Resend, Interakt WhatsApp, OpenAI (KYC OCR), Emergent Object Storage
 
 ## What's Been Implemented
-- Multi-vendor product management with admin & vendor dashboards
-- Admin Product Photo Cropping, Bulk Product Upload System
-- Cart Merge on Login, Quick Add buttons, Cart Drawer, Cart Boosters
-- Flash Sales, FOMO notifications, Dummy Reviews
-- Real Interakt WhatsApp Integration (OTP, Support Tickets, Webhooks)
-- Dynamic RBAC, Affiliate & Reseller System with price overrides
-- Guest Cart System, Premium ProductCard, Reels/Explore feed
-- Vendor Monetization System, Featured Sellers, Unified ID Tracking
-- Admin Master Search with Quick Actions
-- Comprehensive Vendor KYC with AI-Powered OCR auto-approve/auto-reject
-- Real-Time WebSocket Notification System (Admin + Vendor + User)
-- Browser Push Notifications, Notification Preferences, Quiet Hours
-- Razorpay Payment Gateway (LIVE): Checkout popup, signature verification, webhook support
-- Order Email Notification System: Branded HTML emails via Resend
-- Enhanced Admin Orders Dashboard: Advanced search, time filters, payment filters
-- User (Buyer) Notification System: Full notification bell in storefront Header
-- Notification Bell Bug Fix: Optimistic updates with error rollback, token null-guard
-- Notification Center: Full-page history for Admin/Vendor/User with search, filters, pagination, bulk ops
-- Email Notification Preferences: All roles can toggle 7 email categories
-- Mobile Responsive Notifications: Bell dropdowns use fixed positioning on mobile with backdrop overlay
-- **Mobile Product Zoom**: Added touch event support (touchstart/touchmove/touchend) to ZoomableImage. Shows "Hold to zoom" hint on mobile, "Hover to zoom" on desktop. Uses `touch-none` CSS to prevent scroll interference during zoom.
 
-- **Reels Vendor Mode Dimensions Fix (Apr 2026)**: Adjusted to match reference screenshots — 6:9 portrait thumbnails, 10vh top / 20vh bottom asymmetric padding, 20% side panel width, 2% gap between video and panel
+### Core E-Commerce
+- Multi-vendor product catalog with categories, variants, images
+- Cart system with drawer UI, quantity controls
+- Checkout flow with COD/Prepaid options
+- Order management (Admin + Vendor dashboards)
+- Product On/Off toggles (auto-deactivation at zero stock)
 
-- **Checkout Page Premium Redesign (Apr 2026)**: Real payment gateway SVG icons (Visa, MC, UPI, RuPay, GPay, PhonePe, NetBanking), premium gold gradient CTA button with shimmer, "Secured by Razorpay" badge, upgraded trust signals
+### Authentication
+- JWT-based email/password auth
+- Firebase Phone OTP authentication (with reCAPTCHA)
 
-- **Product On/Off Toggle (Apr 2026)**: Admin and vendor can toggle products active/inactive. Auto-deactivation when stock reaches 0. Inactive products hidden from frontend. Toggle UI in admin (AdminProductsHub) and vendor dashboards.
+### UI/UX
+- Reels-style product showcase (vendor mode, 1:2 aspect ratio)
+- Premium checkout page (shimmer buttons, payment icons, trust signals)
+- Cart drawer with iPhone safe-area support
+- Glassmorphic Site Popup system (admin-configurable)
+- Responsive floating action buttons (WhatsApp, Chat)
 
-- **Firebase Phone OTP Auth (Apr 2026)**: Replaced WhatsApp OTP with Firebase Phone Auth. 6-digit OTP boxes, auto-focus, 30s resend timer, invisible reCAPTCHA, auto-create user on first login, rate limiting, user_events for WhatsApp integration readiness.
+### Admin Features
+- Admin Dashboard (product management, order management, vendor KYC)
+- Site Popup Manager (enable/disable, force show, media, CTA)
+- Product active state toggles
 
-- **Site Popup System (Apr 2026)**: Full-screen admin-controlled popup with dark overlay, image/video support, CTA button, delay config, force show, localStorage dismiss. Admin UI at /admin/popup.
+### Vendor Features
+- Vendor Dashboard with product management
+- Product toggle controls
 
-## Production Domain
-- https://thepigma.com
+### Integrations
+- Firebase Phone Auth (live)
+- Razorpay payments (mocked on preview)
+- Instagram Auto-DMs (mocked)
+- WhatsApp Business API via Interakt (requires user key)
+- Resend email (requires user key)
+- OpenAI GPT-4o-mini for KYC OCR (via Emergent key)
+- Emergent Object Storage
 
-## Mocked / Pending
-- Instagram Auto-DMs (mock)
+## Pending Tasks
 
-## P1 Upcoming Tasks
-- "Testing Mode" for Orders (dummy order flow triggering admin alerts)
-- Track affiliate/reseller link clicks (referral URL metrics)
-- Transition Instagram Auto DM from Mock to real Meta API
+### P1 - Upcoming
+- "Testing Mode" for Orders (dummy order flow, real-time admin alerts)
+- Affiliate/Reseller link click tracking (referral URL metrics)
+- Instagram Auto DM — transition mock to real Meta API
 
-## P2 Future/Backlog
-- Weekly Digest email implementation (backend scheduled job)
-- AdminDashboard.jsx refactoring (3700+ lines)
+### P2 - Future
+- Vendor Email Digest Notifications
+- AdminDashboard.jsx refactoring (3700+ lines → smaller files)
+
+## Key API Endpoints
+- `GET /api/popup/config` — Public popup config
+- `GET/PUT /api/popup/admin/config` — Admin popup management
+- `POST /api/auth/firebase/verify` — Firebase token verification
+- `PUT /api/admin/products/{id}/toggle` — Product active toggle
+
+## Key DB Collections
+- `popup_config`: { enabled, force_show, title, description, image, video, cta_text, cta_link, delay_seconds, updated_at, updated_by }
+- `users`: includes `firebase_uid` for OTP-authenticated users
+- `products`: includes `is_active` flag for toggle feature
+
+## Testing Notes
+- Firebase Phone Auth cross-origin requests blocked in Emergent Preview iframe — test in standalone browser tab
+- reCAPTCHA lifecycle in AuthPage.jsx heavily debugged — do not tamper
+- Latest test report: `/app/test_reports/iteration_77.json` (11/11 passed)
