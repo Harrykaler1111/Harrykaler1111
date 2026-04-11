@@ -386,7 +386,7 @@ export default function ReelsPage() {
 
     setSwipeHint("");
 
-    if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && dt < 500) {
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50 && dt < 600) {
       if (dx < 0) {
         // Swipe LEFT
         if (feedMode === "global") {
@@ -419,7 +419,7 @@ export default function ReelsPage() {
         }
       }
     }
-  }, [feedMode, globalProducts, globalActiveIdx, enterVendorMode, exitVendorMode, navigate]);
+  }, [feedMode, globalProducts, globalActiveIdx, vendorProducts, vendorActiveIdx, vendorImgIdx, enterVendorMode, exitVendorMode, navigate]);
 
   // ── Desktop: Store button ──
   const handleStoreClick = useCallback((e, product) => {
@@ -485,7 +485,7 @@ export default function ReelsPage() {
         </div>
 
         {/* ════════ LAYOUT ════════ */}
-        <div className="w-full h-full flex" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+        <div className="w-full h-full flex relative">
 
           {/* Main Content */}
           <div
@@ -497,6 +497,9 @@ export default function ReelsPage() {
               ref={globalContainerRef}
               className={`w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide ${isVendorMode ? "hidden" : ""}`}
               style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
               data-testid="global-feed"
             >
               {globalProducts.map((product, idx) => (
@@ -516,7 +519,10 @@ export default function ReelsPage() {
               <div
                 ref={vendorContainerRef}
                 className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide rounded-2xl"
-                style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
+                style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
                 data-testid="vendor-feed"
               >
                 {vendorLoading ? (
