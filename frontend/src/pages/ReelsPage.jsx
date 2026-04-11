@@ -8,6 +8,19 @@ import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 
+/* ── Color name → hex map for variant badge ── */
+const COLOR_MAP = {
+  black: "#1a1a1a", white: "#f5f5f5", red: "#dc2626", blue: "#2563eb",
+  green: "#16a34a", yellow: "#eab308", pink: "#ec4899", purple: "#9333ea",
+  orange: "#ea580c", grey: "#6b7280", gray: "#6b7280", brown: "#92400e",
+  navy: "#1e3a5f", beige: "#d4c5a9", cream: "#fffdd0", maroon: "#800000",
+  wine: "#722f37", gold: "#d4af37", silver: "#c0c0c0", peach: "#ffcba4",
+  coral: "#ff7f50", teal: "#0d9488", khaki: "#c3b091", olive: "#808000",
+  "bottle green": "#006a4e", "dark green": "#013220", "rose gold": "#b76e79",
+  mehendi: "#8b8000", champagne: "#f7e7ce", mustard: "#e1ad01",
+};
+const getColorHex = (name) => COLOR_MAP[(name || "").toLowerCase()] || "#888";
+
 /* ─────────────────────────────────────────────────
    Kuaishou-style Side Panel (scrollable thumbnails)
    ───────────────────────────────────────────────── */
@@ -66,12 +79,19 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
 
   const sellerLabel = product.vendor_name || product.brand || product.category || "Pigma";
   const images = (product.images || []).filter(Boolean);
+  const colors = product.colors || [];
   const hasVideo = !!product.video_url;
   const totalSlides = hasVideo ? images.length + 1 : images.length;
 
   // Use parent-controlled index in vendor mode, internal otherwise
   const imgIdx = (controlledImgIdx !== undefined) ? controlledImgIdx : internalImgIdx;
   const setImgIdx = (controlledImgIdx !== undefined) ? () => {} : setInternalImgIdx;
+
+  // Determine current color/variant based on image index
+  // Image index maps to color: image 0 → color 0, image 1 → color 1, etc.
+  const currentImageIndex = hasVideo ? Math.max(0, imgIdx - 1) : imgIdx;
+  const currentColor = colors.length > 0 ? (colors[currentImageIndex] || colors[0]) : (product.colors?.[0] || "Default");
+  const showColorBadge = isVendorMode && colors.length > 1 && images.length > 1;
 
   useEffect(() => {
     if (isActive) {
@@ -110,7 +130,12 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
     e.stopPropagation();
     if (product.stock <= 0) { toast.error("Out of stock"); return; }
     setAdding(true);
-    await addToCart(product.product_id, 1, product.sizes?.[0] || "M", product.colors?.[0] || "Default", product, { silent: true });
+    const cartColor = currentColor;
+    const cartSize = product.sizes?.[0] || "M";
+    const ok = await addToCart(product.product_id, 1, cartSize, cartColor, product, { silent: false });
+    if (ok && showColorBadge) {
+      toast.success(`Added ${cartColor} to cart`);
+    }
     setAdding(false);
   };
 
@@ -159,6 +184,17 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
           {Array.from({ length: totalSlides }).map((_, i) => (
             <div key={i} className={`h-[3px] rounded-full transition-all duration-300 ${i === imgIdx ? "w-5 bg-white" : "w-2 bg-white/40"}`} />
           ))}
+        </div>
+      )}
+
+      {/* Color variant badge — shown in vendor carousel mode */}
+      {showColorBadge && (
+        <div className="absolute top-[70px] left-0 right-0 flex justify-center z-10 pointer-events-none" data-testid="color-variant-badge">
+          <div className="bg-black/50 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full border border-white/30" style={{ backgroundColor: getColorHex(currentColor) }} />
+            <span className="text-white text-[10px] font-semibold tracking-wide">{currentColor}</span>
+            <span className="text-white/40 text-[9px]">{currentImageIndex + 1}/{Math.min(images.length, colors.length)}</span>
+          </div>
         </div>
       )}
 
