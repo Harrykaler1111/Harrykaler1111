@@ -42,6 +42,7 @@ import { CartProvider, useCart } from "@/context/CartContext";
 import { BoosterBar } from "@/components/BoosterBar";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ChatWidget } from "@/components/ChatWidget";
+import { SitePopup } from "@/components/SitePopup";
 import UserNotificationsPage from "@/pages/UserNotificationsPage";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -175,6 +176,7 @@ const LayoutWrapper = ({ children }) => {
       {!hideChrome && <Footer />}
       {!hideChrome && <FloatingWhatsApp />}
       {!hideChrome && <ChatWidget />}
+      <SitePopup />
       {!hideChrome && <FomoNotification />}
       {(!hideChrome || isReelsPage) && <CartDrawer />}
       <TrackingPixels />

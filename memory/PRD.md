@@ -40,6 +40,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform.
 
 - **Firebase Phone OTP Auth (Apr 2026)**: Replaced WhatsApp OTP with Firebase Phone Auth. 6-digit OTP boxes, auto-focus, 30s resend timer, invisible reCAPTCHA, auto-create user on first login, rate limiting, user_events for WhatsApp integration readiness.
 
+- **Site Popup System (Apr 2026)**: Full-screen admin-controlled popup with dark overlay, image/video support, CTA button, delay config, force show, localStorage dismiss. Admin UI at /admin/popup.
+
 ## Production Domain
 - https://thepigma.com
 

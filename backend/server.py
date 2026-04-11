@@ -52,6 +52,7 @@ from routes.vendor_credit_routes import router as vendor_credit_router
 from routes.master_search_routes import router as master_search_router
 from routes.payment_routes import router as payment_router
 from routes.email_log_routes import router as email_log_router
+from routes.popup_routes import router as popup_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -99,6 +100,7 @@ app.include_router(vendor_credit_router, prefix="/api")
 app.include_router(master_search_router, prefix="/api")
 app.include_router(payment_router, prefix="/api")
 app.include_router(email_log_router, prefix="/api")
+app.include_router(popup_router, prefix="/api")
 
 # Serve uploaded files — only if local uploads directory exists (dev/legacy)
 from config import UPLOAD_DIR
