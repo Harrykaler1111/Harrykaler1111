@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -48,81 +48,10 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
 );
 
 /* ─────────────────────────────────────────────────
-   Product Gallery — full-screen image/video viewer
-   Vertical scroll through product media
+   Single Reel Card
+   cycleSignal: incremented by parent to advance carousel
    ───────────────────────────────────────────────── */
-const ProductGallery = ({ product, isActive }) => {
-  const navigate = useNavigate();
-  const [muted, setMuted] = useState(true);
-  const videoRefs = useRef({});
-
-  if (!product) return null;
-
-  const images = (product.images || []).filter(Boolean);
-  const hasVideo = !!product.video_url;
-  const slides = [];
-
-  if (hasVideo) slides.push({ type: "video", src: product.video_url });
-  images.forEach((img, i) => slides.push({ type: "image", src: normalizeImageUrl(img), idx: i }));
-
-  if (slides.length === 0) return null;
-
-  return (
-    <div className="w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide" style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }} data-testid="product-gallery">
-      {slides.map((slide, i) => (
-        <div key={i} className="w-full h-full snap-start snap-always flex-shrink-0 relative bg-black" style={{ scrollSnapAlign: "start" }}>
-          {slide.type === "video" ? (
-            <div className="relative w-full h-full">
-              <video
-                ref={el => { videoRefs.current[i] = el; }}
-                src={slide.src}
-                className="w-full h-full object-contain"
-                loop
-                muted={muted}
-                playsInline
-                autoPlay={isActive}
-              />
-              <button
-                onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }}
-                className="absolute top-20 right-4 w-9 h-9 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white z-10"
-              >
-                {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </button>
-            </div>
-          ) : (
-            <img
-              src={slide.src || FALLBACK_IMAGE}
-              alt={`${product.name} - ${i + 1}`}
-              className="w-full h-full object-contain"
-              onError={handleImageError}
-            />
-          )}
-
-          {/* Slide counter */}
-          <div className="absolute top-14 left-0 right-0 flex justify-center z-10 pointer-events-none">
-            <span className="bg-black/50 backdrop-blur-sm text-white/80 text-[10px] px-2.5 py-1 rounded-full font-medium">
-              {i + 1} / {slides.length}
-            </span>
-          </div>
-
-          {/* Product info overlay at bottom */}
-          <div className="absolute bottom-16 left-4 right-4 z-10 pointer-events-none">
-            <h3 className="text-white text-sm font-medium line-clamp-1 mb-1">{product.name}</h3>
-            <div className="flex items-baseline gap-2">
-              <span className="text-white text-base font-bold">Rs.{product.price?.toLocaleString()}</span>
-              {product.compare_price && <span className="text-white/40 text-xs line-through">Rs.{product.compare_price?.toLocaleString()}</span>}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-/* ─────────────────────────────────────────────────
-   Single Reel Card (used in both global & vendor feeds)
-   ───────────────────────────────────────────────── */
-const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClick }) => {
+const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, cycleSignal }) => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   const { addToCart } = useCart();
@@ -134,11 +63,22 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClic
   const [adding, setAdding] = useState(false);
   const [muted, setMuted] = useState(true);
   const videoRef = useRef(null);
+  const prevSignalRef = useRef(cycleSignal || 0);
 
   const sellerLabel = product.vendor_name || product.brand || product.category || "Pigma";
   const images = (product.images || []).filter(Boolean);
   const hasVideo = !!product.video_url;
   const totalSlides = hasVideo ? images.length + 1 : images.length;
+
+  // Respond to parent's cycleSignal to advance carousel
+  useEffect(() => {
+    if (cycleSignal !== undefined && cycleSignal !== prevSignalRef.current) {
+      prevSignalRef.current = cycleSignal;
+      if (totalSlides > 1) {
+        setImgIdx(i => (i + 1) % totalSlides);
+      }
+    }
+  }, [cycleSignal, totalSlides]);
 
   useEffect(() => {
     if (isActive) {
@@ -190,7 +130,6 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClic
 
   const goToProduct = () => navigate(`/product/${product.product_id}`);
   const discount = product.compare_price ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100) : 0;
-  const mediaCount = (images.length || 0) + (hasVideo ? 1 : 0);
 
   const renderSlide = () => {
     if (hasVideo && imgIdx === 0) {
@@ -230,7 +169,7 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClic
         </div>
       )}
 
-      {/* Tap zones for image carousel */}
+      {/* Tap zones for image carousel (desktop click) */}
       {totalSlides > 1 && (
         <>
           <div className="absolute left-0 top-0 w-1/4 h-3/4 z-[5]" onClick={(e) => { e.stopPropagation(); cycleSlide(-1); }} />
@@ -249,16 +188,6 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClic
             <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
               <Plus className="h-2.5 w-2.5 text-white" />
             </div>
-          </button>
-        )}
-
-        {/* Gallery button (vendor mode only, if product has multiple media) */}
-        {onGalleryClick && mediaCount > 1 && (
-          <button onClick={(e) => { e.stopPropagation(); onGalleryClick(e); }} className="flex flex-col items-center gap-0.5" data-testid={`reel-gallery-${product.product_id}`}>
-            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
-              <Images className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-[9px] text-white/70">{mediaCount}</span>
           </button>
         )}
 
@@ -306,8 +235,8 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, onGalleryClic
 };
 
 /* ─────────────────────────────────────────────────
-   MAIN REELS PAGE — 3-layer horizontal swipe system
-   Global ←→ Vendor ←→ Gallery
+   MAIN REELS PAGE
+   Global ←→ Vendor (with inline image carousel via left swipe)
    ───────────────────────────────────────────────── */
 export default function ReelsPage() {
   const navigate = useNavigate();
@@ -318,18 +247,19 @@ export default function ReelsPage() {
   const [globalActiveIdx, setGlobalActiveIdx] = useState(0);
   const globalContainerRef = useRef(null);
 
-  // Vendor (nested) feed
-  const [feedMode, setFeedMode] = useState("global"); // "global" | "vendor" | "gallery"
+  // Vendor feed
+  const [feedMode, setFeedMode] = useState("global"); // "global" | "vendor"
   const [vendorProducts, setVendorProducts] = useState([]);
   const [vendorActiveIdx, setVendorActiveIdx] = useState(0);
   const [vendorLabel, setVendorLabel] = useState("");
   const [vendorLoading, setVendorLoading] = useState(false);
   const vendorContainerRef = useRef(null);
 
-  // Touch tracking for horizontal swipe
-  const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
+  // Carousel cycle signal — increments to tell active vendor card to advance image
+  const [cycleSignal, setCycleSignal] = useState(0);
 
-  // Swipe indicator
+  // Touch tracking
+  const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const [swipeHint, setSwipeHint] = useState("");
 
   // ── Load global feed ──
@@ -380,6 +310,7 @@ export default function ReelsPage() {
 
     setVendorLoading(true);
     setFeedMode("vendor");
+    setCycleSignal(0);
     try {
       const { data } = await axios.get(`${API}/vendor-credits/group-products?group_key=${groupKey}&group_value=${encodeURIComponent(groupValue)}`);
       const prods = data.products || [];
@@ -400,29 +331,12 @@ export default function ReelsPage() {
     setVendorLoading(false);
   }, []);
 
-  // ── Exit vendor mode → global ──
+  // ── Exit vendor mode ──
   const exitVendorMode = useCallback(() => {
     setFeedMode("global");
     setVendorProducts([]);
     setVendorLabel("");
-  }, []);
-
-  // ── Enter gallery mode ──
-  const enterGalleryMode = useCallback(() => {
-    const activeProduct = vendorProducts[vendorActiveIdx];
-    if (!activeProduct) return;
-    const imgs = (activeProduct.images || []).filter(Boolean);
-    const hasVid = !!activeProduct.video_url;
-    if (imgs.length + (hasVid ? 1 : 0) <= 1) {
-      toast("Only 1 photo available", { duration: 1500 });
-      return;
-    }
-    setFeedMode("gallery");
-  }, [vendorProducts, vendorActiveIdx]);
-
-  // ── Exit gallery → vendor ──
-  const exitGalleryMode = useCallback(() => {
-    setFeedMode("vendor");
+    setCycleSignal(0);
   }, []);
 
   // ── Select thumbnail in vendor panel ──
@@ -433,7 +347,7 @@ export default function ReelsPage() {
     if (target) target.scrollIntoView({ behavior: "smooth" });
   }, [vendorProducts]);
 
-  // ── Touch handlers for horizontal swipe ──
+  // ── Touch handlers ──
   const onTouchStart = useCallback((e) => {
     touchRef.current = {
       startX: e.touches[0].clientX,
@@ -449,10 +363,9 @@ export default function ReelsPage() {
     if (Math.abs(dx) > Math.abs(dy) * 1.2 && Math.abs(dx) > 30) {
       if (dx < 0) {
         if (feedMode === "global") setSwipeHint("vendor");
-        else if (feedMode === "vendor") setSwipeHint("gallery");
+        else if (feedMode === "vendor") setSwipeHint("photo");
       } else {
-        if (feedMode === "gallery") setSwipeHint("vendor");
-        else if (feedMode === "vendor") setSwipeHint("global");
+        if (feedMode === "vendor") setSwipeHint("global");
         else if (feedMode === "global") setSwipeHint("home");
       }
     } else {
@@ -468,7 +381,6 @@ export default function ReelsPage() {
 
     setSwipeHint("");
 
-    // Only handle horizontal swipes
     if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 60 && dt < 500) {
       if (dx < 0) {
         // Swipe LEFT
@@ -476,45 +388,32 @@ export default function ReelsPage() {
           const activeProduct = globalProducts[globalActiveIdx];
           if (activeProduct) enterVendorMode(activeProduct);
         } else if (feedMode === "vendor") {
-          enterGalleryMode();
+          // Cycle to next image of current product (inline carousel)
+          setCycleSignal(s => s + 1);
         }
       } else {
         // Swipe RIGHT
-        if (feedMode === "gallery") {
-          exitGalleryMode();
-        } else if (feedMode === "vendor") {
+        if (feedMode === "vendor") {
           exitVendorMode();
         } else if (feedMode === "global") {
           navigate("/");
         }
       }
     }
-  }, [feedMode, globalProducts, globalActiveIdx, enterVendorMode, exitVendorMode, enterGalleryMode, exitGalleryMode, navigate]);
+  }, [feedMode, globalProducts, globalActiveIdx, enterVendorMode, exitVendorMode, navigate]);
 
   // ── Desktop: Store button ──
   const handleStoreClick = useCallback((e, product) => {
     e.stopPropagation();
-    if (feedMode === "global") {
-      enterVendorMode(product);
-    } else {
-      exitVendorMode();
-    }
+    if (feedMode === "global") enterVendorMode(product);
+    else exitVendorMode();
   }, [feedMode, enterVendorMode, exitVendorMode]);
 
-  // ── Desktop: Gallery button ──
-  const handleGalleryClick = useCallback((e) => {
-    e.stopPropagation();
-    if (feedMode === "vendor") {
-      enterGalleryMode();
-    }
-  }, [feedMode, enterGalleryMode]);
-
-  // ── Back button logic ──
+  // ── Back button ──
   const handleBack = useCallback(() => {
-    if (feedMode === "gallery") exitGalleryMode();
-    else if (feedMode === "vendor") exitVendorMode();
+    if (feedMode === "vendor") exitVendorMode();
     else navigate("/");
-  }, [feedMode, exitGalleryMode, exitVendorMode, navigate]);
+  }, [feedMode, exitVendorMode, navigate]);
 
   // ── Render ──
   if (loading) {
@@ -536,21 +435,10 @@ export default function ReelsPage() {
 
   const activeVendorProduct = vendorProducts[vendorActiveIdx];
   const isVendorMode = feedMode === "vendor";
-  const isGalleryMode = feedMode === "gallery";
 
-  // Mode label
-  const modeLabel = isGalleryMode
-    ? (activeVendorProduct?.name || "Gallery")
-    : isVendorMode
-      ? vendorLabel
-      : "Explore";
-
-  // Swipe hint text
-  const hintText = feedMode === "global"
-    ? "Swipe left for seller"
-    : feedMode === "vendor"
-      ? "Swipe left for photos  |  right to go back"
-      : "Swipe right to go back";
+  const hintText = isVendorMode
+    ? "Swipe left for photos  |  right to go back"
+    : "Swipe left for seller";
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" data-testid="reels-page">
@@ -564,33 +452,31 @@ export default function ReelsPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        {/* Title + mode indicator */}
+        {/* Title + mode dots */}
         <div className="absolute top-3 left-0 right-0 z-20 flex justify-center pointer-events-none">
           <div className="flex items-center gap-2">
-            {/* Mode dots */}
             <div className="flex items-center gap-1">
-              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "global" ? "bg-white w-3" : "bg-white/30"}`} />
-              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "vendor" ? "bg-white w-3" : "bg-white/30"}`} />
-              <div className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${feedMode === "gallery" ? "bg-white w-3" : "bg-white/30"}`} />
+              <div className={`h-1.5 rounded-full transition-all duration-300 ${feedMode === "global" ? "w-3 bg-white" : "w-1.5 bg-white/30"}`} />
+              <div className={`h-1.5 rounded-full transition-all duration-300 ${feedMode === "vendor" ? "w-3 bg-white" : "w-1.5 bg-white/30"}`} />
             </div>
             <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase line-clamp-1 max-w-[200px]">
-              {modeLabel}
+              {isVendorMode ? vendorLabel : "Explore"}
             </span>
           </div>
         </div>
 
-        {/* ════════ LAYOUT: Main + Side Panel ════════ */}
+        {/* ════════ LAYOUT ════════ */}
         <div className="w-full h-full flex" onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
 
-          {/* ─── Main Content Area ─── */}
+          {/* Main Content */}
           <div
             className="h-full flex-1 min-w-0 transition-all duration-300 ease-out"
-            style={(isVendorMode || isGalleryMode) ? { paddingTop: "10vh", paddingBottom: "12vh", paddingLeft: "4px", paddingRight: "0" } : {}}
+            style={isVendorMode ? { paddingTop: "10vh", paddingBottom: "12vh", paddingLeft: "4px", paddingRight: "0" } : {}}
           >
             {/* GLOBAL FEED */}
             <div
               ref={globalContainerRef}
-              className={`w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide ${feedMode !== "global" ? "hidden" : ""}`}
+              className={`w-full h-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide ${isVendorMode ? "hidden" : ""}`}
               style={{ scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch" }}
               data-testid="global-feed"
             >
@@ -629,23 +515,16 @@ export default function ReelsPage() {
                         product={product}
                         isActive={idx === vendorActiveIdx}
                         isVendorMode={true}
-                        onGalleryClick={handleGalleryClick}
+                        cycleSignal={idx === vendorActiveIdx ? cycleSignal : undefined}
                       />
                     </div>
                   ))
                 )}
               </div>
             )}
-
-            {/* GALLERY MODE */}
-            {isGalleryMode && activeVendorProduct && (
-              <div className="w-full h-full rounded-2xl overflow-hidden" data-testid="gallery-mode">
-                <ProductGallery product={activeVendorProduct} isActive={true} />
-              </div>
-            )}
           </div>
 
-          {/* ─── Side Thumbnail Panel (Vendor mode only) ─── */}
+          {/* Side Thumbnail Panel */}
           <AnimatePresence>
             {isVendorMode && (
               <motion.div
@@ -667,7 +546,7 @@ export default function ReelsPage() {
           </AnimatePresence>
         </div>
 
-        {/* Swipe direction indicator during touch */}
+        {/* Swipe direction indicator */}
         <AnimatePresence>
           {swipeHint && (
             <motion.div
@@ -677,11 +556,11 @@ export default function ReelsPage() {
               className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none"
             >
               <div className="bg-black/60 backdrop-blur-sm px-5 py-2.5 rounded-full flex items-center gap-2">
-                {(swipeHint === "vendor" || swipeHint === "gallery") && <ChevronLeft className="h-4 w-4 text-white/80" />}
+                {(swipeHint === "vendor" || swipeHint === "photo") && <ChevronLeft className="h-4 w-4 text-white/80" />}
                 {(swipeHint === "global" || swipeHint === "home") && <ChevronRight className="h-4 w-4 text-white/80" />}
                 <span className="text-white text-xs font-medium">
                   {swipeHint === "vendor" && "Seller Products"}
-                  {swipeHint === "gallery" && "View Photos"}
+                  {swipeHint === "photo" && "Next Photo"}
                   {swipeHint === "global" && "Back to Feed"}
                   {swipeHint === "home" && "Exit to Home"}
                 </span>
