@@ -5,6 +5,7 @@ import axios from "axios";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const STORAGE_KEY = "pigma_popup_closed";
+const SESSION_KEY = "pigma_popup_closed_session";
 
 export const SitePopup = () => {
   const [config, setConfig] = useState(null);
@@ -15,7 +16,11 @@ export const SitePopup = () => {
       try {
         const { data } = await axios.get(`${API}/api/popup/config`);
         if (!data.enabled) return;
-        if (!data.force_show && localStorage.getItem(STORAGE_KEY)) return;
+        if (data.force_show) {
+          if (sessionStorage.getItem(SESSION_KEY)) return;
+        } else {
+          if (localStorage.getItem(STORAGE_KEY)) return;
+        }
         setConfig(data);
         const delay = (data.delay_seconds || 1) * 1000;
         setTimeout(() => setVisible(true), delay);
@@ -27,6 +32,7 @@ export const SitePopup = () => {
   const handleClose = () => {
     setVisible(false);
     localStorage.setItem(STORAGE_KEY, Date.now().toString());
+    sessionStorage.setItem(SESSION_KEY, "1");
   };
 
   if (!config) return null;
@@ -121,7 +127,7 @@ export const SitePopup = () => {
                 {config.cta_text && (
                   <a
                     href={config.cta_link || "#"}
-                    onClick={config.cta_link ? undefined : handleClose}
+                    onClick={handleClose}
                     className="group inline-flex items-center gap-2 mt-5 px-6 py-2.5 rounded-full text-sm font-semibold text-black bg-gradient-to-r from-gold to-yellow-400 shadow-[0_4px_20px_rgba(201,160,80,0.3)] hover:shadow-[0_4px_30px_rgba(201,160,80,0.5)] transition-all relative overflow-hidden"
                     data-testid="popup-cta-btn"
                   >
