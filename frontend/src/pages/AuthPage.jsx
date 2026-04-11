@@ -83,7 +83,7 @@ export const AuthPage = () => {
         name: signupName,
         email: signupEmail,
         password: signupPassword,
-        phone: signupPhone || null
+        phone: signupPhone
       });
       login(response.data.user, response.data.token);
       toast.success("Account created successfully!");
@@ -348,10 +348,9 @@ export const AuthPage = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login" data-testid="login-tab">Sign In</TabsTrigger>
               <TabsTrigger value="signup" data-testid="signup-tab">Sign Up</TabsTrigger>
-              <TabsTrigger value="otp" data-testid="otp-tab">OTP</TabsTrigger>
             </TabsList>
 
             {/* Login Tab */}
@@ -502,10 +501,11 @@ export const AuthPage = () => {
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
                   <Input
                     type="tel"
-                    placeholder="Phone (optional)"
+                    placeholder="WhatsApp / Mobile number"
                     value={signupPhone}
                     onChange={(e) => setSignupPhone(e.target.value)}
                     className="pl-10"
+                    required
                     data-testid="signup-phone"
                   />
                 </div>
@@ -543,104 +543,7 @@ export const AuthPage = () => {
               </form>
             </TabsContent>
 
-            {/* OTP Tab - Firebase Phone Auth */}
-            <TabsContent value="otp">
-              <form onSubmit={handleVerifyOtp} className="space-y-4">
-                {!otpSent ? (
-                  <>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-                      <Input
-                        type="tel"
-                        placeholder="Enter 10-digit mobile number"
-                        value={otpPhone}
-                        onChange={(e) => setOtpPhone(e.target.value)}
-                        className="pl-10"
-                        required
-                        autoComplete="tel"
-                        data-testid="otp-phone"
-                      />
-                    </div>
-                    <p className="text-[11px] text-neutral-500 flex items-center gap-1">
-                      <Shield className="h-3 w-3" /> We'll send an SMS with a 6-digit verification code
-                    </p>
-                    <button
-                      id="send-otp-button"
-                      type="button"
-                      onClick={handleSendOtp}
-                      className="w-full bg-black hover:bg-neutral-800 text-white py-3 rounded-md uppercase tracking-widest font-semibold text-sm disabled:opacity-50"
-                      disabled={isLoading}
-                      data-testid="send-otp-btn"
-                    >
-                      {isLoading ? "Sending..." : "Send OTP"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-center mb-2">
-                      <p className="text-sm text-neutral-600">OTP sent to <span className="font-semibold text-black">+91 {otpPhone.replace(/^\+?91/, "").replace(/(\d{5})(\d{5})/, "$1 $2")}</span></p>
-                    </div>
-
-                    {/* 6-digit OTP input boxes */}
-                    <div className="flex justify-center gap-2" data-testid="otp-boxes">
-                      {otpDigits.map((digit, i) => (
-                        <input
-                          key={i}
-                          ref={otpRefs[i]}
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete={i === 0 ? "one-time-code" : "off"}
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpDigitChange(i, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                          onPaste={i === 0 ? handleOtpPaste : undefined}
-                          className="w-11 h-12 text-center text-lg font-bold rounded-xl border-2 border-neutral-200 focus:border-black focus:ring-0 outline-none transition-colors bg-neutral-50"
-                          data-testid={`otp-digit-${i}`}
-                        />
-                      ))}
-                    </div>
-
-                    <Button
-                      type="submit"
-                      className="w-full bg-black hover:bg-neutral-800 text-white py-6 uppercase tracking-widest"
-                      disabled={isLoading || otpDigits.join("").length < 6}
-                      data-testid="verify-otp-btn"
-                    >
-                      {isLoading ? "Verifying..." : "Verify OTP"}
-                    </Button>
-
-                    {/* Resend / Change number */}
-                    <div className="flex items-center justify-between text-sm">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => { setOtpSent(false); setOtpDigits(["","","","","",""]); setConfirmationResult(null); }}
-                        className="text-neutral-500 hover:text-black text-xs px-0"
-                      >
-                        Change Number
-                      </Button>
-                      {resendTimer > 0 ? (
-                        <span className="text-neutral-400 text-xs flex items-center gap-1">
-                          <Timer className="h-3 w-3" /> Resend in {resendTimer}s
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={handleResendOtp}
-                          disabled={isLoading}
-                          className="text-gold hover:text-gold-dark text-xs px-0 font-semibold"
-                          data-testid="resend-otp-btn"
-                        >
-                          Resend OTP
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </form>
-            </TabsContent>
+            {/* OTP Tab hidden per admin request */}
           </Tabs>
 
           {/* Admin hint */}
