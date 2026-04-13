@@ -119,17 +119,64 @@ async def get_wallet(vendor: Dict = Depends(get_current_vendor)):
 
 @router.post("/purchase")
 async def purchase_credits(data: PurchaseCredits, vendor: Dict = Depends(get_current_vendor)):
-    """Vendor buys credits with INR (mock payment for now)."""
+    """Create Razorpay order for vendor credit purchase."""
     if data.amount_inr <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
+
+    from config import razorpay_client, RAZORPAY_KEY_ID
+    try:
+        order = razorpay_client.order.create({
+            "amount": int(data.amount_inr * 100),
+            "currency": "INR",
+            "receipt": f"credit_{vendor['vendor_id'][:20]}_{generate_id('')[:8]}",
+            "payment_capture": 1,
+            "notes": {
+                "type": "vendor_credit_purchase",
+                "vendor_id": vendor["vendor_id"],
+                "amount_inr": str(data.amount_inr)
+            }
+        })
+    except Exception as e:
+        logger.error(f"Razorpay credit order failed: {e}")
+        raise HTTPException(status_code=500, detail="Payment gateway error. Please try again.")
+
+    return {
+        "razorpay_order_id": order["id"],
+        "razorpay_key_id": RAZORPAY_KEY_ID,
+        "amount": order["amount"],
+        "currency": order["currency"],
+        "amount_inr": data.amount_inr
+    }
+
+
+class VerifyCreditPurchase(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    amount_inr: int
+
+
+@router.post("/purchase/verify")
+async def verify_credit_purchase(data: VerifyCreditPurchase, vendor: Dict = Depends(get_current_vendor)):
+    """Verify Razorpay payment and add credits to vendor wallet."""
+    from config import razorpay_client
+    import razorpay as razorpay_module
+
+    try:
+        razorpay_client.utility.verify_payment_signature({
+            "razorpay_order_id": data.razorpay_order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_signature": data.razorpay_signature,
+        })
+    except razorpay_module.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    except Exception as e:
+        logger.error(f"Credit purchase verification error: {e}")
+        raise HTTPException(status_code=400, detail="Payment verification failed")
 
     pricing = await get_pricing()
     rate = pricing["credit_rate_inr"]
     credits = int(data.amount_inr / rate)
-    if credits <= 0:
-        raise HTTPException(status_code=400, detail="Amount too low for any credits")
-
-    payment_id = f"pay_{generate_id('')}"
 
     txn = {
         "txn_id": generate_id("txn_"),
@@ -138,7 +185,8 @@ async def purchase_credits(data: PurchaseCredits, vendor: Dict = Depends(get_cur
         "amount_inr": data.amount_inr,
         "credits": credits,
         "rate": rate,
-        "payment_id": payment_id,
+        "payment_id": data.razorpay_payment_id,
+        "razorpay_order_id": data.razorpay_order_id,
         "status": "success",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -155,7 +203,13 @@ async def purchase_credits(data: PurchaseCredits, vendor: Dict = Depends(get_cur
     )
 
     wallet = await db.vendor_wallets.find_one({"vendor_id": vendor["vendor_id"]}, {"_id": 0})
-    return {"payment_id": payment_id, "credits_added": credits, "new_balance": wallet.get("balance", 0)}
+    return {
+        "message": f"{credits} credits added",
+        "credits_added": credits,
+        "new_balance": wallet.get("balance", 0),
+        "payment_id": data.razorpay_payment_id
+    }
+
 
 
 # ─── Reel Boost ───

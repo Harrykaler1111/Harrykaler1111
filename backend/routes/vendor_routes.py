@@ -826,19 +826,70 @@ async def get_vendor_withdrawals(vendor: Dict = Depends(get_current_vendor)):
     return [VendorWithdrawalResponse(**w) for w in withdrawals]
 
 
-# ============== WALLET TOP-UP (Mocked Razorpay) ==============
+# ============== WALLET TOP-UP (Real Razorpay) ==============
 
 class WalletTopUp(PydanticBaseModel):
     amount: float
 
 
+class WalletTopUpVerify(PydanticBaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    amount: float
+
+
 @router.post("/wallet/topup")
-async def topup_vendor_wallet(data: WalletTopUp, vendor: Dict = Depends(get_current_vendor)):
-    """Add money to vendor wallet (payment gateway mocked)"""
+async def create_wallet_topup_order(data: WalletTopUp, vendor: Dict = Depends(get_current_vendor)):
+    """Create Razorpay order for vendor wallet top-up"""
     if data.amount < 100:
         raise HTTPException(status_code=400, detail="Minimum top-up is Rs. 100")
     if data.amount > 500000:
         raise HTTPException(status_code=400, detail="Maximum top-up is Rs. 5,00,000")
+
+    from config import razorpay_client, RAZORPAY_KEY_ID
+    try:
+        order = razorpay_client.order.create({
+            "amount": int(data.amount * 100),
+            "currency": "INR",
+            "receipt": f"wallet_{vendor['vendor_id'][:20]}_{generate_id('')[:8]}",
+            "payment_capture": 1,
+            "notes": {
+                "type": "vendor_wallet_topup",
+                "vendor_id": vendor["vendor_id"],
+                "amount": str(data.amount)
+            }
+        })
+    except Exception as e:
+        logger.error(f"Razorpay wallet topup order failed: {e}")
+        raise HTTPException(status_code=500, detail="Payment gateway error. Please try again.")
+
+    return {
+        "razorpay_order_id": order["id"],
+        "razorpay_key_id": RAZORPAY_KEY_ID,
+        "amount": order["amount"],
+        "currency": order["currency"],
+        "amount_inr": data.amount
+    }
+
+
+@router.post("/wallet/topup/verify")
+async def verify_wallet_topup(data: WalletTopUpVerify, vendor: Dict = Depends(get_current_vendor)):
+    """Verify Razorpay payment and credit vendor wallet"""
+    from config import razorpay_client
+    import razorpay as razorpay_module
+
+    try:
+        razorpay_client.utility.verify_payment_signature({
+            "razorpay_order_id": data.razorpay_order_id,
+            "razorpay_payment_id": data.razorpay_payment_id,
+            "razorpay_signature": data.razorpay_signature,
+        })
+    except razorpay_module.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    except Exception as e:
+        logger.error(f"Wallet topup verification error: {e}")
+        raise HTTPException(status_code=400, detail="Payment verification failed")
 
     new_balance = vendor.get("wallet_balance", 0.0) + data.amount
     await db.vendors.update_one(
@@ -853,15 +904,18 @@ async def topup_vendor_wallet(data: WalletTopUp, vendor: Dict = Depends(get_curr
         "amount": data.amount,
         "balance_after": new_balance,
         "description": f"Wallet top-up of Rs. {data.amount}",
-        "payment_method": "razorpay_mock",
+        "payment_method": "razorpay",
+        "razorpay_payment_id": data.razorpay_payment_id,
+        "razorpay_order_id": data.razorpay_order_id,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.vendor_wallet_transactions.insert_one(txn)
 
     return {
-        "message": f"Rs. {data.amount} added to wallet (MOCKED)",
+        "message": f"Rs. {data.amount} added to wallet",
         "wallet_balance": new_balance,
-        "transaction_id": txn["transaction_id"]
+        "transaction_id": txn["transaction_id"],
+        "payment_id": data.razorpay_payment_id
     }
 
 

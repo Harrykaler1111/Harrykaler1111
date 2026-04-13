@@ -980,10 +980,39 @@ const VendorWallet = ({ vendor }) => {
     const amt = parseFloat(topupAmount);
     if (!amt || amt < 100) { toast.error("Minimum top-up is Rs. 100"); return; }
     try {
-      await axios.post(`${API}/vendors/wallet/topup`, { amount: amt }, { headers: getVendorHeaders() });
-      toast.success(`Rs. ${amt.toLocaleString()} added to wallet!`);
-      setTopupAmount("");
-      refreshWallet();
+      // Step 1: Create Razorpay order
+      const { data } = await axios.post(`${API}/vendors/wallet/topup`, { amount: amt }, { headers: getVendorHeaders() });
+
+      // Step 2: Open Razorpay checkout
+      const options = {
+        key: data.razorpay_key_id,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.razorpay_order_id,
+        name: "Pigma",
+        description: `Wallet Top-up Rs. ${amt}`,
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/vendors/wallet/topup/verify`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount: amt,
+            }, { headers: getVendorHeaders() });
+            toast.success(`Rs. ${amt.toLocaleString()} added to wallet!`);
+            setTopupAmount("");
+            refreshWallet();
+          } catch (err) {
+            toast.error(err.response?.data?.detail || "Payment verification failed");
+          }
+        },
+        modal: { ondismiss: () => {} },
+        prefill: { email: vendor?.email || "" },
+        theme: { color: "#C9A050" }
+      };
+      if (!window.Razorpay) { toast.error("Payment gateway loading, please wait..."); return; }
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) { toast.error(err.response?.data?.detail || "Top-up failed"); }
   };
 
@@ -1022,7 +1051,7 @@ const VendorWallet = ({ vendor }) => {
       {/* Wallet Top-Up */}
       <div className="bg-neutral-800/50 border border-green-500/20 rounded-xl p-5 mb-6">
         <h3 className="text-lg font-semibold text-white mb-3">Add Money to Wallet</h3>
-        <p className="text-xs text-neutral-400 mb-3">Top up your wallet to pay for collaborations and promotions. Payment is via Razorpay (MOCKED).</p>
+        <p className="text-xs text-neutral-400 mb-3">Top up your wallet to pay for collaborations and promotions. Payment is via Razorpay.</p>
         <div className="flex gap-3 items-end">
           <div className="flex-1">
             <label className="text-sm text-neutral-400 mb-1 block">Amount (Min Rs. 100)</label>

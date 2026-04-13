@@ -53,15 +53,42 @@ export const VendorCartBooster = ({ vendor }) => {
   const buyCredits = async (credits, price) => {
     setBuying(true);
     try {
-      await axios.post(`${API}/vendor-credits/purchase`, {
-        amount: price,
-        credits: credits
+      const { data } = await axios.post(`${API}/vendor-credits/purchase`, {
+        amount_inr: price,
       }, { headers: getVendorHeaders() });
-      toast.success(`${credits} credits added! (Mock Payment)`);
-      fetchData();
+
+      const options = {
+        key: data.razorpay_key_id,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.razorpay_order_id,
+        name: "Pigma",
+        description: `Purchase ${credits} Credits`,
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/vendor-credits/purchase/verify`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount_inr: price,
+            }, { headers: getVendorHeaders() });
+            toast.success(`${credits} credits added!`);
+            fetchData();
+          } catch (err) {
+            toast.error(err.response?.data?.detail || "Payment verification failed");
+          }
+          setBuying(false);
+        },
+        modal: { ondismiss: () => setBuying(false) },
+        theme: { color: "#C9A050" }
+      };
+      if (!window.Razorpay) { toast.error("Payment gateway loading..."); setBuying(false); return; }
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (err) {
       toast.error(err.response?.data?.detail || "Purchase failed");
-    } finally { setBuying(false); }
+      setBuying(false);
+    }
   };
 
   const buyCustom = async () => {
