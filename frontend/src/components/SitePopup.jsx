@@ -36,6 +36,9 @@ export const SitePopup = () => {
 
   // Initial fetch + first show
   useEffect(() => {
+    // Don't show popup on admin pages
+    if (window.location.pathname.startsWith("/admin")) return;
+
     const fetchConfig = async () => {
       try {
         const { data } = await axios.get(`${API}/api/popup/config`);
@@ -55,6 +58,7 @@ export const SitePopup = () => {
   // Background timer — checks every 60s if popup should reappear
   useEffect(() => {
     timerRef.current = setInterval(() => {
+      if (window.location.pathname.startsWith("/admin")) return;
       const cfg = configRef.current;
       if (!cfg || !cfg.enabled) return;
       const interval = cfg.reappear_interval_minutes || 0;

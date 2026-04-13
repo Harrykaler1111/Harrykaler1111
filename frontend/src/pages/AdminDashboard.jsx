@@ -3664,7 +3664,7 @@ export const AdminDashboard = () => {
     { path: "/admin/reviews", icon: <Star className="h-5 w-5" />, label: "Reviews", permission: ["products", "edit"] },
     { path: "/admin/dummy-reviews", icon: <Star className="h-5 w-5" />, label: "Dummy Reviews", permission: ["products", "edit"] },
     { path: "/admin/fomo", icon: <Bell className="h-5 w-5" />, label: "FOMO Popups", permission: ["platform_settings", "edit"] },
-    { path: "/admin/popup", icon: <MessageSquareMore className="h-5 w-5" />, label: "Site Popup", permission: ["settings", "edit"] },
+    { path: "/admin/popup", icon: <MessageSquareMore className="h-5 w-5" />, label: "Site Popup", permission: ["platform_settings", "edit"] },
     { path: "/admin/monetization", icon: <DollarSign className="h-5 w-5" />, label: "Monetization", permission: ["platform_settings", "edit"] },
     { path: "/admin/master-search", icon: <Search className="h-5 w-5" />, label: "Master Search", permission: ["platform_settings", "view"] },
     { path: "/admin/tickets", icon: <LifeBuoy className="h-5 w-5" />, label: "Support Tickets", permission: ["tickets", "view"] },
