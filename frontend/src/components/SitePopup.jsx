@@ -1,39 +1,70 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight } from "lucide-react";
 import axios from "axios";
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const STORAGE_KEY = "pigma_popup_closed";
-const SESSION_KEY = "pigma_popup_closed_session";
+const TS_KEY = "pigma_popup_last_shown";
 
 export const SitePopup = () => {
   const [config, setConfig] = useState(null);
   const [visible, setVisible] = useState(false);
+  const configRef = useRef(null);
+  const timerRef = useRef(null);
 
+  // Check if enough time has passed since last popup
+  const shouldShow = useCallback((intervalMinutes) => {
+    if (!intervalMinutes || intervalMinutes <= 0) {
+      // No recurring — show once per session if not shown before
+      const lastTs = localStorage.getItem(TS_KEY);
+      return !lastTs;
+    }
+    const lastTs = localStorage.getItem(TS_KEY);
+    if (!lastTs) return true;
+    const elapsed = Date.now() - parseInt(lastTs, 10);
+    return elapsed >= intervalMinutes * 60 * 1000;
+  }, []);
+
+  const showPopup = useCallback(() => {
+    setVisible(true);
+    localStorage.setItem(TS_KEY, Date.now().toString());
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setVisible(false);
+  }, []);
+
+  // Initial fetch + first show
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const { data } = await axios.get(`${API}/api/popup/config`);
         if (!data.enabled) return;
-        if (data.force_show) {
-          if (sessionStorage.getItem(SESSION_KEY)) return;
-        } else {
-          if (localStorage.getItem(STORAGE_KEY)) return;
-        }
         setConfig(data);
-        const delay = (data.delay_seconds || 1) * 1000;
-        setTimeout(() => setVisible(true), delay);
+        configRef.current = data;
+        const interval = data.reappear_interval_minutes || 0;
+        if (shouldShow(interval)) {
+          const delay = (data.delay_seconds || 1) * 1000;
+          setTimeout(() => showPopup(), delay);
+        }
       } catch (_) {}
     };
     fetchConfig();
-  }, []);
+  }, [shouldShow, showPopup]);
 
-  const handleClose = () => {
-    setVisible(false);
-    localStorage.setItem(STORAGE_KEY, Date.now().toString());
-    sessionStorage.setItem(SESSION_KEY, "1");
-  };
+  // Background timer — checks every 60s if popup should reappear
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      const cfg = configRef.current;
+      if (!cfg || !cfg.enabled) return;
+      const interval = cfg.reappear_interval_minutes || 0;
+      if (interval <= 0) return;
+      if (shouldShow(interval)) {
+        showPopup();
+      }
+    }, 60_000);
+    return () => clearInterval(timerRef.current);
+  }, [shouldShow, showPopup]);
 
   if (!config) return null;
 
@@ -48,8 +79,12 @@ export const SitePopup = () => {
           className="fixed inset-0 z-[99999] flex items-center justify-center p-5"
           data-testid="site-popup-overlay"
         >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={handleClose} />
+          {/* Backdrop — blocks all background interaction */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-md"
+            onClick={handleClose}
+            data-testid="popup-backdrop"
+          />
 
           {/* Glassmorphic card */}
           <motion.div
@@ -96,14 +131,12 @@ export const SitePopup = () => {
                     className="w-full h-full object-cover opacity-90"
                     data-testid="popup-image"
                   />
-                  {/* Image bottom fade */}
                   <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/40 to-transparent" />
                 </div>
               ) : null}
 
               {/* Content */}
               <div className="px-6 pt-6 pb-7 text-center">
-                {/* Gold accent line */}
                 <div className="w-10 h-[2px] mx-auto mb-4 rounded-full bg-gradient-to-r from-transparent via-gold to-transparent" />
 
                 {config.title && (
@@ -131,7 +164,6 @@ export const SitePopup = () => {
                     className="group inline-flex items-center gap-2 mt-5 px-6 py-2.5 rounded-full text-sm font-semibold text-black bg-gradient-to-r from-gold to-yellow-400 shadow-[0_4px_20px_rgba(201,160,80,0.3)] hover:shadow-[0_4px_30px_rgba(201,160,80,0.5)] transition-all relative overflow-hidden"
                     data-testid="popup-cta-btn"
                   >
-                    {/* Shimmer */}
                     <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                     <span className="relative z-10">{config.cta_text}</span>
                     <ArrowRight className="relative z-10 h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />

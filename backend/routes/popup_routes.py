@@ -18,6 +18,7 @@ class PopupConfig(BaseModel):
     cta_link: str = ""
     delay_seconds: int = 1
     force_show: bool = False
+    reappear_interval_minutes: int = 0
 
 
 POPUP_DOC_ID = "site_popup_config"

@@ -20,6 +20,7 @@ export const AdminPopupManager = () => {
     cta_link: "",
     delay_seconds: 1,
     force_show: false,
+    reappear_interval_minutes: 0,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -171,11 +172,11 @@ export const AdminPopupManager = () => {
             </div>
           </div>
 
-          {/* Delay + Force */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Delay + Reappear Interval + Force */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="flex items-center gap-2 text-sm text-neutral-400 mb-2">
-                <Clock className="h-3.5 w-3.5" /> Delay (seconds)
+                <Clock className="h-3.5 w-3.5" /> Delay (sec)
               </label>
               <Input
                 type="number"
@@ -187,11 +188,26 @@ export const AdminPopupManager = () => {
                 data-testid="popup-delay-input"
               />
             </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm text-neutral-400 mb-2">
+                <RotateCcw className="h-3.5 w-3.5" /> Re-show (min)
+              </label>
+              <Input
+                type="number"
+                min={0}
+                value={config.reappear_interval_minutes}
+                onChange={(e) => update("reappear_interval_minutes", parseInt(e.target.value) || 0)}
+                className="bg-neutral-800 border-neutral-700 text-white"
+                placeholder="0 = once"
+                data-testid="popup-interval-input"
+              />
+              <p className="text-[10px] text-neutral-500 mt-1">0 = show once only</p>
+            </div>
             <div className="flex items-end pb-1">
               <div className="flex items-center justify-between w-full p-3 bg-neutral-800/50 rounded-xl">
                 <div className="flex items-center gap-2">
-                  <RotateCcw className="h-3.5 w-3.5 text-neutral-400" />
-                  <span className="text-xs text-neutral-400">Force Show</span>
+                  <Power className="h-3.5 w-3.5 text-neutral-400" />
+                  <span className="text-xs text-neutral-400">Force</span>
                 </div>
                 <Switch checked={config.force_show} onCheckedChange={(v) => update("force_show", v)} data-testid="popup-force-toggle" />
               </div>
