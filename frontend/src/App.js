@@ -32,6 +32,7 @@ import { PolicyPage } from "@/pages/PolicyPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { BundleDetailPage } from "@/components/BundleDeals";
 import ReelsPage from "@/pages/ReelsPage";
+import DataDeletionPage from "@/pages/DataDeletionPage";
 import { Header } from "@/components/layout/Header";
 import { FlashSaleToast } from "@/components/NotificationSystem";
 import { Footer } from "@/components/layout/Footer";
@@ -218,6 +219,7 @@ const AppRouter = () => {
       <Route path="/product/:productId" element={<ProductDetailPage />} />
       <Route path="/bundle/:bundleId" element={<BundleDetailPage />} />
       <Route path="/reels" element={<ReelsPage />} />
+      <Route path="/data-deletion" element={<DataDeletionPage />} />
       <Route path="/store/:vendorId" element={<VendorStorePage />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
