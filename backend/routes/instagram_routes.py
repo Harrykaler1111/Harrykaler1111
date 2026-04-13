@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Query, Header, Depends
+from fastapi.responses import PlainTextResponse
 from typing import Dict, Optional
 from datetime import datetime, timezone
 import hmac
@@ -23,9 +24,7 @@ GRAPH_API_BASE = "https://graph.facebook.com/v20.0"
 # ─── Webhook Verification (GET) ───
 
 @router.get("/webhooks/instagram")
-async def verify_instagram_webhook(
-    request: Request
-):
+async def verify_instagram_webhook(request: Request):
     """Meta calls this with hub.mode, hub.verify_token, hub.challenge to verify webhook ownership"""
     params = request.query_params
     mode = params.get("hub.mode")
@@ -34,10 +33,10 @@ async def verify_instagram_webhook(
 
     if mode == "subscribe" and token == INSTAGRAM_WEBHOOK_VERIFY_TOKEN:
         logger.info("Instagram webhook verification successful")
-        return int(challenge)
+        return PlainTextResponse(content=challenge, status_code=200)
 
     logger.warning(f"Webhook verification failed: mode={mode}, token={token}")
-    raise HTTPException(status_code=403, detail="Verification failed")
+    return PlainTextResponse(content="Forbidden", status_code=403)
 
 
 # ─── Webhook Event Handler (POST) ───
