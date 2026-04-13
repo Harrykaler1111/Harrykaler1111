@@ -76,7 +76,7 @@ export const AdminMonetizationPanel = () => {
     try {
       const updates = {};
       Object.keys(FIELD_LABELS).forEach(k => { if (form[k] !== undefined && form[k] !== "") updates[k] = parseFloat(form[k]); });
-      await axios.put(`${API}/vendor-credits/pricing`, updates, { headers: getHeaders() });
+      await axios.put(`${API}/vendor-credits/admin/pricing`, updates, { headers: getHeaders() });
       toast.success("Pricing updated!");
     } catch (err) { toast.error(err.response?.data?.detail || "Failed to update"); }
     setSaving(false);
