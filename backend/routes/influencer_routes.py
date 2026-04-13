@@ -192,15 +192,22 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
         upsert=True
     )
 
-    scopes = "instagram_basic,instagram_manage_messages,instagram_manage_comments"
-    oauth_url = (
-        f"https://www.facebook.com/v18.0/dialog/oauth"
-        f"?client_id={INSTAGRAM_APP_ID}"
-        f"&redirect_uri={INSTAGRAM_REDIRECT_URI}"
-        f"&scope={scopes}"
-        f"&response_type=code"
-        f"&state={state}"
-    )
+    import urllib.parse
+
+    base_url = "https://www.facebook.com/v18.0/dialog/oauth"
+    params = {
+        "client_id": INSTAGRAM_APP_ID,
+        "redirect_uri": INSTAGRAM_REDIRECT_URI,
+        "scope": "instagram_basic,instagram_manage_messages,instagram_manage_comments",
+        "response_type": "code",
+        "state": state
+    }
+    oauth_url = f"{base_url}?{urllib.parse.urlencode(params)}"
+
+    logger.info(f"Instagram OAuth URL generated: {oauth_url}")
+    logger.info(f"  client_id={INSTAGRAM_APP_ID}")
+    logger.info(f"  redirect_uri={INSTAGRAM_REDIRECT_URI}")
+    logger.info(f"  state={state}")
 
     return {"oauth_url": oauth_url, "state": state}
 
