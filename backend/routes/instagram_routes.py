@@ -18,6 +18,8 @@ router = APIRouter(tags=["Instagram"])
 META_APP_ID = os.environ.get("META_APP_ID", "")
 META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
 INSTAGRAM_WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
+INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+INSTAGRAM_BUSINESS_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
 GRAPH_API_BASE = "https://graph.facebook.com/v20.0"
 
 
@@ -206,13 +208,20 @@ async def instagram_oauth_callback(code: str = Query(...), state: str = Query(No
 
 async def send_instagram_dm(recipient_id: str, message_text: str) -> dict:
     """Send an Instagram DM using the connected business account's token"""
+    # Try DB connection first, fall back to env token
     conn = await db.instagram_connections.find_one({"is_active": True}, {"_id": 0})
-    if not conn or not conn.get("access_token"):
+    access_token = None
+    ig_user_id = None
+
+    if conn and conn.get("access_token"):
+        access_token = conn["access_token"]
+        ig_user_id = conn["instagram_user_id"]
+    elif INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID:
+        access_token = INSTAGRAM_ACCESS_TOKEN
+        ig_user_id = INSTAGRAM_BUSINESS_ACCOUNT_ID
+    else:
         logger.warning("No active Instagram connection for sending DM")
         return {"error": "No active Instagram connection"}
-
-    access_token = conn["access_token"]
-    ig_user_id = conn["instagram_user_id"]
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -296,11 +305,18 @@ async def update_dm_config(request: Request, admin: Dict = Depends(get_admin_use
 async def get_instagram_status(admin: Dict = Depends(get_admin_user)):
     """Get Instagram connection status"""
     conn = await db.instagram_connections.find_one({"is_active": True}, {"_id": 0})
-    if not conn:
-        return {"connected": False}
-    return {
-        "connected": True,
-        "username": conn.get("instagram_username"),
-        "connected_at": conn.get("connected_at"),
-        "instagram_user_id": conn.get("instagram_user_id")
-    }
+    if conn:
+        return {
+            "connected": True,
+            "username": conn.get("instagram_username"),
+            "connected_at": conn.get("connected_at"),
+            "instagram_user_id": conn.get("instagram_user_id")
+        }
+    if INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID:
+        return {
+            "connected": True,
+            "username": "harrykalerofficial",
+            "connected_at": "configured via env",
+            "instagram_user_id": INSTAGRAM_BUSINESS_ACCOUNT_ID
+        }
+    return {"connected": False}
