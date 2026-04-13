@@ -315,7 +315,7 @@ async def get_instagram_status(admin: Dict = Depends(get_admin_user)):
     if INSTAGRAM_ACCESS_TOKEN and INSTAGRAM_BUSINESS_ACCOUNT_ID:
         return {
             "connected": True,
-            "username": "harrykalerofficial",
+            "username": "officialpigma",
             "connected_at": "configured via env",
             "instagram_user_id": INSTAGRAM_BUSINESS_ACCOUNT_ID
         }
