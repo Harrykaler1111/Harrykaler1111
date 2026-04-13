@@ -261,6 +261,7 @@ class InstagramPostCreate(BaseModel):
     post_url: str
     post_id: str
     product_id: str
+    media_id: Optional[str] = None
     auto_dm_enabled: bool = True
     dm_message: Optional[str] = None
 
@@ -273,6 +274,7 @@ class InstagramPostResponse(BaseModel):
     post_id: str
     product_id: str
     product_name: str
+    media_id: Optional[str] = None
     auto_dm_enabled: bool
     dm_message: str
     total_comments: int

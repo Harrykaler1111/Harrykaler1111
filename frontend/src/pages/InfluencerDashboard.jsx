@@ -303,31 +303,28 @@ export const InfluencerDashboard = () => {
       const response = await axios.get(`${API}/influencers/instagram/connect`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // For demo, simulate successful connection
-      toast.info("Instagram OAuth (MOCKED) - Simulating connection...");
-      
-      // Simulate callback
-      setTimeout(async () => {
-        try {
-          await axios.post(
-            `${API}/influencers/instagram/callback?code=mock_code&state=${response.data.state}`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          toast.success("Instagram connected!");
-          // Refresh influencer data
-          const updated = await axios.get(`${API}/influencers/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setInfluencer(updated.data);
-        } catch (err) {
-          toast.error("Connection failed");
-        }
-      }, 1500);
+      // Redirect to real Instagram OAuth
+      window.location.href = response.data.oauth_url;
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to connect Instagram");
     }
   };
+
+  // Check for successful OAuth return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("connected") === "true") {
+      toast.success("Instagram connected successfully!");
+      // Clean URL
+      window.history.replaceState({}, "", "/influencer?tab=instagram");
+      // Refresh data
+      if (token) {
+        axios.get(`${API}/influencers/me`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(res => setInfluencer(res.data))
+          .catch(() => {});
+      }
+    }
+  }, [token]);
 
   const toggleAutomation = async () => {
     try {

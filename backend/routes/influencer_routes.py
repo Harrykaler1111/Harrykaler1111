@@ -7,7 +7,7 @@ import logging
 
 from config import (
     db, DEFAULT_COMMISSION_RATE, MIN_WITHDRAWAL_AMOUNT,
-    INSTAGRAM_APP_ID, INSTAGRAM_REDIRECT_URI,
+    INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, INSTAGRAM_REDIRECT_URI,
     DM_RATE_LIMIT_PER_HOUR, DM_RATE_LIMIT_PER_DAY
 )
 from models.schemas import (
@@ -169,7 +169,7 @@ async def update_influencer_commission(influencer_id: str, commission_rate: floa
     return {"message": f"Commission rate updated to {commission_rate}%"}
 
 
-# ============== INSTAGRAM INTEGRATION ==============
+# ============== INSTAGRAM INTEGRATION (Real Meta Graph API) ==============
 
 @router.get("/instagram/connect")
 async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
@@ -185,57 +185,112 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
         {"influencer_id": influencer["influencer_id"]},
         {"$set": {
             "state": state,
+            "user_id": user["user_id"],
             "created_at": datetime.now(timezone.utc).isoformat(),
             "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
         }},
         upsert=True
     )
 
-    oauth_url = f"https://www.facebook.com/v20.0/dialog/oauth?client_id={INSTAGRAM_APP_ID}&redirect_uri={INSTAGRAM_REDIRECT_URI}&scope=instagram_basic,instagram_manage_messages,pages_messaging&response_type=code&state={state}"
+    scopes = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
+    oauth_url = (
+        f"https://www.instagram.com/oauth/authorize"
+        f"?client_id={INSTAGRAM_APP_ID}"
+        f"&redirect_uri={INSTAGRAM_REDIRECT_URI}"
+        f"&scope={scopes}"
+        f"&response_type=code"
+        f"&state={state}"
+    )
 
-    return {
-        "oauth_url": oauth_url,
-        "state": state,
-        "note": "MOCKED - In production, this would redirect to actual Meta OAuth"
-    }
+    return {"oauth_url": oauth_url, "state": state}
 
 
-@router.post("/instagram/callback")
-async def instagram_oauth_callback(code: str, state: str, user: Dict = Depends(get_current_user)):
-    influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    if not influencer:
-        raise HTTPException(status_code=404, detail="Not registered as influencer")
+@router.get("/instagram/callback")
+async def instagram_oauth_callback(code: str, state: str):
+    """Real Instagram OAuth callback — exchanges code for access token"""
+    import httpx
 
-    oauth_state = await db.instagram_oauth_states.find_one({
-        "influencer_id": influencer["influencer_id"],
-        "state": state
-    }, {"_id": 0})
-
+    # Find the OAuth state
+    oauth_state = await db.instagram_oauth_states.find_one({"state": state}, {"_id": 0})
     if not oauth_state:
-        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
 
-    mock_ig_user_id = f"ig_{uuid.uuid4().hex[:10]}"
-    mock_ig_username = influencer.get("instagram_handle", "").replace("@", "") or f"user_{uuid.uuid4().hex[:6]}"
+    influencer = await db.influencers.find_one(
+        {"influencer_id": oauth_state["influencer_id"]}, {"_id": 0}
+    )
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
 
+    async with httpx.AsyncClient() as client:
+        # Step 1: Exchange code for short-lived token
+        token_resp = await client.post(
+            "https://api.instagram.com/oauth/access_token",
+            data={
+                "client_id": INSTAGRAM_APP_ID,
+                "client_secret": INSTAGRAM_APP_SECRET,
+                "grant_type": "authorization_code",
+                "redirect_uri": INSTAGRAM_REDIRECT_URI,
+                "code": code
+            }
+        )
+
+        if token_resp.status_code != 200:
+            logger.error(f"IG token exchange failed: {token_resp.text}")
+            raise HTTPException(status_code=400, detail="Failed to connect Instagram. Please try again.")
+
+        token_data = token_resp.json()
+        short_token = token_data.get("access_token")
+        ig_user_id = str(token_data.get("user_id"))
+
+        # Step 2: Exchange for long-lived token (60 days)
+        long_resp = await client.get(
+            "https://graph.instagram.com/access_token",
+            params={
+                "grant_type": "ig_exchange_token",
+                "client_secret": INSTAGRAM_APP_SECRET,
+                "access_token": short_token
+            }
+        )
+
+        long_token = short_token
+        expires_in = 3600
+        if long_resp.status_code == 200:
+            long_data = long_resp.json()
+            long_token = long_data.get("access_token", short_token)
+            expires_in = long_data.get("expires_in", 5184000)
+
+        # Step 3: Get profile info
+        profile_resp = await client.get(
+            "https://graph.instagram.com/me",
+            params={"fields": "id,username,name", "access_token": long_token}
+        )
+        ig_username = ""
+        if profile_resp.status_code == 200:
+            profile = profile_resp.json()
+            ig_username = profile.get("username", "")
+            ig_user_id = str(profile.get("id", ig_user_id))
+
+    # Save to influencer record
     await db.influencers.update_one(
         {"influencer_id": influencer["influencer_id"]},
         {"$set": {
             "instagram_connected": True,
-            "instagram_user_id": mock_ig_user_id,
-            "instagram_username": mock_ig_username,
-            "instagram_access_token": f"mock_token_{uuid.uuid4().hex}",
-            "instagram_token_expires": (datetime.now(timezone.utc) + timedelta(days=60)).isoformat(),
+            "instagram_user_id": ig_user_id,
+            "instagram_username": ig_username,
+            "instagram_access_token": long_token,
+            "instagram_token_expires": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
 
     await db.instagram_oauth_states.delete_one({"influencer_id": influencer["influencer_id"]})
 
-    return {
-        "success": True,
-        "instagram_username": mock_ig_username,
-        "message": "Instagram account connected successfully (MOCKED)"
-    }
+    logger.info(f"Influencer {influencer['influencer_id']} connected Instagram @{ig_username}")
+
+    # Redirect back to influencer dashboard
+    frontend_url = os.environ.get("FRONTEND_URL", "https://thepigma.com")
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&connected=true")
 
 
 @router.post("/instagram/disconnect")
@@ -298,6 +353,7 @@ async def register_instagram_post(post_data: InstagramPostCreate, user: Dict = D
         "influencer_id": influencer["influencer_id"],
         "post_url": post_data.post_url,
         "post_id": post_data.post_id,
+        "media_id": post_data.media_id,
         "product_id": post_data.product_id,
         "product_name": product["name"],
         "referral_link": referral_link,
@@ -389,9 +445,42 @@ async def instagram_webhook(request: Request):
         "recipient_id": commenter_id,
         "recipient_username": commenter_username,
         "message": post_record["dm_message"],
-        "status": "sent",
+        "status": "pending",
         "created_at": now.isoformat()
     }
+
+    # Send real DM via Instagram Graph API
+    access_token = influencer.get("instagram_access_token")
+    ig_user_id = influencer.get("instagram_user_id")
+
+    if access_token and ig_user_id:
+        import httpx
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"https://graph.facebook.com/v20.0/{ig_user_id}/messages",
+                    params={"access_token": access_token},
+                    json={
+                        "recipient": {"id": commenter_id},
+                        "message": {"text": post_record["dm_message"]}
+                    }
+                )
+                if resp.status_code == 200:
+                    dm_record["status"] = "sent"
+                    dm_record["ig_message_id"] = resp.json().get("message_id")
+                    logger.info(f"DM sent to {commenter_username} for post {post_id}")
+                else:
+                    dm_record["status"] = "failed"
+                    dm_record["error"] = resp.text
+                    logger.error(f"DM failed to {commenter_username}: {resp.text}")
+        except Exception as e:
+            dm_record["status"] = "failed"
+            dm_record["error"] = str(e)
+            logger.error(f"DM error to {commenter_username}: {e}")
+    else:
+        dm_record["status"] = "failed"
+        dm_record["error"] = "No access token"
+
     await db.instagram_dms.insert_one(dm_record)
 
     await db.influencers.update_one(

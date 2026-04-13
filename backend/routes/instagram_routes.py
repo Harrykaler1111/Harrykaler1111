@@ -69,6 +69,26 @@ async def handle_instagram_webhook(request: Request):
 
     # Process entries
     for entry in payload.get("entry", []):
+        ig_account_id = str(entry.get("id", ""))
+
+        # Handle comment events (changes array)
+        for change in entry.get("changes", []):
+            if change.get("field") == "comments":
+                value = change.get("value", {})
+                media_id = str(value.get("media", {}).get("id", ""))
+                comment_id = str(value.get("id", ""))
+                comment_text = value.get("text", "")
+                commenter_id = str(value.get("from", {}).get("id", ""))
+                commenter_username = value.get("from", {}).get("username", "")
+
+                if media_id and commenter_id and commenter_id != ig_account_id:
+                    logger.info(f"IG comment from @{commenter_username} on media {media_id}: {comment_text}")
+                    await _process_comment_auto_dm(
+                        ig_account_id, media_id, comment_id,
+                        commenter_id, commenter_username, comment_text
+                    )
+
+        # Handle messaging events
         for messaging in entry.get("messaging", []):
             sender_id = messaging.get("sender", {}).get("id")
             recipient_id = messaging.get("recipient", {}).get("id")
@@ -87,8 +107,6 @@ async def handle_instagram_webhook(request: Request):
                     "created_at": datetime.now(timezone.utc).isoformat()
                 })
                 logger.info(f"IG message from {sender_id}: {msg.get('text', '[media]')}")
-
-                # Auto-reply logic
                 await _process_auto_reply(sender_id, msg.get("text", ""))
 
             elif "reaction" in messaging:
@@ -248,6 +266,142 @@ async def send_instagram_dm(recipient_id: str, message_text: str) -> dict:
         })
 
         return result
+
+
+# ─── Comment Auto-DM Logic ───
+
+async def _process_comment_auto_dm(
+    ig_account_id: str, media_id: str, comment_id: str,
+    commenter_id: str, commenter_username: str, comment_text: str
+):
+    """When someone comments on an influencer's post, auto-DM the product link"""
+
+    # Find the influencer by their Instagram user ID
+    influencer = await db.influencers.find_one(
+        {"instagram_user_id": ig_account_id, "instagram_connected": True, "automation_enabled": True},
+        {"_id": 0}
+    )
+    if not influencer:
+        return
+
+    # Find the post record mapped to this media
+    post_record = await db.instagram_posts.find_one(
+        {"influencer_id": influencer["influencer_id"], "auto_dm_enabled": True},
+        {"_id": 0},
+    )
+
+    # Try matching by media_id first, else use the most recent post
+    if media_id:
+        media_post = await db.instagram_posts.find_one(
+            {"influencer_id": influencer["influencer_id"], "media_id": media_id, "auto_dm_enabled": True},
+            {"_id": 0}
+        )
+        if media_post:
+            post_record = media_post
+
+    if not post_record:
+        return
+
+    # Check if already DM'd this commenter for this post
+    if commenter_id in post_record.get("commented_users", []):
+        return
+
+    # Rate limiting
+    from routes.influencer_routes import DM_RATE_LIMIT_PER_HOUR, DM_RATE_LIMIT_PER_DAY
+    now = datetime.now(timezone.utc)
+    hourly_count = influencer.get("dm_rate_limit_hour", 0)
+    daily_count = influencer.get("dm_rate_limit_day", 0)
+    last_hour_reset = influencer.get("last_dm_reset_hour", now.isoformat())
+    last_day_reset = influencer.get("last_dm_reset_day", now.isoformat())
+
+    if isinstance(last_hour_reset, str):
+        last_hour_reset = datetime.fromisoformat(last_hour_reset)
+    if isinstance(last_day_reset, str):
+        last_day_reset = datetime.fromisoformat(last_day_reset)
+    if last_hour_reset.tzinfo is None:
+        last_hour_reset = last_hour_reset.replace(tzinfo=timezone.utc)
+    if last_day_reset.tzinfo is None:
+        last_day_reset = last_day_reset.replace(tzinfo=timezone.utc)
+
+    if (now - last_hour_reset).total_seconds() > 3600:
+        hourly_count = 0
+    if (now - last_day_reset).total_seconds() > 86400:
+        daily_count = 0
+
+    if hourly_count >= DM_RATE_LIMIT_PER_HOUR or daily_count >= DM_RATE_LIMIT_PER_DAY:
+        logger.warning(f"Rate limited for influencer {influencer['influencer_id']}")
+        return
+
+    # Send DM from influencer's account
+    access_token = influencer.get("instagram_access_token")
+    ig_user_id = influencer.get("instagram_user_id")
+
+    dm_status = "pending"
+    ig_message_id = None
+    error_msg = None
+
+    if access_token and ig_user_id:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"https://graph.facebook.com/v20.0/{ig_user_id}/messages",
+                    params={"access_token": access_token},
+                    json={
+                        "recipient": {"id": commenter_id},
+                        "message": {"text": post_record["dm_message"]}
+                    }
+                )
+                if resp.status_code == 200:
+                    dm_status = "sent"
+                    ig_message_id = resp.json().get("message_id")
+                    logger.info(f"Auto-DM sent to @{commenter_username} from @{influencer.get('instagram_username', '')}")
+                else:
+                    dm_status = "failed"
+                    error_msg = resp.text
+                    logger.error(f"Auto-DM failed to @{commenter_username}: {resp.text}")
+        except Exception as e:
+            dm_status = "failed"
+            error_msg = str(e)
+            logger.error(f"Auto-DM error: {e}")
+    else:
+        dm_status = "failed"
+        error_msg = "No access token"
+
+    # Log the DM
+    from auth import generate_id
+    dm_record = {
+        "dm_id": generate_id("dm_"),
+        "influencer_id": influencer["influencer_id"],
+        "post_record_id": post_record.get("post_record_id"),
+        "media_id": media_id,
+        "comment_id": comment_id,
+        "comment_text": comment_text,
+        "recipient_id": commenter_id,
+        "recipient_username": commenter_username,
+        "message": post_record["dm_message"],
+        "status": dm_status,
+        "ig_message_id": ig_message_id,
+        "error": error_msg,
+        "created_at": now.isoformat()
+    }
+    await db.instagram_dms.insert_one(dm_record)
+
+    # Update counters
+    await db.influencers.update_one(
+        {"influencer_id": influencer["influencer_id"]},
+        {
+            "$inc": {"dm_rate_limit_hour": 1, "dm_rate_limit_day": 1},
+            "$set": {"last_dm_reset_hour": now.isoformat(), "last_dm_reset_day": now.isoformat()}
+        }
+    )
+
+    await db.instagram_posts.update_one(
+        {"post_record_id": post_record["post_record_id"]},
+        {
+            "$inc": {"total_comments": 1, "total_dms_sent": 1 if dm_status == "sent" else 0},
+            "$push": {"commented_users": commenter_id}
+        }
+    )
 
 
 # ─── Auto-Reply Logic ───
