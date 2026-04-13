@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query, Header, Depends
 from fastapi.responses import PlainTextResponse
 from typing import Dict, Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hmac
 import hashlib
 import json
@@ -148,8 +148,19 @@ async def handle_deauthorization(request: Request):
 
 @router.get("/auth/instagram/callback")
 async def instagram_oauth_callback(code: str = Query(...), state: str = Query(None)):
-    """Handle Instagram OAuth redirect — exchange code for tokens"""
+    """Handle Instagram OAuth redirect — works for both brand + influencer accounts"""
+    from fastapi.responses import RedirectResponse
     redirect_uri = os.environ.get("FRONTEND_URL", "https://thepigma.com") + "/api/auth/instagram/callback"
+    frontend_url = os.environ.get("FRONTEND_URL", "https://thepigma.com")
+
+    # Check if this is an influencer OAuth flow
+    influencer = None
+    if state and state.startswith("ig_state_"):
+        oauth_state = await db.instagram_oauth_states.find_one({"state": state}, {"_id": 0})
+        if oauth_state:
+            influencer = await db.influencers.find_one(
+                {"influencer_id": oauth_state["influencer_id"]}, {"_id": 0}
+            )
 
     async with httpx.AsyncClient() as client:
         # Exchange code for short-lived token
@@ -166,11 +177,13 @@ async def instagram_oauth_callback(code: str = Query(...), state: str = Query(No
 
         if resp.status_code != 200:
             logger.error(f"IG token exchange failed: {resp.text}")
+            if influencer:
+                return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=token_failed")
             raise HTTPException(status_code=400, detail="Token exchange failed")
 
         token_data = resp.json()
         short_token = token_data.get("access_token")
-        user_id = token_data.get("user_id")
+        user_id = str(token_data.get("user_id"))
 
         # Exchange for long-lived token (60 days)
         long_resp = await client.get(
@@ -198,28 +211,41 @@ async def instagram_oauth_callback(code: str = Query(...), state: str = Query(No
         if profile_resp.status_code == 200:
             profile = profile_resp.json()
             username = profile.get("username", "")
+            user_id = str(profile.get("id", user_id))
 
-        # Store in DB
-        await db.instagram_connections.update_one(
-            {"instagram_user_id": str(user_id)},
+    # ── Influencer flow: save token to influencer record ──
+    if influencer:
+        await db.influencers.update_one(
+            {"influencer_id": influencer["influencer_id"]},
             {"$set": {
-                "instagram_user_id": str(user_id),
+                "instagram_connected": True,
+                "instagram_user_id": user_id,
                 "instagram_username": username,
-                "access_token": long_token,
-                "expires_in": expires_in,
-                "connected_at": datetime.now(timezone.utc).isoformat(),
-                "is_active": True
-            }},
-            upsert=True
+                "instagram_access_token": long_token,
+                "instagram_token_expires": (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
         )
+        await db.instagram_oauth_states.delete_one({"state": state})
+        logger.info(f"Influencer {influencer['influencer_id']} connected Instagram @{username}")
+        return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&connected=true")
 
-        logger.info(f"Instagram connected: @{username} (ID: {user_id})")
-        return {
-            "status": "success",
-            "instagram_user_id": str(user_id),
-            "username": username,
-            "message": "Instagram account connected successfully"
-        }
+    # ── Brand/admin flow: save to connections collection ──
+    await db.instagram_connections.update_one(
+        {"instagram_user_id": user_id},
+        {"$set": {
+            "instagram_user_id": user_id,
+            "instagram_username": username,
+            "access_token": long_token,
+            "expires_in": expires_in,
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "is_active": True
+        }},
+        upsert=True
+    )
+
+    logger.info(f"Instagram connected: @{username} (ID: {user_id})")
+    return RedirectResponse(url=f"{frontend_url}/?instagram_connected=true")
 
 
 # ─── Send DM (Admin/Internal) ───

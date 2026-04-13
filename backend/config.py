@@ -22,7 +22,7 @@ razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 # Instagram OAuth (Real Meta Graph API)
 INSTAGRAM_APP_ID = os.environ.get('META_APP_ID', os.environ.get('INSTAGRAM_APP_ID', ''))
 INSTAGRAM_APP_SECRET = os.environ.get('META_APP_SECRET', os.environ.get('INSTAGRAM_APP_SECRET', ''))
-INSTAGRAM_REDIRECT_URI = os.environ.get('FRONTEND_URL', 'https://thepigma.com') + '/api/influencers/instagram/callback'
+INSTAGRAM_REDIRECT_URI = os.environ.get('FRONTEND_URL', 'https://thepigma.com') + '/api/auth/instagram/callback'
 
 # JWT Settings
 JWT_SECRET = os.environ.get('JWT_SECRET', 'pigma-super-secret-key-2024')
