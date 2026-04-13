@@ -192,9 +192,9 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
         upsert=True
     )
 
-    scopes = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
+    scopes = "instagram_basic,instagram_manage_messages,instagram_manage_comments"
     oauth_url = (
-        f"https://www.instagram.com/oauth/authorize"
+        f"https://www.facebook.com/v18.0/dialog/oauth"
         f"?client_id={INSTAGRAM_APP_ID}"
         f"&redirect_uri={INSTAGRAM_REDIRECT_URI}"
         f"&scope={scopes}"
