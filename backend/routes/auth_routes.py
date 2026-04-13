@@ -75,18 +75,6 @@ async def register_user(user: UserCreate):
     if not clean_phone:
         raise HTTPException(status_code=400, detail="Phone number is required for registration")
 
-    # Check phone OTP was verified (must have a recent verification record)
-    phone_verified = await db.otp_verified_phones.find_one({"phone": clean_phone}, {"_id": 0})
-    if not phone_verified:
-        raise HTTPException(status_code=400, detail="Phone number must be verified via OTP before registration. Please verify your WhatsApp number first.")
-
-    # Check if verified recently (within 30 minutes)
-    verified_at = datetime.fromisoformat(phone_verified.get("verified_at", "2000-01-01T00:00:00+00:00"))
-    if verified_at.tzinfo is None:
-        verified_at = verified_at.replace(tzinfo=timezone.utc)
-    if (datetime.now(timezone.utc) - verified_at).total_seconds() > 1800:
-        raise HTTPException(status_code=400, detail="Phone verification expired. Please verify your number again.")
-
     existing = await db.users.find_one({"email": clean_email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
