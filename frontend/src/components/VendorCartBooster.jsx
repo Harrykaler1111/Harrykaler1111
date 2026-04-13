@@ -13,13 +13,6 @@ const getVendorHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("pigma_vendor_token")}`
 });
 
-const CREDIT_PACKS = [
-  { credits: 100, price: 100, label: "Starter", tag: null },
-  { credits: 500, price: 450, label: "Growth", tag: "10% OFF" },
-  { credits: 1000, price: 800, label: "Pro", tag: "20% OFF" },
-  { credits: 5000, price: 3500, label: "Enterprise", tag: "30% OFF" },
-];
-
 export const VendorCartBooster = ({ vendor }) => {
   const [wallet, setWallet] = useState({ balance: 0, total_purchased: 0, total_spent: 0 });
   const [promotions, setPromotions] = useState([]);
@@ -30,20 +23,23 @@ export const VendorCartBooster = ({ vendor }) => {
   const [buying, setBuying] = useState(false);
   const [customAmount, setCustomAmount] = useState("");
   const [spendForm, setSpendForm] = useState({ product_id: "", credits: "50", placement: "upsell" });
+  const [creditRate, setCreditRate] = useState(1);
 
   const fetchData = useCallback(async () => {
     try {
-      const [walletRes, promoRes, txnRes, prodRes] = await Promise.all([
+      const [walletRes, promoRes, txnRes, prodRes, pricingRes] = await Promise.all([
         axios.get(`${API}/vendor-credits/wallet`, { headers: getVendorHeaders() }),
         axios.get(`${API}/vendor-credits/promotions`, { headers: getVendorHeaders() }),
         axios.get(`${API}/vendor-credits/transactions`, { headers: getVendorHeaders() }),
-        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
+        axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/vendor-credits/pricing`).catch(() => ({ data: {} }))
       ]);
       setWallet(walletRes.data);
       setPromotions(promoRes.data || []);
       setTransactions(txnRes.data || []);
       const prods = prodRes.data;
       setProducts(Array.isArray(prods) ? prods : prods?.products || []);
+      if (pricingRes.data?.credit_rate_inr) setCreditRate(pricingRes.data.credit_rate_inr);
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, []);
@@ -94,7 +90,7 @@ export const VendorCartBooster = ({ vendor }) => {
   const buyCustom = async () => {
     const amt = parseInt(customAmount);
     if (!amt || amt < 10) { toast.error("Minimum 10 credits"); return; }
-    await buyCredits(amt, amt);
+    await buyCredits(amt, amt * creditRate);
     setCustomAmount("");
   };
 
@@ -157,7 +153,7 @@ export const VendorCartBooster = ({ vendor }) => {
           </div>
           <div className="flex items-center gap-2 bg-neutral-900/50 rounded-lg px-3 py-2 border border-neutral-700">
             <CreditCard className="h-4 w-4 text-neutral-500" />
-            <span className="text-xs text-neutral-400">1 Credit = ₹1</span>
+            <span className="text-xs text-neutral-400">1 Credit = ₹{creditRate}</span>
           </div>
         </div>
       </div>
@@ -170,24 +166,33 @@ export const VendorCartBooster = ({ vendor }) => {
               <CreditCard className="h-5 w-5 text-neutral-400" /> Buy Credits
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {CREDIT_PACKS.map((pack) => (
+              {[
+                { credits: 100, label: "Starter", discount: 0 },
+                { credits: 500, label: "Growth", discount: 10 },
+                { credits: 1000, label: "Pro", discount: 20 },
+                { credits: 5000, label: "Enterprise", discount: 30 },
+              ].map((pack) => {
+                const fullPrice = pack.credits * creditRate;
+                const price = Math.round(fullPrice * (1 - pack.discount / 100));
+                return (
                 <button
                   key={pack.credits}
-                  onClick={() => buyCredits(pack.credits, pack.price)}
+                  onClick={() => buyCredits(pack.credits, price)}
                   disabled={buying}
                   className="relative bg-neutral-800 border border-neutral-700 hover:border-gold/50 rounded-xl p-4 text-left transition-all group"
                   data-testid={`credit-pack-${pack.credits}`}
                 >
-                  {pack.tag && (
+                  {pack.discount > 0 && (
                     <span className="absolute -top-2 right-3 bg-gold text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {pack.tag}
+                      {pack.discount}% OFF
                     </span>
                   )}
                   <p className="text-2xl font-bold text-white group-hover:text-gold transition-colors">{pack.credits}</p>
                   <p className="text-xs text-neutral-500 mt-1">{pack.label}</p>
-                  <p className="text-sm font-medium text-gold mt-2">₹{pack.price}</p>
+                  <p className="text-sm font-medium text-gold mt-2">₹{price.toLocaleString()}</p>
                 </button>
-              ))}
+                );
+              })}
             </div>
 
             {/* Custom amount */}

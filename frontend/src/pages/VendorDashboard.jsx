@@ -1350,19 +1350,22 @@ const VendorPromotions = ({ vendor }) => {
   const [requestForm, setRequestForm] = useState({ request_type: "reel_boost", product_id: "", preferred_duration: "day", quantity: 1, note: "" });
   const [submitting, setSubmitting] = useState(false);
   const [analytics, setAnalytics] = useState(null);
+  const [creditRate, setCreditRate] = useState(1);
 
   const fetchData = useCallback(async () => {
     try {
-      const [credRes, promoRes, prodRes, txnRes] = await Promise.all([
+      const [credRes, promoRes, prodRes, txnRes, pricingRes] = await Promise.all([
         axios.get(`${API}/vendors/promotions/credits`, { headers: getVendorHeaders() }),
         axios.get(`${API}/vendors/promotions/my`, { headers: getVendorHeaders() }),
         axios.get(`${API}/vendors/products`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
-        axios.get(`${API}/vendors/promotions/credits/transactions`, { headers: getVendorHeaders() }).catch(() => ({ data: [] }))
+        axios.get(`${API}/vendors/promotions/credits/transactions`, { headers: getVendorHeaders() }).catch(() => ({ data: [] })),
+        axios.get(`${API}/vendor-credits/pricing`).catch(() => ({ data: {} }))
       ]);
       setCredits(credRes.data);
       setPromotions(promoRes.data);
       setProducts(Array.isArray(prodRes.data) ? prodRes.data : prodRes.data?.products || []);
       setTransactions(Array.isArray(txnRes.data) ? txnRes.data : []);
+      if (pricingRes.data?.credit_rate_inr) setCreditRate(pricingRes.data.credit_rate_inr);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
@@ -1489,12 +1492,12 @@ const VendorPromotions = ({ vendor }) => {
               <div>
                 <p className="text-gold text-xs font-mono uppercase tracking-wider mb-1">Credit Balance</p>
                 <p className="text-4xl font-bold text-white" data-testid="credit-balance">{credits.balance || 0}</p>
-                <p className="text-neutral-400 text-xs mt-1">Total spent: {credits.total_spent || 0} credits &bull; 1 credit = ₹1</p>
+                <p className="text-neutral-400 text-xs mt-1">Total spent: {credits.total_spent || 0} credits &bull; 1 credit = ₹{creditRate}</p>
               </div>
               <div className="flex items-center gap-2">
                 <Input type="number" value={buyAmount} onChange={(e) => setBuyAmount(e.target.value)} className="w-24 bg-neutral-800 border-neutral-700 text-white" min="100" data-testid="buy-credits-amount" />
                 <Button onClick={buyCredits} disabled={buying} className="bg-gold hover:bg-gold/90 text-black" data-testid="buy-credits-btn">
-                  <Zap className="h-4 w-4 mr-1" /> {buying ? "Processing..." : `Buy (₹${buyAmount})`}
+                  <Zap className="h-4 w-4 mr-1" /> {buying ? "Processing..." : `Buy (₹${(parseInt(buyAmount) || 0) * creditRate})`}
                 </Button>
               </div>
             </div>
