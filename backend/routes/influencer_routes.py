@@ -169,10 +169,13 @@ async def update_influencer_commission(influencer_id: str, commission_rate: floa
     return {"message": f"Commission rate updated to {commission_rate}%"}
 
 
-# ============== INSTAGRAM INTEGRATION (Real Meta Graph API) ==============
+# ============== INSTAGRAM INTEGRATION ==============
+# OAuth handled by /api/instagram/auth/* routes in instagram_routes.py
+# This is a convenience redirect for the influencer dashboard
 
 @router.get("/instagram/connect")
 async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
+    """Redirect to the main Instagram OAuth login endpoint"""
     influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Not registered as influencer")
@@ -180,9 +183,12 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
     if influencer["status"] != "approved":
         raise HTTPException(status_code=403, detail="Your influencer account must be approved first")
 
-    state = generate_id("ig_state_")
+    # Delegate to the central Instagram auth route
+    import urllib.parse
+
+    state = generate_id("igauth_")
     await db.instagram_oauth_states.update_one(
-        {"influencer_id": influencer["influencer_id"]},
+        {"user_id": user["user_id"]},
         {"$set": {
             "state": state,
             "user_id": user["user_id"],
@@ -192,27 +198,24 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
         upsert=True
     )
 
-    import urllib.parse
+    redirect_uri = os.environ.get("FRONTEND_URL", "https://thepigma.com") + "/api/instagram/auth/callback"
+    app_id = os.environ.get("META_APP_ID", "")
 
-    base_url = "https://www.facebook.com/v18.0/dialog/oauth"
     params = {
-        "client_id": INSTAGRAM_APP_ID,
-        "redirect_uri": INSTAGRAM_REDIRECT_URI,
-        "scope": "instagram_basic,instagram_manage_messages,instagram_manage_comments",
+        "client_id": app_id,
+        "redirect_uri": redirect_uri,
+        "scope": "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments",
         "response_type": "code",
-        "state": state
+        "state": state,
     }
-    oauth_url = f"{base_url}?{urllib.parse.urlencode(params)}"
+    oauth_url = f"https://api.instagram.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
-    logger.info(f"Instagram OAuth URL generated: {oauth_url}")
-    logger.info(f"  client_id={INSTAGRAM_APP_ID}")
-    logger.info(f"  redirect_uri={INSTAGRAM_REDIRECT_URI}")
-    logger.info(f"  state={state}")
+    logger.info(f"Instagram OAuth URL: {oauth_url}")
 
     return {"oauth_url": oauth_url, "state": state}
 
 
-# Callback handled by /api/auth/instagram/callback in instagram_routes.py
+# Callback handled by /api/instagram/auth/callback in instagram_routes.py
 
 
 @router.post("/instagram/disconnect")
