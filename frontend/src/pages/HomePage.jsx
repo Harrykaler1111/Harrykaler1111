@@ -1,14 +1,149 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame } from "lucide-react";
+import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame, UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { BundleDealsSection } from "@/components/BundleDeals";
 import { FeaturedSellers } from "@/components/FeaturedSellers";
 import axios from "axios";
-import { API } from "@/App";
+import { API, useAuth } from "@/App";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
+import { toast } from "sonner";
+
+/* ─── Store Profile Card (Social Media Style) ─── */
+const GRADIENT_COLORS = [
+  "from-amber-500 to-orange-600",
+  "from-rose-500 to-pink-600",
+  "from-violet-500 to-purple-600",
+  "from-cyan-500 to-blue-600",
+  "from-emerald-500 to-green-600",
+  "from-fuchsia-500 to-pink-600",
+];
+
+const StoreProfileCard = ({ seller, index, navigate }) => {
+  const { user, token } = useAuth();
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followers, setFollowers] = useState(seller.followers || 0);
+  const [busy, setBusy] = useState(false);
+
+  const initial = seller.store_name?.charAt(0).toUpperCase() || "S";
+  const gradientClass = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
+
+  const handleFollow = useCallback(async (e) => {
+    e.stopPropagation();
+    if (!token) { toast.error("Sign in to follow stores"); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const endpoint = isFollowing ? "unfollow" : "follow";
+      const { data } = await axios.post(`${API}/vendors/store/${seller.vendor_id}/${endpoint}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    } catch { toast.error("Try again"); }
+    setBusy(false);
+  }, [isFollowing, token, seller.vendor_id, busy]);
+
+  // Check follow status on mount
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/vendors/store/${seller.vendor_id}/follow-status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(({ data }) => {
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    }).catch(() => {});
+  }, [token, seller.vendor_id]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
+      className="shrink-0 w-[170px] md:w-[190px]"
+      data-testid={`top-vendor-card-${seller.vendor_id}`}
+    >
+      <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)] group">
+        {/* Banner */}
+        <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80 cursor-pointer`} onClick={() => navigate(`/store/${seller.vendor_id}`)} />
+
+        {/* Avatar */}
+        <div className="flex justify-center -mt-7 relative z-10">
+          <div
+            className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg cursor-pointer group-hover:scale-105 transition-transform duration-300`}
+            onClick={() => navigate(`/store/${seller.vendor_id}`)}
+          >
+            <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="px-3 pt-1.5 pb-3.5 text-center">
+          <h3
+            className="text-[13px] font-semibold text-white truncate cursor-pointer hover:text-gold transition-colors"
+            onClick={() => navigate(`/store/${seller.vendor_id}`)}
+          >
+            {seller.store_name}
+          </h3>
+          {seller.store_description && (
+            <p className="text-[10px] text-neutral-500 mt-0.5 line-clamp-1">{seller.store_description}</p>
+          )}
+
+          {/* Stats: Products · Followers · Rating */}
+          <div className="flex items-center justify-evenly mt-3 pt-2.5 border-t border-neutral-800/80">
+            <div className="text-center px-1">
+              <p className="text-xs font-bold text-white leading-none">{seller.total_products || 0}</p>
+              <p className="text-[8px] text-neutral-500 mt-0.5">Products</p>
+            </div>
+            <div className="w-px h-5 bg-neutral-800" />
+            <div className="text-center px-1">
+              <p className="text-xs font-bold text-white leading-none">{followers}</p>
+              <p className="text-[8px] text-neutral-500 mt-0.5">Followers</p>
+            </div>
+            <div className="w-px h-5 bg-neutral-800" />
+            <div className="text-center px-1">
+              {seller.rating > 0 ? (
+                <>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <Star className="h-2 w-2 fill-gold text-gold" />
+                    <p className="text-xs font-bold text-white leading-none">{seller.rating.toFixed(1)}</p>
+                  </div>
+                  <p className="text-[8px] text-neutral-500 mt-0.5">Rating</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-bold text-white leading-none">{seller.review_count || 0}</p>
+                  <p className="text-[8px] text-neutral-500 mt-0.5">Reviews</p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Follow Button */}
+          <button
+            onClick={handleFollow}
+            disabled={busy}
+            className={`mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ${
+              isFollowing
+                ? "bg-white/5 border border-white/15 text-neutral-400 hover:border-red-500/40 hover:text-red-400"
+                : "bg-gold/90 text-black border border-gold hover:bg-gold"
+            }`}
+            data-testid={`follow-btn-${seller.vendor_id}`}
+          >
+            {isFollowing ? (
+              <><UserCheck className="h-3 w-3" /> Following</>
+            ) : (
+              <><UserPlus className="h-3 w-3" /> Follow</>
+            )}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 export const HomePage = () => {
   const navigate = useNavigate();
@@ -166,79 +301,9 @@ export const HomePage = () => {
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               data-testid="top-vendors-scroll"
             >
-              {topSellers.map((seller, index) => {
-                const initial = seller.store_name?.charAt(0).toUpperCase() || "S";
-                const colors = [
-                  "from-amber-500 to-orange-600",
-                  "from-rose-500 to-pink-600",
-                  "from-violet-500 to-purple-600",
-                  "from-cyan-500 to-blue-600",
-                  "from-emerald-500 to-green-600",
-                  "from-fuchsia-500 to-pink-600",
-                ];
-                const gradientClass = colors[index % colors.length];
-                const memberDate = seller.member_since ? new Date(seller.member_since).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "";
-
-                return (
-                  <motion.div
-                    key={seller.vendor_id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
-                    className="shrink-0 w-[160px] md:w-[180px] group cursor-pointer"
-                    onClick={() => navigate(`/store/${seller.vendor_id}`)}
-                    data-testid={`top-vendor-card-${seller.vendor_id}`}
-                  >
-                    <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)]">
-                      {/* Banner gradient */}
-                      <div className={`h-16 bg-gradient-to-r ${gradientClass} opacity-80`} />
-
-                      {/* Avatar */}
-                      <div className="flex justify-center -mt-8">
-                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-3 ring-neutral-900 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                          <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <div className="px-3 pt-2 pb-4 text-center">
-                        <h3 className="text-sm font-semibold text-white truncate group-hover:text-gold transition-colors">{seller.store_name}</h3>
-                        {seller.store_description && (
-                          <p className="text-[10px] text-neutral-500 mt-0.5 line-clamp-1">{seller.store_description}</p>
-                        )}
-
-                        {/* Stats row */}
-                        <div className="flex items-center justify-center gap-3 mt-3 pt-2.5 border-t border-neutral-800">
-                          <div className="text-center">
-                            <p className="text-xs font-bold text-white">{seller.total_products || 0}</p>
-                            <p className="text-[9px] text-neutral-500">Products</p>
-                          </div>
-                          {seller.rating > 0 ? (
-                            <div className="text-center">
-                              <div className="flex items-center justify-center gap-0.5">
-                                <Star className="h-2.5 w-2.5 fill-gold text-gold" />
-                                <p className="text-xs font-bold text-white">{seller.rating.toFixed(1)}</p>
-                              </div>
-                              <p className="text-[9px] text-neutral-500">Rating</p>
-                            </div>
-                          ) : memberDate ? (
-                            <div className="text-center">
-                              <p className="text-xs font-bold text-white">{memberDate}</p>
-                              <p className="text-[9px] text-neutral-500">Joined</p>
-                            </div>
-                          ) : null}
-                        </div>
-
-                        {/* Visit button */}
-                        <button className="mt-3 w-full py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-white/5 border border-white/10 text-neutral-300 group-hover:bg-gold group-hover:text-black group-hover:border-gold transition-all duration-300">
-                          Visit Store
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {topSellers.map((seller, index) => (
+                <StoreProfileCard key={seller.vendor_id} seller={seller} index={index} navigate={navigate} />
+              ))}
             </div>
           </div>
         </section>

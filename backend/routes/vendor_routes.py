@@ -17,7 +17,7 @@ from models.schemas import (
 from models.enums import VendorStatus, VendorProductStatus, WithdrawalStatus, TransactionType
 from auth import (
     generate_id, hash_password, verify_password, create_jwt_token,
-    get_current_vendor, get_admin_user, check_permission
+    get_current_vendor, get_current_user, get_admin_user, check_permission
 )
 
 logger = logging.getLogger(__name__)
@@ -1455,7 +1455,7 @@ async def get_public_vendor_store(vendor_id: str):
 
 @router.get("/top-sellers")
 async def get_top_sellers(limit: int = 6):
-    """Public endpoint - returns top-rated approved vendors."""
+    """Public endpoint - returns top-rated approved vendors with follower counts."""
     vendors = await db.vendors.find(
         {"status": VendorStatus.APPROVED.value},
         {"_id": 0, "password": 0, "kyc_data": 0, "kyc_documents": 0, "bank_details": 0, "wallet_balance": 0}
@@ -1468,6 +1468,7 @@ async def get_top_sellers(limit: int = 6):
             "approval_status": VendorProductStatus.APPROVED.value,
             "is_active": True
         })
+        follower_count = await db.store_follows.count_documents({"vendor_id": v["vendor_id"]})
         results.append({
             "vendor_id": v["vendor_id"],
             "store_name": v.get("store_name", ""),
@@ -1475,10 +1476,59 @@ async def get_top_sellers(limit: int = 6):
             "rating": v.get("rating", 0.0),
             "review_count": v.get("review_count", 0),
             "total_products": product_count,
+            "followers": follower_count,
             "member_since": v.get("created_at", ""),
         })
 
     return results
+
+
+# ============== STORE FOLLOW/UNFOLLOW ==============
+
+@router.post("/store/{vendor_id}/follow")
+async def follow_store(vendor_id: str, user: Dict = Depends(get_current_user)):
+    """Follow a store"""
+    vendor = await db.vendors.find_one({"vendor_id": vendor_id}, {"_id": 0, "store_name": 1})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    existing = await db.store_follows.find_one({"user_id": user["user_id"], "vendor_id": vendor_id})
+    if existing:
+        return {"message": "Already following", "following": True}
+
+    await db.store_follows.insert_one({
+        "user_id": user["user_id"],
+        "vendor_id": vendor_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+
+    follower_count = await db.store_follows.count_documents({"vendor_id": vendor_id})
+    return {"message": "Store followed", "following": True, "followers": follower_count}
+
+
+@router.post("/store/{vendor_id}/unfollow")
+async def unfollow_store(vendor_id: str, user: Dict = Depends(get_current_user)):
+    """Unfollow a store"""
+    await db.store_follows.delete_one({"user_id": user["user_id"], "vendor_id": vendor_id})
+    follower_count = await db.store_follows.count_documents({"vendor_id": vendor_id})
+    return {"message": "Store unfollowed", "following": False, "followers": follower_count}
+
+
+@router.get("/store/{vendor_id}/follow-status")
+async def get_follow_status(vendor_id: str, user: Dict = Depends(get_current_user)):
+    """Check if user follows a store"""
+    existing = await db.store_follows.find_one({"user_id": user["user_id"], "vendor_id": vendor_id})
+    follower_count = await db.store_follows.count_documents({"vendor_id": vendor_id})
+    following_count = await db.store_follows.count_documents({"user_id": user["user_id"]})
+    return {"following": existing is not None, "followers": follower_count, "user_following_count": following_count}
+
+
+@router.get("/my/following")
+async def get_my_following(user: Dict = Depends(get_current_user)):
+    """Get list of stores user follows"""
+    follows = await db.store_follows.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(100)
+    vendor_ids = [f["vendor_id"] for f in follows]
+    return {"following": vendor_ids, "count": len(vendor_ids)}
 
 
 # ============== VENDOR CATEGORIES ==============
