@@ -126,17 +126,41 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
     }
   };
 
+  const [showSizePicker, setShowSizePicker] = useState(false);
+  const [selectedSize, setSelectedSize] = useState(null);
+  const sizes = product.sizes || [];
+
   const handleAddToCart = async (e) => {
     e.stopPropagation();
     if (product.stock <= 0) { toast.error("Out of stock"); return; }
+    // If product has sizes, show picker
+    if (sizes.length > 1 && !selectedSize) {
+      setShowSizePicker(true);
+      return;
+    }
     setAdding(true);
     const cartColor = currentColor;
-    const cartSize = product.sizes?.[0] || "M";
+    const cartSize = selectedSize || sizes[0] || "Free Size";
     const ok = await addToCart(product.product_id, 1, cartSize, cartColor, product, { silent: false });
-    if (ok && showColorBadge) {
-      toast.success(`Added ${cartColor} to cart`);
+    if (ok) {
+      toast.success(`Added${showColorBadge ? ` ${cartColor}` : ""} (${cartSize}) to cart`);
     }
     setAdding(false);
+    setShowSizePicker(false);
+    setSelectedSize(null);
+  };
+
+  const handleSizeSelect = async (size) => {
+    setSelectedSize(size);
+    setAdding(true);
+    const cartColor = currentColor;
+    const ok = await addToCart(product.product_id, 1, size, cartColor, product, { silent: false });
+    if (ok) {
+      toast.success(`Added${showColorBadge ? ` ${cartColor}` : ""} (${size}) to cart`);
+    }
+    setAdding(false);
+    setShowSizePicker(false);
+    setSelectedSize(null);
   };
 
   const handleShare = async (e) => {
@@ -258,6 +282,57 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
           <span className="inline-block mt-1 text-[9px] font-semibold uppercase tracking-wider bg-red-500/80 text-white px-2 py-0.5 rounded">Low Stock</span>
         )}
       </div>
+
+      {/* Size Picker Popup */}
+      <AnimatePresence>
+        {showSizePicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-30 flex items-end justify-center"
+            onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }}
+            data-testid="size-picker-overlay"
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <motion.div
+              initial={{ y: 200 }}
+              animate={{ y: 0 }}
+              exit={{ y: 200 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-sm mx-4 mb-20 sm:mb-8 bg-neutral-900/95 border border-neutral-700 rounded-2xl p-5 backdrop-blur-xl"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="size-picker-sheet"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-semibold text-white">Select Size</h4>
+                <button onClick={(e) => { e.stopPropagation(); setShowSizePicker(false); }} className="text-neutral-500 hover:text-white text-xs">
+                  Close
+                </button>
+              </div>
+              {showColorBadge && (
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: getColorHex(currentColor) }} />
+                  <span className="text-xs text-neutral-400">Color: <span className="text-white">{currentColor}</span></span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {sizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={(e) => { e.stopPropagation(); handleSizeSelect(size); }}
+                    disabled={adding}
+                    className="px-4 py-2.5 rounded-xl text-sm font-medium border border-neutral-700 bg-neutral-800 text-white hover:bg-gold hover:text-black hover:border-gold active:scale-95 transition-all"
+                    data-testid={`size-option-${size}`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
