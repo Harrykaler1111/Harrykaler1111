@@ -382,22 +382,15 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
     redirect_uri = os.environ.get("INSTAGRAM_REDIRECT_URI")
     # HARDCODED App ID to prevent env loading issues in production
     app_id = "1280214187553693"
+    # HARDCODED Config ID from Facebook Login for Business
+    config_id = "975030191656092"
 
-    logger.info(f"[IG_CONNECT] app_id={app_id}, redirect_uri={redirect_uri}")
-
-    scopes = (
-        "instagram_basic,"
-        "instagram_manage_messages,"
-        "instagram_manage_comments,"
-        "pages_show_list,"
-        "pages_read_engagement,"
-        "business_management"
-    )
+    logger.info(f"[IG_CONNECT] app_id={app_id}, config_id={config_id}, redirect_uri={redirect_uri}")
 
     params = {
         "client_id": app_id,
         "redirect_uri": redirect_uri,
-        "scope": scopes,
+        "config_id": config_id,
         "response_type": "code",
         "state": state,
     }

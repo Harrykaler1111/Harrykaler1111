@@ -49,15 +49,8 @@ logger.info(f"[IG_CONFIG] META_APP_ID={META_APP_ID}")
 logger.info(f"[IG_CONFIG] REDIRECT_URI={REDIRECT_URI}")
 logger.info(f"[IG_CONFIG] META_APP_SECRET={'SET' if META_APP_SECRET else 'MISSING'}")
 
-# Facebook Login scopes for Instagram Business
-FB_SCOPES = (
-    "instagram_basic,"
-    "instagram_manage_messages,"
-    "instagram_manage_comments,"
-    "pages_show_list,"
-    "pages_read_engagement,"
-    "business_management"
-)
+# HARDCODED Config ID from Facebook Login for Business configuration
+FB_CONFIG_ID = "975030191656092"
 
 GRAPH_API_VERSION = "v19.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
@@ -86,15 +79,13 @@ async def instagram_login(user: Dict = Depends(get_current_user)):
     params = {
         "client_id": META_APP_ID,
         "redirect_uri": REDIRECT_URI,
-        "scope": FB_SCOPES,
+        "config_id": FB_CONFIG_ID,
         "response_type": "code",
         "state": state,
     }
     oauth_url = f"https://www.facebook.com/{GRAPH_API_VERSION}/dialog/oauth?{urllib.parse.urlencode(params)}"
 
-    logger.info(f"Facebook OAuth URL generated for user {user['user_id']}")
-    logger.info(f"  redirect_uri: {REDIRECT_URI}")
-    logger.info(f"  scopes: {FB_SCOPES}")
+    logger.info(f"[OAUTH] URL generated for user {user['user_id']}: {oauth_url}")
 
     return {"oauth_url": oauth_url, "state": state}
 
