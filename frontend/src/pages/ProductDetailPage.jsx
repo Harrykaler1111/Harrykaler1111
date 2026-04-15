@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, ShoppingBag, Truck, RefreshCw, Shield, Minus, Plus,
   Check, Star, Volume2, VolumeX, ChevronLeft, ChevronRight,
-  Play, Pause, ZoomIn
+  Play, Pause, ZoomIn, Store, UserPlus, UserCheck, ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductReviews } from "@/components/ProductReviews";
@@ -17,6 +17,111 @@ import { toast } from "sonner";
 import axios from "axios";
 import { normalizeImageUrl, handleImageError, FALLBACK_IMAGE } from "@/utils/imageUtils";
 import { whatsappProductLink, PHONE_NUMBER } from "@/components/WhatsAppButton";
+
+// ====== Vendor Profile Section (Meesho Style) ======
+const VendorProfileSection = ({ vendorId, vendorName, navigate }) => {
+  const { token } = useAuth();
+  const [vendor, setVendor] = useState(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followers, setFollowers] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    // Fetch vendor details
+    axios.get(`${API}/vendors/top-sellers?limit=50`).then(({ data }) => {
+      const sellers = Array.isArray(data) ? data : [];
+      const v = sellers.find(s => s.vendor_id === vendorId);
+      if (v) {
+        setVendor(v);
+        setFollowers(v.followers || 0);
+      }
+    }).catch(() => {});
+  }, [vendorId]);
+
+  useEffect(() => {
+    if (!token || !vendorId) return;
+    axios.get(`${API}/vendors/store/${vendorId}/follow-status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(({ data }) => {
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    }).catch(() => {});
+  }, [token, vendorId]);
+
+  const handleFollow = async () => {
+    if (!token) { toast.error("Sign in to follow stores"); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const ep = isFollowing ? "unfollow" : "follow";
+      const { data } = await axios.post(`${API}/vendors/store/${vendorId}/${ep}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    } catch { toast.error("Try again"); }
+    setBusy(false);
+  };
+
+  const initial = (vendor?.store_name || vendorName || "S").charAt(0).toUpperCase();
+  const storeName = vendor?.store_name || vendorName || "Store";
+
+  return (
+    <div
+      className="border border-neutral-100 rounded-xl p-4 bg-neutral-50/50 cursor-pointer hover:border-gold/30 transition-all"
+      onClick={() => navigate(`/store/${vendorId}`)}
+      data-testid="vendor-profile-card"
+    >
+      <div className="flex items-center gap-3">
+        {/* Avatar */}
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neutral-800 to-neutral-600 flex items-center justify-center shrink-0">
+          <span className="font-serif text-lg font-bold text-gold">{initial}</span>
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <Store className="h-3 w-3 text-gold" />
+            <h4 className="text-sm font-semibold text-neutral-900 truncate">{storeName}</h4>
+          </div>
+          {vendor?.store_description && (
+            <p className="text-[10px] text-neutral-500 line-clamp-1 mt-0.5">{vendor.store_description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[10px] text-neutral-400"><strong className="text-neutral-600">{vendor?.total_products || 0}</strong> Products</span>
+            <span className="text-[10px] text-neutral-400"><strong className="text-neutral-600">{followers}</strong> Followers</span>
+            {vendor?.rating > 0 && (
+              <span className="flex items-center gap-0.5 text-[10px] text-neutral-400">
+                <Star className="h-2.5 w-2.5 fill-gold text-gold" />
+                <strong className="text-neutral-600">{vendor.rating.toFixed(1)}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Follow + Visit */}
+        <div className="flex flex-col gap-1.5 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleFollow(); }}
+            disabled={busy}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all ${
+              isFollowing
+                ? "bg-neutral-100 text-neutral-500 border border-neutral-200"
+                : "bg-neutral-900 text-white hover:bg-gold hover:text-black"
+            }`}
+            data-testid="vendor-follow-btn"
+          >
+            {isFollowing ? <><UserCheck className="h-3 w-3" /> Following</> : <><UserPlus className="h-3 w-3" /> Follow</>}
+          </button>
+          <div className="flex items-center justify-center gap-0.5 text-[9px] text-gold">
+            <span>Visit Store</span>
+            <ArrowRight className="h-2.5 w-2.5" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ====== Image with Zoom on Hover (Desktop) + Pinch/Tap Zoom (Mobile) ======
 const ZoomableImage = ({ src, alt }) => {
@@ -381,18 +486,11 @@ export const ProductDetailPage = () => {
 
           {/* ====== RIGHT: Product Info ====== */}
           <div className="lg:sticky lg:top-36 lg:self-start space-y-5">
-            {/* Category & Vendor */}
+            {/* Category */}
             <div>
               <p className="text-[11px] text-neutral-400 uppercase tracking-widest mb-1" data-testid="product-category">
                 {product.category}
               </p>
-              {product.vendor_name && (
-                <Link to={`/store/${product.vendor_id}`}
-                  className="text-[11px] text-gold/80 hover:text-gold transition-colors uppercase tracking-wider"
-                  data-testid="product-vendor">
-                  By {product.vendor_name}
-                </Link>
-              )}
             </div>
 
             {/* Title */}
@@ -560,6 +658,11 @@ export const ProductDetailPage = () => {
                   </p>
                 ))}
               </div>
+            )}
+
+            {/* ─── Vendor / Sold by Card (Meesho Style) ─── */}
+            {product.vendor_id && (
+              <VendorProfileSection vendorId={product.vendor_id} vendorName={product.vendor_name} navigate={navigate} />
             )}
 
             {/* Add to Cart & Wishlist */}

@@ -396,38 +396,6 @@ export const HomePage = () => {
         </motion.div>
       </section>
 
-      {/* Top Vendors - Zomato Style Circles */}
-      {topSellers.length > 0 && (
-        <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-vendors-hero-section">
-          <div className="max-w-7xl mx-auto px-4 md:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-8 flex items-end justify-between"
-            >
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold/60 mb-1">Curated Sellers</p>
-                <h2 className="font-serif text-xl md:text-2xl font-bold text-white">Shop by Store</h2>
-              </div>
-              <button onClick={() => navigate("/stores")} className="text-xs text-gold/70 hover:text-gold tracking-wider uppercase transition-colors hidden md:block">
-                View All
-              </button>
-            </motion.div>
-
-            <div
-              className="flex gap-4 md:gap-5 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-              data-testid="top-vendors-scroll"
-            >
-              {topSellers.map((seller, index) => (
-                <StoreProfileCard key={seller.vendor_id} seller={seller} index={index} navigate={navigate} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
       {/* ─── Top Creators / Influencers ─── */}
       {topInfluencers.length > 0 && (
         <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-influencers-section">
