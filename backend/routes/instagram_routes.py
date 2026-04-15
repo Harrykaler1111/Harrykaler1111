@@ -36,12 +36,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Instagram"])
 
 # ─── Environment Variables ───
-META_APP_ID = os.environ.get("META_APP_ID", "")
+# HARDCODED App ID to prevent env loading issues in production
+META_APP_ID = "1280214187553693"
 META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
 REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
 BRAND_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 BRAND_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
+
+# Log at module load to confirm values
+logger.info(f"[IG_CONFIG] META_APP_ID={META_APP_ID}")
+logger.info(f"[IG_CONFIG] REDIRECT_URI={REDIRECT_URI}")
+logger.info(f"[IG_CONFIG] META_APP_SECRET={'SET' if META_APP_SECRET else 'MISSING'}")
 
 # Facebook Login scopes for Instagram Business
 FB_SCOPES = (

@@ -380,7 +380,10 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
     )
 
     redirect_uri = os.environ.get("INSTAGRAM_REDIRECT_URI")
-    app_id = os.environ.get("META_APP_ID", "")
+    # HARDCODED App ID to prevent env loading issues in production
+    app_id = "1280214187553693"
+
+    logger.info(f"[IG_CONNECT] app_id={app_id}, redirect_uri={redirect_uri}")
 
     scopes = (
         "instagram_basic,"
