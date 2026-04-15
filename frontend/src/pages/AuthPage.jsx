@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, Timer, Shield } from "lucide-react";
+import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, Timer, Shield, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -293,7 +293,15 @@ export const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen pt-20 flex items-center justify-center bg-neutral-50" data-testid="auth-page">
+    <div className="min-h-screen pt-20 flex items-center justify-center bg-neutral-50 relative" data-testid="auth-page">
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 flex items-center gap-1.5 text-neutral-400 hover:text-neutral-900 transition-colors z-10"
+        data-testid="auth-back-btn"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-xs">Back to Home</span>
+      </button>
       {/* Hidden reCAPTCHA container for invisible mode */}
       <div id="recaptcha-container" style={{ display: "none" }} />
       <div className="w-full max-w-md mx-4">

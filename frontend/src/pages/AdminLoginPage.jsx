@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Lock, Mail, Shield, Eye, EyeOff, Key } from "lucide-react";
+import { Lock, Mail, Shield, Eye, EyeOff, Key, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -51,6 +51,14 @@ export const AdminLoginPage = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4" data-testid="admin-login-page">
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 flex items-center gap-1.5 text-neutral-500 hover:text-white transition-colors z-10"
+        data-testid="admin-back-btn"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-xs">Back to Home</span>
+      </button>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
         <div className="absolute inset-0" style={{

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { TrendingUp, DollarSign, Link2, Users } from "lucide-react";
+import { TrendingUp, DollarSign, Link2, Users, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -34,7 +34,15 @@ export const ResellerRegisterPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center px-4" data-testid="reseller-register-page">
+    <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center px-4 relative" data-testid="reseller-register-page">
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 flex items-center gap-1.5 text-neutral-500 hover:text-white transition-colors z-10"
+        data-testid="reseller-back-btn"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-xs">Back to Home</span>
+      </button>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-lg">
         <div className="text-center mb-8">
