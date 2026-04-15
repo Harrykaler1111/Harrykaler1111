@@ -707,3 +707,156 @@ async def update_dm_config(request: Request, admin: Dict = Depends(get_admin_use
         upsert=True
     )
     return {"message": "Auto-DM config updated"}
+
+
+
+# ══════════════════════════════════════════════
+#  12. HEALTH DASHBOARD (Influencer)
+# ══════════════════════════════════════════════
+
+@router.get("/instagram/health-dashboard")
+async def instagram_health_dashboard(user: Dict = Depends(get_current_user)):
+    """
+    Returns token health, DM delivery rates, and recent webhook events
+    for the logged-in influencer's Instagram connection.
+    """
+    influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Not registered as influencer")
+
+    # ── Connection & Token Health ──
+    conn = await db.instagram_connections.find_one(
+        {"connected_by_user_id": user["user_id"], "is_active": True}, {"_id": 0}
+    )
+
+    now = datetime.now(timezone.utc)
+    connection_info = {"connected": False}
+
+    if conn:
+        token_expires_str = conn.get("user_token_expires_at")
+        token_days_remaining = -1
+        token_status = "healthy"
+
+        if token_expires_str:
+            try:
+                expires_dt = datetime.fromisoformat(token_expires_str)
+                if expires_dt.tzinfo is None:
+                    expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+                remaining = expires_dt - now
+                token_days_remaining = max(0, remaining.days)
+                if token_days_remaining == 0:
+                    token_status = "expired"
+                elif token_days_remaining <= 7:
+                    token_status = "expiring_soon"
+                else:
+                    token_status = "healthy"
+            except (ValueError, TypeError):
+                token_status = "unknown"
+
+        connection_info = {
+            "connected": True,
+            "ig_username": conn.get("ig_username", ""),
+            "ig_business_id": conn.get("ig_business_id", ""),
+            "ig_profile_pic": conn.get("ig_profile_pic", ""),
+            "ig_followers": conn.get("ig_followers", 0),
+            "page_name": conn.get("page_name", ""),
+            "page_id": conn.get("page_id", ""),
+            "connected_at": conn.get("connected_at", ""),
+            "user_token_expires_at": token_expires_str,
+            "token_days_remaining": token_days_remaining,
+            "token_status": token_status,
+            "page_token_note": "Page tokens from long-lived user tokens are non-expiring",
+        }
+
+    # ── DM Delivery Stats ──
+    inf_id = influencer.get("influencer_id")
+
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    week_start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+    # All-time stats
+    total_sent = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "sent"})
+    total_failed = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "failed"})
+    total_pending = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "pending"})
+    total_all = total_sent + total_failed + total_pending
+    success_rate = round((total_sent / total_all * 100), 1) if total_all > 0 else 0
+
+    # Today
+    today_sent = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "sent", "created_at": {"$gte": today_start}})
+    today_failed = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "failed", "created_at": {"$gte": today_start}})
+
+    # This week
+    week_sent = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "sent", "created_at": {"$gte": week_start}})
+    week_failed = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "failed", "created_at": {"$gte": week_start}})
+
+    # This month
+    month_sent = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "sent", "created_at": {"$gte": month_start}})
+    month_failed = await db.instagram_dms.count_documents({"influencer_id": inf_id, "status": "failed", "created_at": {"$gte": month_start}})
+
+    dm_stats = {
+        "total_sent": total_sent,
+        "total_failed": total_failed,
+        "total_pending": total_pending,
+        "total_all": total_all,
+        "success_rate": success_rate,
+        "today": {"sent": today_sent, "failed": today_failed},
+        "this_week": {"sent": week_sent, "failed": week_failed},
+        "this_month": {"sent": month_sent, "failed": month_failed},
+    }
+
+    # ── Webhook Event Log (last 20) ──
+    raw_events = await db.instagram_webhooks.find(
+        {}, {"_id": 0}
+    ).sort("created_at", -1).limit(20).to_list(20)
+
+    webhook_events = []
+    for evt in raw_events:
+        payload = evt.get("payload", {})
+        event_type = evt.get("object_type", payload.get("object", "unknown"))
+        timestamp = evt.get("created_at", "")
+
+        # Parse entries for a human-readable summary
+        summaries = []
+        for entry in payload.get("entry", []):
+            for change in entry.get("changes", []):
+                field = change.get("field", "unknown")
+                val = change.get("value", {})
+                if field == "comments":
+                    uname = val.get("from", {}).get("username", "unknown")
+                    summaries.append(f"Comment from @{uname}")
+                elif field == "mentions":
+                    summaries.append("Mention received")
+                else:
+                    summaries.append(f"{field} event")
+            for msg in entry.get("messaging", []):
+                sender = msg.get("sender", {}).get("id", "unknown")
+                if "message" in msg:
+                    summaries.append(f"DM from {sender}")
+                elif "postback" in msg:
+                    summaries.append(f"Postback from {sender}")
+
+        webhook_events.append({
+            "type": event_type,
+            "timestamp": timestamp,
+            "summary": "; ".join(summaries) if summaries else "Raw event",
+        })
+
+    # ── Automation Stats ──
+    total_posts = await db.instagram_posts.count_documents({"influencer_id": inf_id})
+    active_posts = await db.instagram_posts.count_documents({"influencer_id": inf_id, "auto_dm_enabled": True})
+
+    automation = {
+        "enabled": influencer.get("automation_enabled", False),
+        "posts_registered": total_posts,
+        "active_posts": active_posts,
+        "dm_rate_limit_hour": influencer.get("dm_rate_limit_hour", 0),
+        "dm_rate_limit_day": influencer.get("dm_rate_limit_day", 0),
+    }
+
+    return {
+        "connection": connection_info,
+        "dm_stats": dm_stats,
+        "webhook_events": webhook_events,
+        "automation": automation,
+    }

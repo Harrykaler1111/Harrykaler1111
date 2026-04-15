@@ -22,6 +22,7 @@ import {
 import { useAuth, API } from "@/App";
 import { toast } from "sonner";
 import axios from "axios";
+import { InstagramHealthDashboard } from "@/components/InstagramHealthDashboard";
 
 const CollabsSection = ({ token }) => {
   const [requests, setRequests] = useState([]);
@@ -688,6 +689,11 @@ export const InfluencerDashboard = () => {
 
               {influencer.instagram_connected && (
                 <>
+                  {/* Health Dashboard */}
+                  <div className="bg-neutral-800/50 backdrop-blur-xl border border-neutral-700 p-6 rounded-xl mb-8">
+                    <InstagramHealthDashboard />
+                  </div>
+
                   {/* Register New Post */}
                   <div className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-xl mb-8">
                     <h3 className="font-serif text-xl font-bold mb-4">Register Post for Automation</h3>

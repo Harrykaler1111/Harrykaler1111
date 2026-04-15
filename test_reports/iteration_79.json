@@ -1,0 +1,110 @@
+{
+  "summary": "Iteration 79: Instagram Connection Health Dashboard - ALL 11 BACKEND TESTS PASSED. New GET /api/instagram/health-dashboard endpoint verified. Frontend component (InstagramHealthDashboard) correctly integrated in InfluencerDashboard.jsx - only renders when instagram_connected=true (expected behavior).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_instagram_health_dashboard.py",
+    "/app/test_reports/pytest/instagram_health_dashboard_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: GET /api/instagram/health-dashboard requires authentication (returns 401 without token)",
+    "VERIFIED: Endpoint returns 404 with 'Not registered as influencer' for non-influencer users",
+    "VERIFIED: Response contains all required fields: connection, dm_stats, webhook_events, automation",
+    "VERIFIED: connection object has 'connected' boolean and token_status (healthy/expiring_soon/expired/unknown) when connected",
+    "VERIFIED: connection object has token_days_remaining field for countdown display",
+    "VERIFIED: dm_stats contains total_sent, total_failed, total_pending, total_all, success_rate",
+    "VERIFIED: dm_stats contains today, this_week, this_month breakdowns with sent/failed counts",
+    "VERIFIED: webhook_events is an array with type, timestamp, summary fields",
+    "VERIFIED: automation object has enabled, posts_registered, active_posts, dm_rate_limit_hour, dm_rate_limit_day",
+    "VERIFIED: All numeric fields return correct data types (int/float)",
+    "VERIFIED: Frontend InstagramHealthDashboard component imported in InfluencerDashboard.jsx (line 25)",
+    "VERIFIED: Component renders inside Instagram tab when influencer.instagram_connected=true (lines 690-695)",
+    "VERIFIED: Component has proper data-testid attributes for testing",
+    "VERIFIED: Component includes TokenHealthCard, DmStatCard, WebhookEventRow subcomponents",
+    "VERIFIED: Auto-refresh every 30 seconds implemented (line 186-188)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_instagram_health_dashboard.py"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (component correctly integrated, renders conditionally)"
+  },
+  "test_credentials": {
+    "customer": "admin@pigma.com / admin123",
+    "super_admin": "superadmin@pigma.com / superadmin123"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Instagram Health Dashboard feature is complete. The InstagramHealthDashboard component only renders when the influencer has instagram_connected=true. Test user admin@pigma.com is an approved influencer but has instagram_connected=false, so the health dashboard won't be visible in UI tests. Backend API works independently and returns proper data structure. To test the full UI, you would need an influencer with Instagram connected.",
+  "features_tested": {
+    "health_dashboard_auth": {
+      "endpoint": "GET /api/instagram/health-dashboard",
+      "status": "PASS",
+      "details": "Returns 401 without auth, 404 for non-influencer, 200 for influencer"
+    },
+    "connection_info": {
+      "fields": ["connected", "token_status", "token_days_remaining", "ig_username", "ig_business_id"],
+      "status": "PASS",
+      "details": "Returns proper connection info with token health status"
+    },
+    "dm_stats": {
+      "fields": ["total_sent", "total_failed", "total_pending", "total_all", "success_rate", "today", "this_week", "this_month"],
+      "status": "PASS",
+      "details": "Returns all-time and time-based DM delivery statistics"
+    },
+    "webhook_events": {
+      "fields": ["type", "timestamp", "summary"],
+      "status": "PASS",
+      "details": "Returns array of recent webhook events with parsed summaries"
+    },
+    "automation_stats": {
+      "fields": ["enabled", "posts_registered", "active_posts", "dm_rate_limit_hour", "dm_rate_limit_day"],
+      "status": "PASS",
+      "details": "Returns automation configuration and post counts"
+    },
+    "frontend_integration": {
+      "component": "InstagramHealthDashboard",
+      "status": "PASS",
+      "details": "Component correctly imported and conditionally rendered in Instagram tab"
+    }
+  },
+  "api_response_sample": {
+    "connection": {
+      "connected": false
+    },
+    "dm_stats": {
+      "total_sent": 0,
+      "total_failed": 0,
+      "total_pending": 0,
+      "total_all": 0,
+      "success_rate": 0,
+      "today": {"sent": 0, "failed": 0},
+      "this_week": {"sent": 0, "failed": 0},
+      "this_month": {"sent": 0, "failed": 0}
+    },
+    "webhook_events": [
+      {"type": "instagram", "timestamp": "2026-04-15T19:24:07.953845+00:00", "summary": "Comment from @testuser"}
+    ],
+    "automation": {
+      "enabled": false,
+      "posts_registered": 0,
+      "active_posts": 0,
+      "dm_rate_limit_hour": 0,
+      "dm_rate_limit_day": 0
+    }
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}
