@@ -261,7 +261,7 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
         upsert=True
     )
 
-    redirect_uri = os.environ.get("INSTAGRAM_REDIRECT_URI", "https://thepigma.com/api/instagram/auth/callback")
+    redirect_uri = os.environ.get("INSTAGRAM_REDIRECT_URI")
     app_id = os.environ.get("META_APP_ID", "")
 
     params = {

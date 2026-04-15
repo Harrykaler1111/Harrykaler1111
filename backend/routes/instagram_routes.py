@@ -34,7 +34,7 @@ router = APIRouter(tags=["Instagram"])
 # ─── Environment Variables ───
 META_APP_ID = os.environ.get("META_APP_ID", "")
 META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
-REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI", "https://thepigma.com/api/instagram/auth/callback")
+REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
 BRAND_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 BRAND_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
@@ -92,7 +92,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
     Instagram redirects here with ?code=XXX&state=XXX
     Exchange code for short-lived token → long-lived token → get profile → store.
     """
-    frontend_url = os.environ.get("FRONTEND_URL", "https://thepigma.com")
+    frontend_url = os.environ.get("FRONTEND_URL")
 
     # Validate state
     oauth_state = None

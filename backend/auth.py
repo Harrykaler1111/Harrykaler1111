@@ -104,7 +104,7 @@ def generate_referral_code(name: str) -> str:
 
 
 def generate_referral_link(referral_code: str, product_id: Optional[str] = None) -> str:
-    base_url = os.environ.get('FRONTEND_URL', 'https://pigma.com')
+    base_url = os.environ.get('FRONTEND_URL')
     if product_id:
         return f"{base_url}/product/{product_id}?ref={referral_code}"
     return f"{base_url}?ref={referral_code}"
