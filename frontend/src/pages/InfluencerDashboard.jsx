@@ -304,8 +304,17 @@ export const InfluencerDashboard = () => {
       const response = await axios.get(`${API}/influencers/instagram/connect`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      // Redirect to real Instagram OAuth
-      window.location.href = response.data.oauth_url;
+      const oauthUrl = response.data.oauth_url;
+      console.log("OAuth URL:", oauthUrl);
+      console.log("State:", response.data.state);
+      
+      // Verify client_id is present before redirecting
+      if (!oauthUrl || !oauthUrl.includes("client_id=")) {
+        toast.error("OAuth URL is missing client_id. Check backend configuration.");
+        return;
+      }
+      
+      window.location.href = oauthUrl;
     } catch (error) {
       toast.error(error.response?.data?.detail || "Failed to connect Instagram");
     }
