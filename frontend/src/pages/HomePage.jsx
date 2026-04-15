@@ -144,52 +144,101 @@ export const HomePage = () => {
 
       {/* Top Vendors - Zomato Style Circles */}
       {topSellers.length > 0 && (
-        <section className="py-8 md:py-12 bg-white border-b border-neutral-100" data-testid="top-vendors-hero-section">
+        <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-vendors-hero-section">
           <div className="max-w-7xl mx-auto px-4 md:px-8">
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mb-6"
+              className="mb-8 flex items-end justify-between"
             >
-              <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-neutral-400 mb-1">Top Vendors</p>
-              <h2 className="font-serif text-lg md:text-xl font-bold text-black">Shop by Store</h2>
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold/60 mb-1">Curated Sellers</p>
+                <h2 className="font-serif text-xl md:text-2xl font-bold text-white">Shop by Store</h2>
+              </div>
+              <button onClick={() => navigate("/stores")} className="text-xs text-gold/70 hover:text-gold tracking-wider uppercase transition-colors hidden md:block">
+                View All
+              </button>
             </motion.div>
 
             <div
-              className="flex gap-6 md:gap-8 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
+              className="flex gap-4 md:gap-5 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               data-testid="top-vendors-scroll"
             >
-              {topSellers.map((seller, index) => (
-                <motion.div
-                  key={seller.vendor_id}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.07 }}
-                  className="flex flex-col items-center shrink-0 group cursor-pointer"
-                  onClick={() => navigate(`/store/${seller.vendor_id}`)}
-                  data-testid={`top-vendor-circle-${seller.vendor_id}`}
-                >
-                  <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden ring-2 ring-neutral-200 group-hover:ring-gold transition-all duration-300 group-hover:scale-105 bg-gradient-to-br from-neutral-900 to-neutral-700">
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="font-serif text-2xl md:text-3xl font-bold text-gold select-none">
-                        {seller.store_name?.charAt(0).toUpperCase()}
-                      </span>
+              {topSellers.map((seller, index) => {
+                const initial = seller.store_name?.charAt(0).toUpperCase() || "S";
+                const colors = [
+                  "from-amber-500 to-orange-600",
+                  "from-rose-500 to-pink-600",
+                  "from-violet-500 to-purple-600",
+                  "from-cyan-500 to-blue-600",
+                  "from-emerald-500 to-green-600",
+                  "from-fuchsia-500 to-pink-600",
+                ];
+                const gradientClass = colors[index % colors.length];
+                const memberDate = seller.member_since ? new Date(seller.member_since).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "";
+
+                return (
+                  <motion.div
+                    key={seller.vendor_id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
+                    className="shrink-0 w-[160px] md:w-[180px] group cursor-pointer"
+                    onClick={() => navigate(`/store/${seller.vendor_id}`)}
+                    data-testid={`top-vendor-card-${seller.vendor_id}`}
+                  >
+                    <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)]">
+                      {/* Banner gradient */}
+                      <div className={`h-16 bg-gradient-to-r ${gradientClass} opacity-80`} />
+
+                      {/* Avatar */}
+                      <div className="flex justify-center -mt-8">
+                        <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-3 ring-neutral-900 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                          <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <div className="px-3 pt-2 pb-4 text-center">
+                        <h3 className="text-sm font-semibold text-white truncate group-hover:text-gold transition-colors">{seller.store_name}</h3>
+                        {seller.store_description && (
+                          <p className="text-[10px] text-neutral-500 mt-0.5 line-clamp-1">{seller.store_description}</p>
+                        )}
+
+                        {/* Stats row */}
+                        <div className="flex items-center justify-center gap-3 mt-3 pt-2.5 border-t border-neutral-800">
+                          <div className="text-center">
+                            <p className="text-xs font-bold text-white">{seller.total_products || 0}</p>
+                            <p className="text-[9px] text-neutral-500">Products</p>
+                          </div>
+                          {seller.rating > 0 ? (
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <Star className="h-2.5 w-2.5 fill-gold text-gold" />
+                                <p className="text-xs font-bold text-white">{seller.rating.toFixed(1)}</p>
+                              </div>
+                              <p className="text-[9px] text-neutral-500">Rating</p>
+                            </div>
+                          ) : memberDate ? (
+                            <div className="text-center">
+                              <p className="text-xs font-bold text-white">{memberDate}</p>
+                              <p className="text-[9px] text-neutral-500">Joined</p>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Visit button */}
+                        <button className="mt-3 w-full py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-white/5 border border-white/10 text-neutral-300 group-hover:bg-gold group-hover:text-black group-hover:border-gold transition-all duration-300">
+                          Visit Store
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <p className="mt-2 text-xs md:text-sm font-medium text-neutral-800 text-center max-w-[80px] md:max-w-[96px] truncate group-hover:text-gold transition-colors">
-                    {seller.store_name}
-                  </p>
-                  {seller.rating > 0 && (
-                    <div className="flex items-center gap-0.5 mt-0.5">
-                      <Star className="h-3 w-3 fill-gold text-gold" />
-                      <span className="text-[10px] text-neutral-500 font-medium">{seller.rating.toFixed(1)}</span>
-                    </div>
-                  )}
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </section>
