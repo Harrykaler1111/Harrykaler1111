@@ -35,11 +35,10 @@ from auth import get_current_user, get_admin_user, generate_id
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Instagram"])
 
-# ─── Environment Variables ───
-# HARDCODED App ID to prevent env loading issues in production
+# ─── HARDCODED Critical Values (prevents env loading issues in production) ───
 META_APP_ID = "1280214187553693"
-META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
-REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI")
+META_APP_SECRET = os.environ.get("META_APP_SECRET") or "c61f833e9cd67697202f5ceeca62a8f1"
+REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI") or "https://thepigma.com/api/instagram/auth/callback"
 WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
 BRAND_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 BRAND_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
@@ -108,7 +107,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
       5. Once IG Business Account found, fetch its profile
       6. Store page_access_token + ig_business_account_id in DB
     """
-    frontend_url = os.environ.get("FRONTEND_URL", "")
+    frontend_url = os.environ.get("FRONTEND_URL") or "https://thepigma.com"
 
     # ── Validate state ──
     oauth_state = None
@@ -125,7 +124,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
     async with httpx.AsyncClient(timeout=30.0) as client:
 
         # ── Step 1: Exchange code for short-lived User Access Token ──
-        logger.info(f"Step 1: Exchanging code for user access token. redirect_uri={REDIRECT_URI}")
+        logger.info(f"Step 1: Exchanging code. app_id={META_APP_ID}, redirect_uri={REDIRECT_URI}, secret_set={bool(META_APP_SECRET)}, code_len={len(code)}")
         token_resp = await client.get(
             f"{GRAPH_BASE}/oauth/access_token",
             params={
@@ -137,8 +136,10 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
         )
 
         if token_resp.status_code != 200:
-            logger.error(f"Token exchange failed ({token_resp.status_code}): {token_resp.text}")
-            return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=token_failed")
+            error_detail = token_resp.text[:200]
+            logger.error(f"Token exchange failed ({token_resp.status_code}): {error_detail}")
+            encoded_err = urllib.parse.quote(error_detail)
+            return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=token_failed&detail={encoded_err}")
 
         token_data = token_resp.json()
         short_user_token = token_data.get("access_token")

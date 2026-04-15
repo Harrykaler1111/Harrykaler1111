@@ -320,19 +320,32 @@ export const InfluencerDashboard = () => {
     }
   };
 
-  // Check for successful OAuth return
+  // Check for successful OAuth return or errors
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("connected") === "true") {
       toast.success("Instagram connected successfully!");
-      // Clean URL
       window.history.replaceState({}, "", "/influencer?tab=instagram");
-      // Refresh data
       if (token) {
         axios.get(`${API}/influencers/me`, { headers: { Authorization: `Bearer ${token}` } })
           .then(res => setInfluencer(res.data))
           .catch(() => {});
       }
+    }
+    
+    const error = params.get("error");
+    if (error) {
+      const detail = params.get("detail");
+      const errorMessages = {
+        invalid_state: "Session expired. Please try connecting again.",
+        token_failed: "Facebook token exchange failed.",
+        no_pages: "No Facebook Pages found. You need a Facebook Page linked to your Instagram Business account.",
+        no_ig_account: "No Instagram Business Account found on your Facebook Pages.",
+      };
+      const msg = errorMessages[error] || `Instagram connection error: ${error}`;
+      toast.error(detail ? `${msg}\n\nDetail: ${decodeURIComponent(detail)}` : msg, { duration: 10000 });
+      console.error("Instagram OAuth Error:", error, detail ? decodeURIComponent(detail) : "");
+      window.history.replaceState({}, "", "/influencer?tab=instagram");
     }
   }, [token]);
 
