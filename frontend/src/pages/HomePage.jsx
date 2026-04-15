@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame, UserPlus, UserCheck } from "lucide-react";
+import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame, UserPlus, UserCheck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { BundleDealsSection } from "@/components/BundleDeals";
@@ -10,6 +10,7 @@ import axios from "axios";
 import { API, useAuth } from "@/App";
 import { normalizeImageUrl, handleImageError } from "@/utils/imageUtils";
 import { toast } from "sonner";
+import { AnimatePresence } from "framer-motion";
 
 /* ─── Store Profile Card (Social Media Style) ─── */
 const GRADIENT_COLORS = [
@@ -145,38 +146,72 @@ const StoreProfileCard = ({ seller, index, navigate }) => {
   );
 };
 
-/* ─── Influencer Profile Card (Instagram Style - Opens IG Profile) ─── */
+/* ─── Influencer Profile Card (Request Collaboration) ─── */
 const InfluencerProfileCard = ({ influencer, index }) => {
+  const { user, token } = useAuth();
+  const navigate = useNavigate();
+  const [showPopup, setShowPopup] = useState(false);
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const gradientClass = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
   const displayName = influencer.name || influencer.instagram_handle?.replace("@", "") || "Creator";
   const initial = displayName.charAt(0).toUpperCase();
-  const handle = influencer.instagram_username || influencer.instagram_handle?.replace("@", "") || "";
-  const igUrl = handle ? `https://instagram.com/${handle}` : "#";
+
+  const handleRequest = async () => {
+    if (!token) { toast.error("Please sign in first"); navigate("/auth"); return; }
+
+    // Check if user is a vendor
+    try {
+      const { data } = await axios.get(`${API}/vendors/me`, { headers: { Authorization: `Bearer ${localStorage.getItem("pigma_vendor_token")}` } });
+      if (data?.vendor_id) {
+        setShowPopup(true);
+        return;
+      }
+    } catch {}
+
+    toast("Register as a vendor to collaborate with influencers", {
+      description: "Vendors can send collaboration requests to influencers to promote their products.",
+      action: { label: "Become a Vendor", onClick: () => navigate("/vendor/register") },
+      duration: 6000,
+    });
+  };
+
+  const sendRequest = async () => {
+    setSending(true);
+    try {
+      const vendorToken = localStorage.getItem("pigma_vendor_token");
+      await axios.post(`${API}/influencers/collab/request`, {
+        influencer_id: influencer.influencer_id,
+        message: message,
+      }, { headers: { Authorization: `Bearer ${vendorToken}` } });
+      toast.success("Request sent! The influencer will review it.");
+      setShowPopup(false);
+      setMessage("");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to send request");
+    }
+    setSending(false);
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
-      className="shrink-0 w-[170px] md:w-[190px]"
-      data-testid={`influencer-card-${influencer.influencer_id}`}
-    >
-      <a href={igUrl} target="_blank" rel="noopener noreferrer" className="block">
-        <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-pink-500/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(236,72,153,0.12)] group">
-          <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80 relative`}>
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTAiIGN5PSIxMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-50" />
-          </div>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
+        className="shrink-0 w-[170px] md:w-[190px]"
+        data-testid={`influencer-card-${influencer.influencer_id}`}
+      >
+        <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)] group">
+          <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80`} />
           <div className="flex justify-center -mt-7 relative z-10">
-            <div className="p-[2px] rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600">
-              <div className="w-[52px] h-[52px] rounded-full bg-neutral-900 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
-              </div>
+            <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+              <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
             </div>
           </div>
           <div className="px-3 pt-1.5 pb-3.5 text-center">
-            <h3 className="text-[13px] font-semibold text-white truncate group-hover:text-pink-400 transition-colors">{displayName}</h3>
-            {handle && <p className="text-[10px] text-pink-400/60 truncate">@{handle}</p>}
+            <h3 className="text-[13px] font-semibold text-white truncate">{displayName}</h3>
             {influencer.niche && (
               <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">
                 {Array.isArray(influencer.niche) ? influencer.niche[0] : influencer.niche}
@@ -198,14 +233,66 @@ const InfluencerProfileCard = ({ influencer, index }) => {
                 <p className="text-[8px] text-neutral-500 mt-0.5">Sales</p>
               </div>
             </div>
-            <div className="mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 text-white group-hover:shadow-[0_0_20px_rgba(236,72,153,0.3)] transition-all duration-300">
-              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-              View Profile
-            </div>
+            <button
+              onClick={handleRequest}
+              className="mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-gold/90 text-black border border-gold hover:bg-gold transition-all duration-300"
+              data-testid={`request-influencer-${influencer.influencer_id}`}
+            >
+              <Send className="h-3 w-3" /> Request
+            </button>
           </div>
         </div>
-      </a>
-    </motion.div>
+      </motion.div>
+
+      {/* Collaboration Request Popup */}
+      <AnimatePresence>
+        {showPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            onClick={() => setShowPopup(false)}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-6 w-full max-w-sm z-10"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="collab-request-popup"
+            >
+              <h3 className="text-base font-semibold text-white mb-1">Collaborate with {displayName}</h3>
+              <p className="text-xs text-neutral-400 mb-4">Send a message to this influencer. If they accept, their contact details will be shared with you.</p>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Hi! I'd love for you to promote our products..."
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-3 text-sm text-white placeholder:text-neutral-500 resize-none h-24 focus:border-gold/50 focus:outline-none"
+                data-testid="collab-message-input"
+              />
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={() => setShowPopup(false)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendRequest}
+                  disabled={sending}
+                  className="flex-1 py-2 rounded-lg text-xs font-bold bg-gold text-black hover:bg-gold/90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  data-testid="send-collab-request-btn"
+                >
+                  {sending ? "Sending..." : <><Send className="h-3 w-3" /> Send Request</>}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

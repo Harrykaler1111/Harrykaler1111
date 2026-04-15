@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel as PydanticBaseModel
 from typing import Dict, List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -152,6 +153,123 @@ async def influencer_follow_status(influencer_id: str, user: Dict = Depends(get_
     existing = await db.influencer_follows.find_one({"user_id": user["user_id"], "influencer_id": influencer_id})
     count = await db.influencer_follows.count_documents({"influencer_id": influencer_id})
     return {"following": existing is not None, "followers": count}
+
+
+# ============== COLLABORATION REQUESTS ==============
+
+class CollabRequest(PydanticBaseModel):
+    influencer_id: str
+    message: str = ""
+    product_ids: List[str] = []
+
+
+@router.post("/collab/request")
+async def send_collab_request(data: CollabRequest, user: Dict = Depends(get_current_user)):
+    """Vendor sends a collaboration request to an influencer"""
+    # Must be a vendor
+    vendor = await db.vendors.find_one({"user_id": user["user_id"], "status": "approved"}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(status_code=403, detail="Only registered vendors can send collaboration requests. Please register as a vendor first.")
+
+    influencer = await db.influencers.find_one({"influencer_id": data.influencer_id}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+
+    # Check for duplicate pending request
+    existing = await db.collab_requests.find_one({
+        "vendor_id": vendor["vendor_id"],
+        "influencer_id": data.influencer_id,
+        "status": "pending"
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a pending request with this influencer")
+
+    request_doc = {
+        "request_id": generate_id("collab_"),
+        "vendor_id": vendor["vendor_id"],
+        "vendor_name": vendor.get("store_name", ""),
+        "vendor_user_id": user["user_id"],
+        "influencer_id": data.influencer_id,
+        "influencer_name": influencer.get("name", ""),
+        "message": data.message,
+        "product_ids": data.product_ids,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.collab_requests.insert_one(request_doc)
+
+    return {"message": "Collaboration request sent!", "request_id": request_doc["request_id"]}
+
+
+@router.get("/collab/my-requests")
+async def get_my_collab_requests(user: Dict = Depends(get_current_user)):
+    """Influencer views their incoming requests"""
+    influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Not an influencer")
+
+    requests = await db.collab_requests.find(
+        {"influencer_id": influencer["influencer_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return requests
+
+
+@router.put("/collab/{request_id}/accept")
+async def accept_collab(request_id: str, user: Dict = Depends(get_current_user)):
+    """Influencer accepts a collab request — shares contact info with vendor"""
+    influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Not an influencer")
+
+    req = await db.collab_requests.find_one({"request_id": request_id, "influencer_id": influencer["influencer_id"]}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    user_record = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "phone": 1, "email": 1})
+
+    await db.collab_requests.update_one(
+        {"request_id": request_id},
+        {"$set": {
+            "status": "accepted",
+            "influencer_contact": {
+                "email": user_record.get("email", ""),
+                "phone": user_record.get("phone", ""),
+                "instagram": influencer.get("instagram_handle", ""),
+            },
+            "accepted_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {"message": "Request accepted. Your contact details have been shared with the vendor."}
+
+
+@router.put("/collab/{request_id}/reject")
+async def reject_collab(request_id: str, user: Dict = Depends(get_current_user)):
+    """Influencer rejects a collab request"""
+    influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not influencer:
+        raise HTTPException(status_code=404, detail="Not an influencer")
+
+    await db.collab_requests.update_one(
+        {"request_id": request_id, "influencer_id": influencer["influencer_id"]},
+        {"$set": {"status": "rejected", "rejected_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Request rejected"}
+
+
+@router.get("/collab/vendor-requests")
+async def get_vendor_collab_requests(user: Dict = Depends(get_current_user)):
+    """Vendor views their sent requests + contact details for accepted ones"""
+    vendor = await db.vendors.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Not a vendor")
+
+    requests = await db.collab_requests.find(
+        {"vendor_id": vendor["vendor_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return requests
+
 
 
 @router.get("/referral-links")
