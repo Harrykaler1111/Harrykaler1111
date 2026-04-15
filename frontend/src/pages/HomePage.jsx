@@ -194,18 +194,24 @@ const InfluencerProfileCard = ({ influencer, index, navigate }) => {
     >
       <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)] group">
         {/* Banner gradient */}
-        <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80`} />
+        <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80 cursor-pointer`} onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)} />
 
         {/* Avatar */}
         <div className="flex justify-center -mt-7 relative z-10">
-          <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+          <div
+            className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg cursor-pointer group-hover:scale-105 transition-transform duration-300`}
+            onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)}
+          >
             <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
           </div>
         </div>
 
         {/* Info */}
         <div className="px-3 pt-1.5 pb-3.5 text-center">
-          <h3 className="text-[13px] font-semibold text-white truncate group-hover:text-gold transition-colors">{displayName}</h3>
+          <h3
+            className="text-[13px] font-semibold text-white truncate cursor-pointer group-hover:text-gold transition-colors"
+            onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)}
+          >{displayName}</h3>
           {handle && <p className="text-[10px] text-neutral-500 truncate">@{handle}</p>}
           {influencer.niche && (
             <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">

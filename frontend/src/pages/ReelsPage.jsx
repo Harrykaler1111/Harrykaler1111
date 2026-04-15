@@ -286,34 +286,26 @@ export default function ReelsPage() {
   // Image index for active vendor product (parent-controlled for swipe navigation)
   const [vendorImgIdx, setVendorImgIdx] = useState(0);
 
+  // Influencer info for filtered mode
+  const [filterInfluencer, setFilterInfluencer] = useState(null);
+
   // Touch tracking
   const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const [swipeHint, setSwipeHint] = useState("");
 
-  // Influencers for NykaaPlay-style strip
-  const [creators, setCreators] = useState([]);
-  const [selectedCreator, setSelectedCreator] = useState(null);
+  const searchParams = new URLSearchParams(window.location.search);
+  const influencerFilter = searchParams.get("influencer");
 
-  useEffect(() => {
-    axios.get(`${API}/influencers/featured?limit=12`).then(({ data }) => {
-      if (Array.isArray(data)) setCreators(data);
-    }).catch(() => {});
-  }, []);
-
-  // Filter by creator
-  const handleCreatorTap = useCallback(async (creator) => {
-    if (selectedCreator?.influencer_id === creator.influencer_id) {
-      setSelectedCreator(null);
-      return;
-    }
-    setSelectedCreator(creator);
-    // Could filter products by this influencer in future
-  }, [selectedCreator]);
-
-  // ── Load global feed ──
+  // ── Load global feed (or influencer-filtered feed) ──
   useEffect(() => {
     (async () => {
       try {
+        if (influencerFilter) {
+          const infRes = await axios.get(`${API}/influencers/featured?limit=50`).catch(() => ({ data: [] }));
+          const allInfluencers = Array.isArray(infRes.data) ? infRes.data : [];
+          const inf = allInfluencers.find(i => i.influencer_id === influencerFilter);
+          if (inf) setFilterInfluencer(inf);
+        }
         const { data } = await axios.get(`${API}/vendor-credits/reels-feed?limit=50`);
         setGlobalProducts(data.products || []);
       } catch {
@@ -324,7 +316,7 @@ export default function ReelsPage() {
       }
       setLoading(false);
     })();
-  }, []);
+  }, [influencerFilter]);
 
   // ── IntersectionObserver for global feed ──
   useEffect(() => {
@@ -534,47 +526,19 @@ export default function ReelsPage() {
               <div className={`h-1.5 rounded-full transition-all duration-300 ${feedMode === "vendor" ? "w-3 bg-white" : "w-1.5 bg-white/30"}`} />
             </div>
             <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase line-clamp-1 max-w-[200px]">
-              {isVendorMode ? vendorLabel : "Explore"}
+              {isVendorMode ? vendorLabel : filterInfluencer ? filterInfluencer.name : "Explore"}
             </span>
           </div>
         </div>
 
-        {/* ─── NykaaPlay-style Creator Strip ─── */}
-        {!isVendorMode && creators.length > 0 && (
-          <div className="absolute top-11 left-0 right-0 z-20" data-testid="creator-strip">
-            <div
-              className="flex gap-3 overflow-x-auto px-12 py-1.5 scrollbar-hide"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {creators.map((c, i) => {
-                const isActive = selectedCreator?.influencer_id === c.influencer_id;
-                const name = c.name?.split(" ")[0] || c.instagram_handle?.replace("@", "") || "Creator";
-                const initial = name.charAt(0).toUpperCase();
-                const RING_COLORS = [
-                  "from-amber-400 to-orange-500",
-                  "from-rose-400 to-pink-500",
-                  "from-violet-400 to-purple-500",
-                  "from-cyan-400 to-blue-500",
-                  "from-emerald-400 to-green-500",
-                  "from-fuchsia-400 to-pink-500",
-                ];
-                const ring = RING_COLORS[i % RING_COLORS.length];
-                return (
-                  <div
-                    key={c.influencer_id}
-                    className="flex flex-col items-center shrink-0 cursor-pointer"
-                    onClick={() => handleCreatorTap(c)}
-                    data-testid={`creator-bubble-${c.influencer_id}`}
-                  >
-                    <div className={`p-[2px] rounded-full bg-gradient-to-tr ${ring} ${isActive ? "shadow-[0_0_12px_rgba(255,255,255,0.3)]" : "opacity-70"}`}>
-                      <div className={`w-10 h-10 rounded-full bg-black flex items-center justify-center ${isActive ? "ring-1 ring-white" : ""}`}>
-                        <span className="text-xs font-bold text-white">{initial}</span>
-                      </div>
-                    </div>
-                    <span className={`text-[8px] mt-0.5 max-w-[42px] truncate ${isActive ? "text-white font-semibold" : "text-white/50"}`}>{name}</span>
-                  </div>
-                );
-              })}
+        {/* Influencer banner when filtered */}
+        {filterInfluencer && !isVendorMode && (
+          <div className="absolute top-10 left-0 right-0 z-20 flex justify-center pointer-events-none">
+            <div className="bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
+                <span className="text-[8px] font-bold text-white">{filterInfluencer.name?.charAt(0)}</span>
+              </div>
+              <span className="text-[10px] text-white/70">@{filterInfluencer.instagram_username || filterInfluencer.instagram_handle}</span>
             </div>
           </div>
         )}
@@ -603,7 +567,6 @@ export default function ReelsPage() {
                     product={product}
                     isActive={idx === globalActiveIdx}
                     isVendorMode={false}
-                    onStoreClick={(product.vendor_id || product.category) ? ((e) => handleStoreClick(e, product)) : undefined}
                   />
                 </div>
               ))}
