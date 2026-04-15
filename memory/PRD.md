@@ -7,7 +7,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
 - **Backend**: FastAPI + MongoDB
 - **Auth**: JWT + Firebase Phone OTP
-- **Integrations**: Firebase, Razorpay (LIVE), Resend, Interakt WhatsApp, Instagram Graph API (LIVE), OpenAI (KYC OCR), Emergent Object Storage
+- **Integrations**: Firebase, Razorpay (LIVE), Resend, Interakt WhatsApp, Facebook Graph API v19.0 (LIVE), OpenAI (KYC OCR), Emergent Object Storage
 
 ## What's Been Implemented
 
@@ -25,17 +25,18 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 ### Reels / Explore
 - 3-layer swipe navigation: Global → Vendor Mode → Image Carousel
 - Swipe left/right cycles through product variant images inline
-- Color variant badge shows current color (e.g., "Bottle Green 3/3")
+- Color variant badge shows current color
 - Add to cart captures the exact variant being viewed
-- Vertical scroll for next product
 
-### Instagram Integration (LIVE)
-- Real Meta Graph API OAuth for influencer accounts
-- Webhook endpoint for comments + messages
-- Auto-DM system: comment on influencer post → DM with product referral link
-- Rate limiting + duplicate protection
-- Brand account @officialpigma connected
-- Admin endpoints for DM config and connection status
+### Instagram Integration (REBUILT - Facebook Graph API v19.0)
+- **OAuth**: Uses `www.facebook.com/v19.0/dialog/oauth` (Facebook Login for Business)
+- **Scopes**: instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement, business_management
+- **Token flow**: Code → User Token → Long-lived Token → Facebook Pages → Page Access Token → IG Business Account
+- **Messaging**: All DMs sent via PAGE ACCESS TOKEN (non-expiring for pages)
+- **Webhooks**: Handles comments, messages, messaging_postbacks from Graph API
+- **Auto-DM**: Comment on influencer post → auto-DM with product referral link
+- **Admin**: DM config, connection status, brand account management
+- **Meta App ID**: 1280214187553693
 
 ### Razorpay (LIVE - all real, no mocks)
 - Customer checkout payments
@@ -44,39 +45,38 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - Vendor promotion credits
 
 ### Dynamic Credit Pricing
-- Admin sets credit rate (₹ per credit) from panel
+- Admin sets credit rate from panel
 - All frontend components fetch and display dynamic pricing
-- Pack prices auto-calculate based on admin-set rate
 
 ### Site Popup System
-- Recurring popup with admin-controlled interval (minutes)
-- Background timer checks every 60s
+- Recurring popup with admin-controlled interval
 - localStorage timestamp-based, survives page refresh
-- Excluded from admin pages
-- Glassmorphic UI
 
 ### Admin Features
 - Admin Dashboard (products, orders, vendors, KYC)
-- Site Popup Manager (enable/disable, interval, force, media, CTA)
+- Site Popup Manager
 - Credit Pricing Manager
 - Instagram connection status + auto-DM config
 
 ### Other
 - Data Deletion page (/data-deletion)
+- Follow/Unfollow system for stores and influencers
+- Social-media style profile cards
 - Footer links for policies
 
 ## Key API Endpoints
-- `GET/POST /api/webhooks/instagram` — Instagram webhook verify + events
-- `GET /api/influencers/instagram/connect` — OAuth URL generation
-- `GET /api/influencers/instagram/callback` — OAuth token exchange
+- `GET /api/instagram/auth/login` — Facebook v19.0 OAuth URL generation
+- `GET /api/instagram/auth/callback` — Code exchange + Page token flow
+- `GET /api/instagram/auth/status` — Connection status check
+- `POST /api/instagram/auth/disconnect` — Disconnect account
+- `GET/POST /api/webhooks/instagram` — Webhook verify + event handler
+- `GET /api/influencers/instagram/connect` — Influencer OAuth URL
 - `POST /api/influencers/instagram/posts` — Register post-product mapping
 - `GET/PUT /api/admin/instagram/dm-config` — Auto-DM settings
-- `GET /api/admin/instagram/status` — Connection status
-- `POST /api/vendors/wallet/topup` + `/verify` — Real Razorpay wallet
-- `POST /api/vendor-credits/purchase` + `/verify` — Real Razorpay credits
+- `GET /api/admin/instagram/status` — Connection status (admin)
+- `POST /api/vendors/wallet/topup` + `/verify` — Razorpay wallet
+- `POST /api/vendor-credits/purchase` + `/verify` — Razorpay credits
 - `GET /api/vendor-credits/pricing` — Dynamic credit rate
-- `PUT /api/vendor-credits/admin/pricing` — Admin set credit rate
-- `GET /api/popup/config` — Public popup config with interval
 
 ## Pending Tasks
 
@@ -90,7 +90,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - AdminDashboard.jsx refactoring (3700+ lines → smaller files)
 
 ## 3rd Party Credentials
-- Meta App ID: 957392783642123
+- Meta App ID: 1280214187553693
 - Instagram Webhook Verify Token: pigma_ig_verify_2024
 - Razorpay: LIVE keys in .env
 - Firebase: User's config in frontend
