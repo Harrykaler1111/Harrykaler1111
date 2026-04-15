@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Store, Mail, Lock, User, Phone, FileText, Eye, EyeOff } from "lucide-react";
+import { Store, Mail, Lock, User, Phone, FileText, Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -60,6 +60,15 @@ export const VendorAuthPage = () => {
 
   return (
     <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4" data-testid="vendor-auth-page">
+      {/* Back to Home */}
+      <button
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4 flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors z-10"
+        data-testid="vendor-auth-back-btn"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-xs">Back to Home</span>
+      </button>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md">
         <div className="text-center mb-8">
