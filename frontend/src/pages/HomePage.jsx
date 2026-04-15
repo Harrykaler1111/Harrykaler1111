@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame, UserPlus, UserCheck, Send } from "lucide-react";
+import { ArrowRight, Star, Truck, Shield, RefreshCw, ChevronLeft, ChevronRight, Flame, UserPlus, UserCheck, Send, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/ProductCard";
 import { BundleDealsSection } from "@/components/BundleDeals";
@@ -151,6 +151,7 @@ const InfluencerProfileCard = ({ influencer, index }) => {
   const { user, token } = useAuth();
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
+  const [showRegisterPopup, setShowRegisterPopup] = useState(false);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const gradientClass = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
@@ -158,22 +159,26 @@ const InfluencerProfileCard = ({ influencer, index }) => {
   const initial = displayName.charAt(0).toUpperCase();
 
   const handleRequest = async () => {
-    if (!token) { toast.error("Please sign in first"); navigate("/auth"); return; }
+    if (!token) {
+      // Not logged in — show register popup which will redirect to auth
+      setShowRegisterPopup(true);
+      return;
+    }
 
     // Check if user is a vendor
     try {
-      const { data } = await axios.get(`${API}/vendors/me`, { headers: { Authorization: `Bearer ${localStorage.getItem("pigma_vendor_token")}` } });
-      if (data?.vendor_id) {
-        setShowPopup(true);
-        return;
+      const vendorToken = localStorage.getItem("pigma_vendor_token");
+      if (vendorToken) {
+        const { data } = await axios.get(`${API}/vendors/me`, { headers: { Authorization: `Bearer ${vendorToken}` } });
+        if (data?.vendor_id) {
+          setShowPopup(true);
+          return;
+        }
       }
     } catch {}
 
-    toast("Register as a vendor to collaborate with influencers", {
-      description: "Vendors can send collaboration requests to influencers to promote their products.",
-      action: { label: "Become a Vendor", onClick: () => navigate("/vendor/register") },
-      duration: 6000,
-    });
+    // Logged in but not a vendor — show register popup
+    setShowRegisterPopup(true);
   };
 
   const sendRequest = async () => {
@@ -238,11 +243,57 @@ const InfluencerProfileCard = ({ influencer, index }) => {
               className="mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-gold/90 text-black border border-gold hover:bg-gold transition-all duration-300"
               data-testid={`request-influencer-${influencer.influencer_id}`}
             >
-              <Send className="h-3 w-3" /> Request
+              <Send className="h-3 w-3" /> Collab
             </button>
           </div>
         </div>
       </motion.div>
+
+      {/* Register as Vendor First Popup */}
+      <AnimatePresence>
+        {showRegisterPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            onClick={() => setShowRegisterPopup(false)}
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="relative bg-neutral-900 border border-neutral-700 rounded-2xl p-6 w-full max-w-sm z-10 text-center"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="register-vendor-popup"
+            >
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-gradient-to-br from-gold/20 to-amber-500/20 flex items-center justify-center">
+                <Store className="h-7 w-7 text-gold" />
+              </div>
+              <h3 className="text-base font-semibold text-white mb-2">Register as a Vendor First</h3>
+              <p className="text-xs text-neutral-400 leading-relaxed mb-5">
+                To collaborate with influencers and get them to promote your products, you need to register as a vendor on Pigma.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowRegisterPopup(false)}
+                  className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700 transition-colors"
+                >
+                  Maybe Later
+                </button>
+                <button
+                  onClick={() => { setShowRegisterPopup(false); navigate("/vendor/register"); }}
+                  className="flex-1 py-2.5 rounded-lg text-xs font-bold bg-gold text-black hover:bg-gold/90 transition-colors flex items-center justify-center gap-1.5"
+                  data-testid="go-vendor-register-btn"
+                >
+                  <ArrowRight className="h-3 w-3" /> Register Now
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Collaboration Request Popup */}
       <AnimatePresence>
