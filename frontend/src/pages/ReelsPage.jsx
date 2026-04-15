@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
   <div className="h-full flex flex-col bg-black" data-testid="vendor-side-panel">
     <div className="flex justify-center px-1 pt-2 pb-1">
       <div className="bg-white/90 text-black text-[8px] font-bold px-1.5 py-0.5 rounded leading-tight text-center" data-testid="vendor-works-count">
-        <div className="text-[7px] font-medium leading-none">Works</div>
+        <div className="text-[7px] font-medium leading-none">Posts</div>
         <div className="text-[10px] leading-none">{totalCount}</div>
       </div>
     </div>
@@ -197,14 +197,14 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
 
       {/* Right side action buttons */}
       <div className="absolute right-3 bottom-44 sm:bottom-28 flex flex-col items-center gap-4 z-10">
-        {/* Store / Seller button */}
+        {/* Influencer profile button */}
         {onStoreClick && (
-          <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-vendor-${product.product_id}`}>
-            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
-              <Store className="h-5 w-5 text-white" />
+          <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-influencer-${product.product_id}`}>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center border-2 border-white/40">
+              <User className="h-5 w-5 text-white" />
             </div>
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-              <Plus className="h-2.5 w-2.5 text-white" />
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-gold rounded-full flex items-center justify-center">
+              <Plus className="h-2.5 w-2.5 text-black" />
             </div>
           </button>
         )}
@@ -504,7 +504,7 @@ export default function ReelsPage() {
 
   const hintText = isVendorMode
     ? "Swipe left for photos  |  right to go back"
-    : "Swipe left for seller";
+    : "Swipe left for influencer";
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" data-testid="reels-page">
@@ -567,6 +567,7 @@ export default function ReelsPage() {
                     product={product}
                     isActive={idx === globalActiveIdx}
                     isVendorMode={false}
+                    onStoreClick={(product.vendor_id || product.category) ? ((e) => handleStoreClick(e, product)) : undefined}
                   />
                 </div>
               ))}
@@ -589,7 +590,7 @@ export default function ReelsPage() {
                   </div>
                 ) : vendorProducts.length === 0 ? (
                   <div className="w-full h-screen flex flex-col items-center justify-center text-white">
-                    <p className="text-sm text-white/50">No products from this seller</p>
+                    <p className="text-sm text-white/50">No products from this influencer</p>
                   </div>
                 ) : (
                   vendorProducts.map((product, idx) => (
@@ -642,7 +643,7 @@ export default function ReelsPage() {
                 {(swipeHint === "vendor" || swipeHint === "photo") && <ChevronLeft className="h-4 w-4 text-white/80" />}
                 {(swipeHint === "global" || swipeHint === "home" || swipeHint === "photo-back") && <ChevronRight className="h-4 w-4 text-white/80" />}
                 <span className="text-white text-xs font-medium">
-                  {swipeHint === "vendor" && "Seller Products"}
+                  {swipeHint === "vendor" && "Influencer Feed"}
                   {swipeHint === "photo" && "Next Photo"}
                   {swipeHint === "photo-back" && "Previous Photo"}
                   {swipeHint === "global" && "Back to Feed"}
