@@ -28,13 +28,14 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - Color variant badge shows current color
 - Add to cart captures the exact variant being viewed
 
-### Instagram Integration (REBUILT - Facebook Graph API v19.0)
+### Instagram Integration (Facebook Graph API v19.0)
 - **OAuth**: Uses `www.facebook.com/v19.0/dialog/oauth` (Facebook Login for Business)
 - **Scopes**: instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement, business_management
 - **Token flow**: Code → User Token → Long-lived Token → Facebook Pages → Page Access Token → IG Business Account
 - **Messaging**: All DMs sent via PAGE ACCESS TOKEN (non-expiring for pages)
 - **Webhooks**: Handles comments, messages, messaging_postbacks from Graph API
 - **Auto-DM**: Comment on influencer post → auto-DM with product referral link
+- **Health Dashboard**: Token expiry countdown, DM delivery rates (today/week/month/all-time), webhook event logs, automation stats with 30s auto-refresh
 - **Admin**: DM config, connection status, brand account management
 - **Meta App ID**: 1280214187553693
 
@@ -69,6 +70,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - `GET /api/instagram/auth/callback` — Code exchange + Page token flow
 - `GET /api/instagram/auth/status` — Connection status check
 - `POST /api/instagram/auth/disconnect` — Disconnect account
+- `GET /api/instagram/health-dashboard` — Token health, DM rates, webhook logs, automation stats
 - `GET/POST /api/webhooks/instagram` — Webhook verify + event handler
 - `GET /api/influencers/instagram/connect` — Influencer OAuth URL
 - `POST /api/influencers/instagram/posts` — Register post-product mapping
