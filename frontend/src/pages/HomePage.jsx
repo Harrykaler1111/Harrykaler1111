@@ -145,6 +145,126 @@ const StoreProfileCard = ({ seller, index, navigate }) => {
   );
 };
 
+/* ─── Influencer Profile Card (Creator Style) ─── */
+const CREATOR_GRADIENTS = [
+  "from-pink-500 via-red-500 to-yellow-500",
+  "from-purple-500 via-violet-500 to-indigo-500",
+  "from-cyan-400 via-teal-500 to-emerald-500",
+  "from-orange-400 via-rose-500 to-pink-500",
+  "from-blue-500 via-indigo-500 to-purple-500",
+  "from-yellow-400 via-amber-500 to-orange-500",
+];
+
+const InfluencerProfileCard = ({ influencer, index, navigate }) => {
+  const { token } = useAuth();
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followers, setFollowers] = useState(influencer.followers || 0);
+  const [busy, setBusy] = useState(false);
+
+  const gradientClass = CREATOR_GRADIENTS[index % CREATOR_GRADIENTS.length];
+  const displayName = influencer.name || influencer.instagram_handle?.replace("@", "") || "Creator";
+  const initial = displayName.charAt(0).toUpperCase();
+  const handle = influencer.instagram_username || influencer.instagram_handle?.replace("@", "") || "";
+
+  const handleFollow = useCallback(async (e) => {
+    e.stopPropagation();
+    if (!token) { toast.error("Sign in to follow creators"); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const endpoint = isFollowing ? "unfollow" : "follow";
+      const { data } = await axios.post(`${API}/influencers/${influencer.influencer_id}/${endpoint}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    } catch { toast.error("Try again"); }
+    setBusy(false);
+  }, [isFollowing, token, influencer.influencer_id, busy]);
+
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/influencers/${influencer.influencer_id}/follow-status`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(({ data }) => {
+      setIsFollowing(data.following);
+      setFollowers(data.followers);
+    }).catch(() => {});
+  }, [token, influencer.influencer_id]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
+      className="shrink-0 w-[155px] md:w-[175px]"
+      data-testid={`influencer-card-${influencer.influencer_id}`}
+    >
+      <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-pink-500/30 transition-all duration-500 group">
+        {/* Instagram-style gradient ring banner */}
+        <div className={`h-12 bg-gradient-to-r ${gradientClass} opacity-90`} />
+
+        {/* Avatar with gradient ring */}
+        <div className="flex justify-center -mt-7 relative z-10">
+          <div className={`p-[2px] rounded-full bg-gradient-to-tr ${gradientClass}`}>
+            <div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center">
+              <span className="font-serif text-lg font-bold text-white select-none">{initial}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="px-3 pt-1 pb-3.5 text-center">
+          <h3 className="text-[13px] font-semibold text-white truncate">{displayName}</h3>
+          {handle && (
+            <p className="text-[10px] text-pink-400/70 truncate">@{handle}</p>
+          )}
+          {influencer.niche && (
+            <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">{influencer.niche}</span>
+          )}
+
+          {/* Stats */}
+          <div className="flex items-center justify-evenly mt-2.5 pt-2 border-t border-neutral-800/80">
+            <div className="text-center px-1">
+              <p className="text-xs font-bold text-white leading-none">{followers}</p>
+              <p className="text-[8px] text-neutral-500 mt-0.5">Followers</p>
+            </div>
+            <div className="w-px h-5 bg-neutral-800" />
+            <div className="text-center px-1">
+              <p className="text-xs font-bold text-white leading-none">{influencer.posts || 0}</p>
+              <p className="text-[8px] text-neutral-500 mt-0.5">Posts</p>
+            </div>
+            <div className="w-px h-5 bg-neutral-800" />
+            <div className="text-center px-1">
+              <p className="text-xs font-bold text-white leading-none">{influencer.total_sales || 0}</p>
+              <p className="text-[8px] text-neutral-500 mt-0.5">Sales</p>
+            </div>
+          </div>
+
+          {/* Follow Button — Instagram gradient style */}
+          <button
+            onClick={handleFollow}
+            disabled={busy}
+            className={`mt-2.5 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ${
+              isFollowing
+                ? "bg-white/5 border border-white/15 text-neutral-400 hover:border-red-500/40 hover:text-red-400"
+                : `bg-gradient-to-r ${gradientClass} text-white border-0 hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]`
+            }`}
+            data-testid={`follow-influencer-${influencer.influencer_id}`}
+          >
+            {isFollowing ? (
+              <><UserCheck className="h-3 w-3" /> Following</>
+            ) : (
+              <><UserPlus className="h-3 w-3" /> Follow</>
+            )}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 export const HomePage = () => {
   const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState([]);
@@ -164,21 +284,25 @@ export const HomePage = () => {
     carouselRef.current.scrollBy({ left: dir === "left" ? -scrollAmount : scrollAmount, behavior: "smooth" });
   };
 
+  const [topInfluencers, setTopInfluencers] = useState([]);
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const [featuredRes, newRes, sellersRes, bestRes, heroRes] = await Promise.all([
+        const [featuredRes, newRes, sellersRes, bestRes, heroRes, influencerRes] = await Promise.all([
           axios.get(`${API}/products/featured?limit=4`),
           axios.get(`${API}/products/new-arrivals?limit=8`),
           axios.get(`${API}/vendors/top-sellers?limit=6`).catch(() => ({ data: [] })),
           axios.get(`${API}/products/best-sellers?limit=10`).catch(() => ({ data: [] })),
-          axios.get(`${API}/admin/site/hero-video`).catch(() => ({ data: null }))
+          axios.get(`${API}/admin/site/hero-video`).catch(() => ({ data: null })),
+          axios.get(`${API}/influencers/featured?limit=8`).catch(() => ({ data: [] }))
         ]);
         setFeaturedProducts(featuredRes.data);
         setNewArrivals(newRes.data);
         setTopSellers(sellersRes.data);
         setBestSellers(bestRes.data);
         if (heroRes.data?.video_url) setHeroVideo(heroRes.data);
+        setTopInfluencers(Array.isArray(influencerRes.data) ? influencerRes.data : []);
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {
@@ -303,6 +427,38 @@ export const HomePage = () => {
             >
               {topSellers.map((seller, index) => (
                 <StoreProfileCard key={seller.vendor_id} seller={seller} index={index} navigate={navigate} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Top Creators / Influencers ─── */}
+      {topInfluencers.length > 0 && (
+        <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-influencers-section">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-8 flex items-end justify-between"
+            >
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-pink-400/60 mb-1">Top Creators</p>
+                <h2 className="font-serif text-xl md:text-2xl font-bold text-white">Shop via Influencers</h2>
+              </div>
+              <button onClick={() => navigate("/influencer/apply")} className="text-xs text-pink-400/70 hover:text-pink-400 tracking-wider uppercase transition-colors hidden md:block">
+                Become a Creator
+              </button>
+            </motion.div>
+
+            <div
+              className="flex gap-4 md:gap-5 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              data-testid="top-influencers-scroll"
+            >
+              {topInfluencers.map((inf, index) => (
+                <InfluencerProfileCard key={inf.influencer_id} influencer={inf} index={index} navigate={navigate} />
               ))}
             </div>
           </div>

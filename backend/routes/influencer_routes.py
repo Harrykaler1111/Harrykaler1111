@@ -91,6 +91,69 @@ async def get_influencer_leaderboard(limit: int = 10):
     return [InfluencerResponse(**i) for i in influencers]
 
 
+@router.get("/featured")
+async def get_featured_influencers(limit: int = 10):
+    """Public endpoint — featured influencers with follower counts"""
+    influencers = await db.influencers.find(
+        {"status": "approved"},
+        {"_id": 0, "instagram_access_token": 0}
+    ).sort("total_earnings", -1).limit(limit).to_list(limit)
+
+    results = []
+    for inf in influencers:
+        follower_count = await db.influencer_follows.count_documents({"influencer_id": inf["influencer_id"]})
+        post_count = await db.instagram_posts.count_documents({"influencer_id": inf["influencer_id"]})
+        results.append({
+            "influencer_id": inf["influencer_id"],
+            "name": inf.get("name", ""),
+            "instagram_handle": inf.get("instagram_handle", ""),
+            "instagram_username": inf.get("instagram_username", ""),
+            "instagram_connected": inf.get("instagram_connected", False),
+            "niche": inf.get("niche", ""),
+            "followers": follower_count,
+            "posts": post_count,
+            "total_sales": inf.get("total_sales", 0),
+            "total_earnings": inf.get("total_earnings", 0),
+            "referral_code": inf.get("referral_code", ""),
+        })
+    return results
+
+
+@router.post("/{influencer_id}/follow")
+async def follow_influencer(influencer_id: str, user: Dict = Depends(get_current_user)):
+    """Follow an influencer"""
+    inf = await db.influencers.find_one({"influencer_id": influencer_id}, {"_id": 0, "influencer_id": 1})
+    if not inf:
+        raise HTTPException(status_code=404, detail="Influencer not found")
+    existing = await db.influencer_follows.find_one({"user_id": user["user_id"], "influencer_id": influencer_id})
+    if existing:
+        count = await db.influencer_follows.count_documents({"influencer_id": influencer_id})
+        return {"following": True, "followers": count}
+    await db.influencer_follows.insert_one({
+        "user_id": user["user_id"],
+        "influencer_id": influencer_id,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    count = await db.influencer_follows.count_documents({"influencer_id": influencer_id})
+    return {"following": True, "followers": count}
+
+
+@router.post("/{influencer_id}/unfollow")
+async def unfollow_influencer(influencer_id: str, user: Dict = Depends(get_current_user)):
+    """Unfollow an influencer"""
+    await db.influencer_follows.delete_one({"user_id": user["user_id"], "influencer_id": influencer_id})
+    count = await db.influencer_follows.count_documents({"influencer_id": influencer_id})
+    return {"following": False, "followers": count}
+
+
+@router.get("/{influencer_id}/follow-status")
+async def influencer_follow_status(influencer_id: str, user: Dict = Depends(get_current_user)):
+    """Check if user follows an influencer"""
+    existing = await db.influencer_follows.find_one({"user_id": user["user_id"], "influencer_id": influencer_id})
+    count = await db.influencer_follows.count_documents({"influencer_id": influencer_id})
+    return {"following": existing is not None, "followers": count}
+
+
 @router.get("/referral-links")
 async def get_influencer_referral_links(user: Dict = Depends(get_current_user)):
     influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
