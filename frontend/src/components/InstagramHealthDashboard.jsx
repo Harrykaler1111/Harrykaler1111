@@ -21,7 +21,7 @@ const StatusDot = ({ status }) => {
 };
 
 const TokenHealthCard = ({ connection }) => {
-  const { token_status, token_days_remaining, user_token_expires_at, page_token_note } = connection;
+  const { token_status, token_days_remaining, user_token_expires_at, page_token_note, last_token_refresh, auto_refresh_enabled, auto_refresh_note } = connection;
 
   const statusConfig = {
     healthy: { icon: ShieldCheck, color: "text-emerald-400", bg: "from-emerald-500/15 to-emerald-500/5 border-emerald-500/25", label: "Healthy" },
@@ -76,6 +76,25 @@ const TokenHealthCard = ({ connection }) => {
       ) : (
         <p className="text-sm text-neutral-400 mt-1">Page Access Token is non-expiring</p>
       )}
+
+      {/* Auto-refresh status */}
+      {auto_refresh_enabled && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <div className="flex items-center gap-1.5">
+            <RefreshCw className="h-3 w-3 text-emerald-500/70" />
+            <p className="text-[11px] text-emerald-500/70">Auto-refresh enabled</p>
+          </div>
+          {last_token_refresh && (
+            <p className="text-[11px] text-neutral-500 mt-0.5 ml-4">
+              Last refreshed: {new Date(last_token_refresh).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
+          {auto_refresh_note && (
+            <p className="text-[11px] text-neutral-600 mt-0.5 ml-4">{auto_refresh_note}</p>
+          )}
+        </div>
+      )}
+
       {page_token_note && (
         <p className="text-[11px] text-emerald-500/70 mt-2 flex items-center gap-1">
           <CheckCircle className="h-3 w-3" /> {page_token_note}

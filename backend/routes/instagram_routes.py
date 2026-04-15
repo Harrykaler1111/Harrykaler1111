@@ -709,6 +709,23 @@ async def update_dm_config(request: Request, admin: Dict = Depends(get_admin_use
     return {"message": "Auto-DM config updated"}
 
 
+@router.post("/admin/instagram/refresh-tokens")
+async def admin_refresh_tokens(admin: Dict = Depends(get_admin_user)):
+    """Admin: manually trigger token refresh for all expiring connections"""
+    from services.instagram_token_refresh import run_refresh_cycle
+    result = await run_refresh_cycle()
+    return {"message": "Token refresh cycle completed", **result}
+
+
+@router.get("/admin/instagram/refresh-logs")
+async def admin_refresh_logs(admin: Dict = Depends(get_admin_user), limit: int = 10):
+    """Admin: view recent token refresh logs"""
+    logs = await db.instagram_token_refresh_logs.find(
+        {}, {"_id": 0}
+    ).sort("cycle_at", -1).limit(limit).to_list(limit)
+    return logs
+
+
 
 # ══════════════════════════════════════════════
 #  12. HEALTH DASHBOARD (Influencer)
@@ -765,6 +782,9 @@ async def instagram_health_dashboard(user: Dict = Depends(get_current_user)):
             "user_token_expires_at": token_expires_str,
             "token_days_remaining": token_days_remaining,
             "token_status": token_status,
+            "last_token_refresh": conn.get("last_token_refresh"),
+            "auto_refresh_enabled": True,
+            "auto_refresh_note": "Tokens expiring within 7 days are auto-refreshed every 6 hours",
             "page_token_note": "Page tokens from long-lived user tokens are non-expiring",
         }
 

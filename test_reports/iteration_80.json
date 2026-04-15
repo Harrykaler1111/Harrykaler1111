@@ -1,0 +1,94 @@
+{
+  "summary": "Iteration 80: Instagram Token Auto-Refresh Feature - ALL 10 BACKEND TESTS PASSED. New admin endpoints for manual token refresh and refresh logs verified. Health dashboard updated with auto-refresh fields. Background task confirmed running on startup.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_instagram_token_refresh.py",
+    "/app/test_reports/pytest/instagram_token_refresh_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "VERIFIED: POST /api/admin/instagram/refresh-tokens requires admin auth (returns 401 without token)",
+    "VERIFIED: POST /api/admin/instagram/refresh-tokens rejects customer tokens (returns 401/403)",
+    "VERIFIED: POST /api/admin/instagram/refresh-tokens returns correct structure: {message, refreshed, failed, skipped, results}",
+    "VERIFIED: GET /api/admin/instagram/refresh-logs requires admin auth (returns 401 without token)",
+    "VERIFIED: GET /api/admin/instagram/refresh-logs rejects customer tokens (returns 401/403)",
+    "VERIFIED: GET /api/admin/instagram/refresh-logs returns array of cycle logs with correct structure",
+    "VERIFIED: GET /api/admin/instagram/refresh-logs respects limit parameter",
+    "VERIFIED: GET /api/instagram/health-dashboard connection_info includes last_token_refresh, auto_refresh_enabled, auto_refresh_note fields",
+    "VERIFIED: Manual refresh trigger creates log entry in instagram_token_refresh_logs collection",
+    "VERIFIED: Refresh response data matches the created log entry",
+    "VERIFIED: Backend logs show 'Instagram token auto-refresh task scheduled' on startup",
+    "VERIFIED: Background task runs every 6 hours with 7-day expiry threshold"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_instagram_token_refresh.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "N/A (backend only testing requested)"
+  },
+  "test_credentials": {
+    "customer": "admin@pigma.com / admin123",
+    "super_admin": "superadmin@pigma.com / superadmin123 (POST /api/admin/auth/login)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Instagram Token Auto-Refresh feature is complete. Background task starts on backend startup (waits 60s before first cycle). Admin can manually trigger refresh via POST /api/admin/instagram/refresh-tokens. Refresh logs available via GET /api/admin/instagram/refresh-logs. Health dashboard now shows auto_refresh_enabled=true and auto_refresh_note for connected users. In test environment with no expiring tokens, refresh returns {refreshed: 0, failed: 0, skipped: 0, results: []} which is correct behavior.",
+  "features_tested": {
+    "admin_refresh_tokens": {
+      "endpoint": "POST /api/admin/instagram/refresh-tokens",
+      "status": "PASS",
+      "details": "Returns 401 without auth, 401/403 for non-admin, 200 with correct structure for admin"
+    },
+    "admin_refresh_logs": {
+      "endpoint": "GET /api/admin/instagram/refresh-logs",
+      "status": "PASS",
+      "details": "Returns 401 without auth, 401/403 for non-admin, array of logs for admin"
+    },
+    "health_dashboard_auto_refresh": {
+      "endpoint": "GET /api/instagram/health-dashboard",
+      "status": "PASS",
+      "details": "connection_info includes last_token_refresh, auto_refresh_enabled, auto_refresh_note"
+    },
+    "background_task_startup": {
+      "status": "PASS",
+      "details": "Backend logs confirm 'Instagram token auto-refresh task scheduled' on startup"
+    },
+    "refresh_creates_log": {
+      "status": "PASS",
+      "details": "Manual refresh trigger creates log entry with matching counts"
+    }
+  },
+  "api_response_samples": {
+    "refresh_tokens": {
+      "message": "Token refresh cycle completed",
+      "refreshed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "results": []
+    },
+    "refresh_logs": [
+      {
+        "cycle_at": "2026-04-15T19:50:XX.XXXXXX+00:00",
+        "total_checked": 0,
+        "refreshed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "results": []
+      }
+    ]
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "mocked_apis_list": []
+  }
+}

@@ -244,6 +244,10 @@ async def startup_event():
     migration_stats = await migrate_existing_users()
     logger.info(f"Display ID migration: {migration_stats}")
 
+    # Start Instagram token auto-refresh background task
+    from services.instagram_token_refresh import start_token_refresh_task
+    start_token_refresh_task()
+
     # Seed default categories
     cat_count = await db.categories.count_documents({})
     if cat_count == 0:
