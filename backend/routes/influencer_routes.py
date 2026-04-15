@@ -356,7 +356,7 @@ async def update_influencer_commission(influencer_id: str, commission_rate: floa
 
 @router.get("/instagram/connect")
 async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
-    """Redirect to the main Instagram OAuth login endpoint"""
+    """Generate Facebook OAuth URL for Instagram Business connection (v19.0)"""
     influencer = await db.influencers.find_one({"user_id": user["user_id"]}, {"_id": 0})
     if not influencer:
         raise HTTPException(status_code=404, detail="Not registered as influencer")
@@ -382,16 +382,25 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
     redirect_uri = os.environ.get("INSTAGRAM_REDIRECT_URI")
     app_id = os.environ.get("META_APP_ID", "")
 
+    scopes = (
+        "instagram_basic,"
+        "instagram_manage_messages,"
+        "instagram_manage_comments,"
+        "pages_show_list,"
+        "pages_read_engagement,"
+        "business_management"
+    )
+
     params = {
         "client_id": app_id,
         "redirect_uri": redirect_uri,
-        "scope": "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments",
+        "scope": scopes,
         "response_type": "code",
         "state": state,
     }
-    oauth_url = f"https://api.instagram.com/oauth/authorize?{urllib.parse.urlencode(params)}"
+    oauth_url = f"https://www.facebook.com/v19.0/dialog/oauth?{urllib.parse.urlencode(params)}"
 
-    logger.info(f"Instagram OAuth URL: {oauth_url}")
+    logger.info(f"Facebook OAuth URL (v19.0): {oauth_url}")
 
     return {"oauth_url": oauth_url, "state": state}
 
@@ -412,6 +421,7 @@ async def disconnect_instagram(user: Dict = Depends(get_current_user)):
             "instagram_user_id": None,
             "instagram_username": None,
             "instagram_access_token": None,
+            "instagram_page_id": None,
             "automation_enabled": False,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
@@ -555,7 +565,7 @@ async def instagram_webhook(request: Request):
         "created_at": now.isoformat()
     }
 
-    # Send real DM via Instagram Graph API
+    # Send real DM via Facebook Graph API v19.0 using Page Access Token
     access_token = influencer.get("instagram_access_token")
     ig_user_id = influencer.get("instagram_user_id")
 
@@ -564,7 +574,7 @@ async def instagram_webhook(request: Request):
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
-                    f"https://graph.facebook.com/v20.0/{ig_user_id}/messages",
+                    f"https://graph.facebook.com/v19.0/{ig_user_id}/messages",
                     params={"access_token": access_token},
                     json={
                         "recipient": {"id": commenter_id},
