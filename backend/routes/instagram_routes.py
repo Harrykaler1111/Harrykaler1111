@@ -185,18 +185,25 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
             logger.info(f"Step 3 OK: Found {len(pages_data)} Facebook Page(s)")
 
             # ── Step 4: Find the page with an Instagram Business Account ──
+            # ── Step 4: Find the page with an Instagram Business/Creator/Professional Account ──
             page_access_token = None
             page_id = None
             page_name = None
             ig_business_id = None
+            ig_username = ""
+            ig_name = ""
+            ig_profile_pic = ""
+            ig_followers = 0
 
+            # Log full page data for debugging
             for page in pages_data:
                 p_id = page.get("id")
                 p_token = page.get("access_token")
                 p_name = page.get("name", "")
+                ig_inline = page.get("instagram_business_account")
+                logger.info(f"Step 4: Page '{p_name}' (id={p_id}), ig_inline={ig_inline}")
 
-                ig_inline = page.get("instagram_business_account", {})
-                if ig_inline and ig_inline.get("id"):
+                if ig_inline and isinstance(ig_inline, dict) and ig_inline.get("id"):
                     page_id = p_id
                     page_access_token = p_token
                     page_name = p_name
@@ -204,15 +211,20 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                     logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (inline)")
                     break
 
+                # Query page explicitly for instagram_business_account
                 ig_resp = await client.get(
                     f"{GRAPH_BASE}/{p_id}",
                     params={
-                        "fields": "instagram_business_account",
+                        "fields": "instagram_business_account,connected_instagram_account",
                         "access_token": p_token,
                     }
                 )
                 if ig_resp.status_code == 200:
-                    ig_data = ig_resp.json().get("instagram_business_account", {})
+                    ig_page_data = ig_resp.json()
+                    logger.info(f"Step 4: Page '{p_name}' explicit query: {ig_page_data}")
+                    ig_data = ig_page_data.get("instagram_business_account", {})
+                    if not ig_data:
+                        ig_data = ig_page_data.get("connected_instagram_account", {})
                     if ig_data and ig_data.get("id"):
                         page_id = p_id
                         page_access_token = p_token
@@ -220,37 +232,101 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                         ig_business_id = str(ig_data["id"])
                         logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (explicit)")
                         break
+                else:
+                    logger.warning(f"Step 4: Page '{p_name}' query failed: {ig_resp.text}")
 
-            if not ig_business_id or not page_access_token:
+            # ── Fallback: Try /me/instagram_accounts for Creator/Professional accounts ──
+            if not ig_business_id:
+                logger.info("Step 4 Fallback: Trying /me/instagram_accounts")
+                ig_accounts_resp = await client.get(
+                    f"{GRAPH_BASE}/me/instagram_accounts",
+                    params={
+                        "access_token": long_user_token,
+                        "fields": "id,username,name,profile_picture_url,followers_count",
+                    }
+                )
+                logger.info(f"Step 4 Fallback response ({ig_accounts_resp.status_code}): {ig_accounts_resp.text[:500]}")
+
+                if ig_accounts_resp.status_code == 200:
+                    ig_accounts = ig_accounts_resp.json().get("data", [])
+                    if ig_accounts:
+                        ig_acc = ig_accounts[0]
+                        ig_business_id = str(ig_acc.get("id", ""))
+                        ig_username = ig_acc.get("username", "")
+                        ig_name = ig_acc.get("name", "")
+                        ig_profile_pic = ig_acc.get("profile_picture_url", "")
+                        ig_followers = ig_acc.get("followers_count", 0)
+                        # Use the first page token as fallback
+                        if pages_data:
+                            page_id = pages_data[0].get("id")
+                            page_access_token = pages_data[0].get("access_token")
+                            page_name = pages_data[0].get("name", "")
+                        logger.info(f"Step 4 Fallback OK: @{ig_username} (IG: {ig_business_id})")
+
+            if not ig_business_id:
+                # Final fallback: Try /me/accounts with instagram_business_account using user token
+                logger.info("Step 4 Final Fallback: Trying user token direct IG query")
+                me_resp = await client.get(
+                    f"{GRAPH_BASE}/me",
+                    params={
+                        "access_token": long_user_token,
+                        "fields": "id,name,accounts{instagram_business_account{id,username,name,profile_picture_url,followers_count}}",
+                    }
+                )
+                logger.info(f"Step 4 Final Fallback ({me_resp.status_code}): {me_resp.text[:500]}")
+
+                if me_resp.status_code == 200:
+                    me_data = me_resp.json()
+                    for acct in me_data.get("accounts", {}).get("data", []):
+                        ig_biz = acct.get("instagram_business_account", {})
+                        if ig_biz and ig_biz.get("id"):
+                            ig_business_id = str(ig_biz["id"])
+                            ig_username = ig_biz.get("username", "")
+                            ig_name = ig_biz.get("name", "")
+                            ig_profile_pic = ig_biz.get("profile_picture_url", "")
+                            ig_followers = ig_biz.get("followers_count", 0)
+                            page_id = acct.get("id")
+                            page_access_token = acct.get("access_token", pages_data[0].get("access_token") if pages_data else "")
+                            page_name = acct.get("name", "")
+                            logger.info(f"Step 4 Final Fallback OK: @{ig_username}")
+                            break
+
+            if not ig_business_id:
                 page_names = ", ".join([p.get("name", "unknown") for p in pages_data])
-                logger.error(f"Step 4 FAILED: No IG Business Account. Pages: {page_names}")
-                encoded_err = urllib.parse.quote(f"No Instagram Business Account found. Your pages: {page_names}")
+                logger.error(f"Step 4 ALL METHODS FAILED. Pages: {page_names}")
+                encoded_err = urllib.parse.quote(
+                    f"No linked Instagram account found on your pages: {page_names}. "
+                    f"Please ensure your Instagram is Professional/Creator AND linked to one of these Facebook Pages."
+                )
                 return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_ig_account&detail={encoded_err}")
 
-            # ── Step 5: Fetch Instagram Business Account Profile ──
-            logger.info(f"Step 5: Fetching IG profile for {ig_business_id}")
-            profile_resp = await client.get(
-                f"{GRAPH_BASE}/{ig_business_id}",
-                params={
-                    "fields": "id,name,username,profile_picture_url,followers_count,media_count,biography",
-                    "access_token": page_access_token,
-                }
-            )
+            # ── Step 5: Fetch Instagram Business Account Profile (if not already fetched) ──
+            if not ig_username:
+                logger.info(f"Step 5: Fetching IG profile for {ig_business_id}")
+                profile_resp = await client.get(
+                    f"{GRAPH_BASE}/{ig_business_id}",
+                    params={
+                        "fields": "id,name,username,profile_picture_url,followers_count,media_count,biography",
+                        "access_token": page_access_token,
+                    }
+                )
 
-            ig_username = ""
-            ig_name = ""
-            ig_profile_pic = ""
-            ig_followers = 0
+                ig_username = ""
+                ig_name = ""
+                ig_profile_pic = ""
+                ig_followers = 0
 
-            if profile_resp.status_code == 200:
-                profile = profile_resp.json()
-                ig_username = profile.get("username", "")
-                ig_name = profile.get("name", "")
-                ig_profile_pic = profile.get("profile_picture_url", "")
-                ig_followers = profile.get("followers_count", 0)
-                logger.info(f"Step 5 OK: @{ig_username} ({ig_name}), {ig_followers} followers")
+                if profile_resp.status_code == 200:
+                    profile = profile_resp.json()
+                    ig_username = profile.get("username", "")
+                    ig_name = profile.get("name", "")
+                    ig_profile_pic = profile.get("profile_picture_url", "")
+                    ig_followers = profile.get("followers_count", 0)
+                    logger.info(f"Step 5 OK: @{ig_username} ({ig_name}), {ig_followers} followers")
+                else:
+                    logger.warning(f"Step 5 WARN: Profile fetch failed: {profile_resp.text}")
             else:
-                logger.warning(f"Step 5 WARN: Profile fetch failed: {profile_resp.text}")
+                logger.info(f"Step 5 SKIP: Profile already fetched @{ig_username}")
 
         # ── Step 6: Store everything in database ──
         token_expires_at = (datetime.now(timezone.utc) + timedelta(seconds=token_expires_in)).isoformat()
