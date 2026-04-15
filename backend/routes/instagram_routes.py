@@ -37,8 +37,8 @@ router = APIRouter(tags=["Instagram"])
 
 # ─── HARDCODED Critical Values (prevents env loading issues in production) ───
 META_APP_ID = "1280214187553693"
-META_APP_SECRET = os.environ.get("META_APP_SECRET") or "c61f833e9cd67697202f5ceeca62a8f1"
-REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI") or "https://thepigma.com/api/instagram/auth/callback"
+META_APP_SECRET = "c61f833e9cd67697202f5ceeca62a8f1"
+REDIRECT_URI = "https://thepigma.com/api/instagram/auth/callback"
 WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
 BRAND_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 BRAND_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
