@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Heart, ShoppingBag, Share2, Plus, Volume2, VolumeX, ArrowLeft, Store, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth, API } from "@/App";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ const VendorThumbnailPanel = ({ products, activeProductId, onSelect, totalCount 
   <div className="h-full flex flex-col bg-black" data-testid="vendor-side-panel">
     <div className="flex justify-center px-1 pt-2 pb-1">
       <div className="bg-white/90 text-black text-[8px] font-bold px-1.5 py-0.5 rounded leading-tight text-center" data-testid="vendor-works-count">
-        <div className="text-[7px] font-medium leading-none">Posts</div>
+        <div className="text-[7px] font-medium leading-none">Works</div>
         <div className="text-[10px] leading-none">{totalCount}</div>
       </div>
     </div>
@@ -221,14 +221,14 @@ const ReelCard = ({ product, isActive, isVendorMode, onStoreClick, controlledImg
 
       {/* Right side action buttons */}
       <div className="absolute right-3 bottom-44 sm:bottom-28 flex flex-col items-center gap-4 z-10">
-        {/* Influencer profile button */}
+        {/* Store / Seller button */}
         {onStoreClick && (
-          <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-influencer-${product.product_id}`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center border-2 border-white/40">
-              <User className="h-5 w-5 text-white" />
+          <button onClick={(e) => { e.stopPropagation(); onStoreClick(e); }} className="flex flex-col items-center gap-0.5 relative" data-testid={`reel-vendor-${product.product_id}`}>
+            <div className="w-10 h-10 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
+              <Store className="h-5 w-5 text-white" />
             </div>
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-gold rounded-full flex items-center justify-center">
-              <Plus className="h-2.5 w-2.5 text-black" />
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+              <Plus className="h-2.5 w-2.5 text-white" />
             </div>
           </button>
         )}
@@ -361,26 +361,14 @@ export default function ReelsPage() {
   // Image index for active vendor product (parent-controlled for swipe navigation)
   const [vendorImgIdx, setVendorImgIdx] = useState(0);
 
-  // Influencer info for filtered mode
-  const [filterInfluencer, setFilterInfluencer] = useState(null);
-
   // Touch tracking
   const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const [swipeHint, setSwipeHint] = useState("");
 
-  const searchParams = new URLSearchParams(window.location.search);
-  const influencerFilter = searchParams.get("influencer");
-
-  // ── Load global feed (or influencer-filtered feed) ──
+  // ── Load global feed ──
   useEffect(() => {
     (async () => {
       try {
-        if (influencerFilter) {
-          const infRes = await axios.get(`${API}/influencers/featured?limit=50`).catch(() => ({ data: [] }));
-          const allInfluencers = Array.isArray(infRes.data) ? infRes.data : [];
-          const inf = allInfluencers.find(i => i.influencer_id === influencerFilter);
-          if (inf) setFilterInfluencer(inf);
-        }
         const { data } = await axios.get(`${API}/vendor-credits/reels-feed?limit=50`);
         setGlobalProducts(data.products || []);
       } catch {
@@ -391,7 +379,7 @@ export default function ReelsPage() {
       }
       setLoading(false);
     })();
-  }, [influencerFilter]);
+  }, []);
 
   // ── IntersectionObserver for global feed ──
   useEffect(() => {
@@ -579,7 +567,7 @@ export default function ReelsPage() {
 
   const hintText = isVendorMode
     ? "Swipe left for photos  |  right to go back"
-    : "Swipe left for influencer";
+    : "Swipe left for seller";
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" data-testid="reels-page">
@@ -601,22 +589,10 @@ export default function ReelsPage() {
               <div className={`h-1.5 rounded-full transition-all duration-300 ${feedMode === "vendor" ? "w-3 bg-white" : "w-1.5 bg-white/30"}`} />
             </div>
             <span className="text-white text-sm font-semibold tracking-[0.15em] uppercase line-clamp-1 max-w-[200px]">
-              {isVendorMode ? vendorLabel : filterInfluencer ? filterInfluencer.name : "Explore"}
+              {isVendorMode ? vendorLabel : "Explore"}
             </span>
           </div>
         </div>
-
-        {/* Influencer banner when filtered */}
-        {filterInfluencer && !isVendorMode && (
-          <div className="absolute top-10 left-0 right-0 z-20 flex justify-center pointer-events-none">
-            <div className="bg-black/40 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center">
-                <span className="text-[8px] font-bold text-white">{filterInfluencer.name?.charAt(0)}</span>
-              </div>
-              <span className="text-[10px] text-white/70">@{filterInfluencer.instagram_username || filterInfluencer.instagram_handle}</span>
-            </div>
-          </div>
-        )}
 
         {/* ════════ LAYOUT ════════ */}
         <div className="w-full h-full flex relative">
@@ -665,7 +641,7 @@ export default function ReelsPage() {
                   </div>
                 ) : vendorProducts.length === 0 ? (
                   <div className="w-full h-screen flex flex-col items-center justify-center text-white">
-                    <p className="text-sm text-white/50">No products from this influencer</p>
+                    <p className="text-sm text-white/50">No products from this seller</p>
                   </div>
                 ) : (
                   vendorProducts.map((product, idx) => (
@@ -718,7 +694,7 @@ export default function ReelsPage() {
                 {(swipeHint === "vendor" || swipeHint === "photo") && <ChevronLeft className="h-4 w-4 text-white/80" />}
                 {(swipeHint === "global" || swipeHint === "home" || swipeHint === "photo-back") && <ChevronRight className="h-4 w-4 text-white/80" />}
                 <span className="text-white text-xs font-medium">
-                  {swipeHint === "vendor" && "Influencer Feed"}
+                  {swipeHint === "vendor" && "Seller Products"}
                   {swipeHint === "photo" && "Next Photo"}
                   {swipeHint === "photo-back" && "Previous Photo"}
                   {swipeHint === "global" && "Back to Feed"}

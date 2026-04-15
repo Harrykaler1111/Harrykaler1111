@@ -145,43 +145,13 @@ const StoreProfileCard = ({ seller, index, navigate }) => {
   );
 };
 
-/* ─── Influencer Profile Card (Same style as StoreProfileCard) ─── */
-const InfluencerProfileCard = ({ influencer, index, navigate }) => {
-  const { token } = useAuth();
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followers, setFollowers] = useState(influencer.followers || 0);
-  const [busy, setBusy] = useState(false);
-
+/* ─── Influencer Profile Card (Instagram Style - Opens IG Profile) ─── */
+const InfluencerProfileCard = ({ influencer, index }) => {
   const gradientClass = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
   const displayName = influencer.name || influencer.instagram_handle?.replace("@", "") || "Creator";
   const initial = displayName.charAt(0).toUpperCase();
   const handle = influencer.instagram_username || influencer.instagram_handle?.replace("@", "") || "";
-
-  const handleFollow = useCallback(async (e) => {
-    e.stopPropagation();
-    if (!token) { toast.error("Sign in to follow creators"); return; }
-    if (busy) return;
-    setBusy(true);
-    try {
-      const endpoint = isFollowing ? "unfollow" : "follow";
-      const { data } = await axios.post(`${API}/influencers/${influencer.influencer_id}/${endpoint}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setIsFollowing(data.following);
-      setFollowers(data.followers);
-    } catch { toast.error("Try again"); }
-    setBusy(false);
-  }, [isFollowing, token, influencer.influencer_id, busy]);
-
-  useEffect(() => {
-    if (!token) return;
-    axios.get(`${API}/influencers/${influencer.influencer_id}/follow-status`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(({ data }) => {
-      setIsFollowing(data.following);
-      setFollowers(data.followers);
-    }).catch(() => {});
-  }, [token, influencer.influencer_id]);
+  const igUrl = handle ? `https://instagram.com/${handle}` : "#";
 
   return (
     <motion.div
@@ -192,70 +162,49 @@ const InfluencerProfileCard = ({ influencer, index, navigate }) => {
       className="shrink-0 w-[170px] md:w-[190px]"
       data-testid={`influencer-card-${influencer.influencer_id}`}
     >
-      <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)] group">
-        {/* Banner gradient */}
-        <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80 cursor-pointer`} onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)} />
-
-        {/* Avatar */}
-        <div className="flex justify-center -mt-7 relative z-10">
-          <div
-            className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg cursor-pointer group-hover:scale-105 transition-transform duration-300`}
-            onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)}
-          >
-            <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
+      <a href={igUrl} target="_blank" rel="noopener noreferrer" className="block">
+        <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-pink-500/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(236,72,153,0.12)] group">
+          <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80 relative`}>
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTAiIGN5PSIxMCIgcj0iMSIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-50" />
           </div>
-        </div>
-
-        {/* Info */}
-        <div className="px-3 pt-1.5 pb-3.5 text-center">
-          <h3
-            className="text-[13px] font-semibold text-white truncate cursor-pointer group-hover:text-gold transition-colors"
-            onClick={() => navigate(`/reels?influencer=${influencer.influencer_id}`)}
-          >{displayName}</h3>
-          {handle && <p className="text-[10px] text-neutral-500 truncate">@{handle}</p>}
-          {influencer.niche && (
-            <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">
-              {Array.isArray(influencer.niche) ? influencer.niche[0] : influencer.niche}
-            </span>
-          )}
-
-          {/* Stats: Followers · Posts · Sales */}
-          <div className="flex items-center justify-evenly mt-3 pt-2.5 border-t border-neutral-800/80">
-            <div className="text-center px-1">
-              <p className="text-xs font-bold text-white leading-none">{followers}</p>
-              <p className="text-[8px] text-neutral-500 mt-0.5">Followers</p>
-            </div>
-            <div className="w-px h-5 bg-neutral-800" />
-            <div className="text-center px-1">
-              <p className="text-xs font-bold text-white leading-none">{influencer.posts || 0}</p>
-              <p className="text-[8px] text-neutral-500 mt-0.5">Posts</p>
-            </div>
-            <div className="w-px h-5 bg-neutral-800" />
-            <div className="text-center px-1">
-              <p className="text-xs font-bold text-white leading-none">{influencer.total_sales || 0}</p>
-              <p className="text-[8px] text-neutral-500 mt-0.5">Sales</p>
+          <div className="flex justify-center -mt-7 relative z-10">
+            <div className="p-[2px] rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600">
+              <div className="w-[52px] h-[52px] rounded-full bg-neutral-900 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
+              </div>
             </div>
           </div>
-
-          {/* Follow Button */}
-          <button
-            onClick={handleFollow}
-            disabled={busy}
-            className={`mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ${
-              isFollowing
-                ? "bg-white/5 border border-white/15 text-neutral-400 hover:border-red-500/40 hover:text-red-400"
-                : "bg-gold/90 text-black border border-gold hover:bg-gold"
-            }`}
-            data-testid={`follow-influencer-${influencer.influencer_id}`}
-          >
-            {isFollowing ? (
-              <><UserCheck className="h-3 w-3" /> Following</>
-            ) : (
-              <><UserPlus className="h-3 w-3" /> Follow</>
+          <div className="px-3 pt-1.5 pb-3.5 text-center">
+            <h3 className="text-[13px] font-semibold text-white truncate group-hover:text-pink-400 transition-colors">{displayName}</h3>
+            {handle && <p className="text-[10px] text-pink-400/60 truncate">@{handle}</p>}
+            {influencer.niche && (
+              <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">
+                {Array.isArray(influencer.niche) ? influencer.niche[0] : influencer.niche}
+              </span>
             )}
-          </button>
+            <div className="flex items-center justify-evenly mt-3 pt-2.5 border-t border-neutral-800/80">
+              <div className="text-center px-1">
+                <p className="text-xs font-bold text-white leading-none">{influencer.followers || 0}</p>
+                <p className="text-[8px] text-neutral-500 mt-0.5">Followers</p>
+              </div>
+              <div className="w-px h-5 bg-neutral-800" />
+              <div className="text-center px-1">
+                <p className="text-xs font-bold text-white leading-none">{influencer.posts || 0}</p>
+                <p className="text-[8px] text-neutral-500 mt-0.5">Posts</p>
+              </div>
+              <div className="w-px h-5 bg-neutral-800" />
+              <div className="text-center px-1">
+                <p className="text-xs font-bold text-white leading-none">{influencer.total_sales || 0}</p>
+                <p className="text-[8px] text-neutral-500 mt-0.5">Sales</p>
+              </div>
+            </div>
+            <div className="mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 text-white group-hover:shadow-[0_0_20px_rgba(236,72,153,0.3)] transition-all duration-300">
+              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+              View Profile
+            </div>
+          </div>
         </div>
-      </div>
+      </a>
     </motion.div>
   );
 };
@@ -396,6 +345,37 @@ export const HomePage = () => {
         </motion.div>
       </section>
 
+      {/* ─── Shop by Store (Vendors) ─── */}
+      {topSellers.length > 0 && (
+        <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-vendors-hero-section">
+          <div className="max-w-7xl mx-auto px-4 md:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-8 flex items-end justify-between"
+            >
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-gold/60 mb-1">Curated Sellers</p>
+                <h2 className="font-serif text-xl md:text-2xl font-bold text-white">Shop by Store</h2>
+              </div>
+              <button onClick={() => navigate("/stores")} className="text-xs text-gold/70 hover:text-gold tracking-wider uppercase transition-colors hidden md:block">
+                View All
+              </button>
+            </motion.div>
+            <div
+              className="flex gap-4 md:gap-5 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+              data-testid="top-vendors-scroll"
+            >
+              {topSellers.map((seller, index) => (
+                <StoreProfileCard key={seller.vendor_id} seller={seller} index={index} navigate={navigate} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── Top Creators / Influencers ─── */}
       {topInfluencers.length > 0 && (
         <section className="py-10 md:py-14 bg-neutral-950 border-b border-neutral-800" data-testid="top-influencers-section">
@@ -421,7 +401,7 @@ export const HomePage = () => {
               data-testid="top-influencers-scroll"
             >
               {topInfluencers.map((inf, index) => (
-                <InfluencerProfileCard key={inf.influencer_id} influencer={inf} index={index} navigate={navigate} />
+                <InfluencerProfileCard key={inf.influencer_id} influencer={inf} index={index} />
               ))}
             </div>
           </div>
