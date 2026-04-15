@@ -145,23 +145,14 @@ const StoreProfileCard = ({ seller, index, navigate }) => {
   );
 };
 
-/* ─── Influencer Profile Card (Creator Style) ─── */
-const CREATOR_GRADIENTS = [
-  "from-pink-500 via-red-500 to-yellow-500",
-  "from-purple-500 via-violet-500 to-indigo-500",
-  "from-cyan-400 via-teal-500 to-emerald-500",
-  "from-orange-400 via-rose-500 to-pink-500",
-  "from-blue-500 via-indigo-500 to-purple-500",
-  "from-yellow-400 via-amber-500 to-orange-500",
-];
-
+/* ─── Influencer Profile Card (Same style as StoreProfileCard) ─── */
 const InfluencerProfileCard = ({ influencer, index, navigate }) => {
   const { token } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
   const [followers, setFollowers] = useState(influencer.followers || 0);
   const [busy, setBusy] = useState(false);
 
-  const gradientClass = CREATOR_GRADIENTS[index % CREATOR_GRADIENTS.length];
+  const gradientClass = GRADIENT_COLORS[index % GRADIENT_COLORS.length];
   const displayName = influencer.name || influencer.instagram_handle?.replace("@", "") || "Creator";
   const initial = displayName.charAt(0).toUpperCase();
   const handle = influencer.instagram_username || influencer.instagram_handle?.replace("@", "") || "";
@@ -198,34 +189,32 @@ const InfluencerProfileCard = ({ influencer, index, navigate }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.08, type: "spring", damping: 20 }}
-      className="shrink-0 w-[155px] md:w-[175px]"
+      className="shrink-0 w-[170px] md:w-[190px]"
       data-testid={`influencer-card-${influencer.influencer_id}`}
     >
-      <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-pink-500/30 transition-all duration-500 group">
-        {/* Instagram-style gradient ring banner */}
-        <div className={`h-12 bg-gradient-to-r ${gradientClass} opacity-90`} />
+      <div className="relative bg-neutral-900/80 border border-neutral-800 rounded-2xl overflow-hidden hover:border-gold/30 transition-all duration-500 hover:shadow-[0_0_30px_rgba(212,175,55,0.08)] group">
+        {/* Banner gradient */}
+        <div className={`h-14 bg-gradient-to-r ${gradientClass} opacity-80`} />
 
-        {/* Avatar with gradient ring */}
+        {/* Avatar */}
         <div className="flex justify-center -mt-7 relative z-10">
-          <div className={`p-[2px] rounded-full bg-gradient-to-tr ${gradientClass}`}>
-            <div className="w-12 h-12 rounded-full bg-neutral-900 flex items-center justify-center">
-              <span className="font-serif text-lg font-bold text-white select-none">{initial}</span>
-            </div>
+          <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${gradientClass} flex items-center justify-center ring-[3px] ring-neutral-900 shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+            <span className="font-serif text-xl font-bold text-white select-none drop-shadow">{initial}</span>
           </div>
         </div>
 
         {/* Info */}
-        <div className="px-3 pt-1 pb-3.5 text-center">
-          <h3 className="text-[13px] font-semibold text-white truncate">{displayName}</h3>
-          {handle && (
-            <p className="text-[10px] text-pink-400/70 truncate">@{handle}</p>
-          )}
+        <div className="px-3 pt-1.5 pb-3.5 text-center">
+          <h3 className="text-[13px] font-semibold text-white truncate group-hover:text-gold transition-colors">{displayName}</h3>
+          {handle && <p className="text-[10px] text-neutral-500 truncate">@{handle}</p>}
           {influencer.niche && (
-            <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">{influencer.niche}</span>
+            <span className="inline-block mt-1 text-[8px] uppercase tracking-widest bg-white/5 border border-white/10 text-neutral-400 px-2 py-0.5 rounded-full">
+              {Array.isArray(influencer.niche) ? influencer.niche[0] : influencer.niche}
+            </span>
           )}
 
-          {/* Stats */}
-          <div className="flex items-center justify-evenly mt-2.5 pt-2 border-t border-neutral-800/80">
+          {/* Stats: Followers · Posts · Sales */}
+          <div className="flex items-center justify-evenly mt-3 pt-2.5 border-t border-neutral-800/80">
             <div className="text-center px-1">
               <p className="text-xs font-bold text-white leading-none">{followers}</p>
               <p className="text-[8px] text-neutral-500 mt-0.5">Followers</p>
@@ -242,14 +231,14 @@ const InfluencerProfileCard = ({ influencer, index, navigate }) => {
             </div>
           </div>
 
-          {/* Follow Button — Instagram gradient style */}
+          {/* Follow Button */}
           <button
             onClick={handleFollow}
             disabled={busy}
-            className={`mt-2.5 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ${
+            className={`mt-3 w-full py-[6px] rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all duration-300 ${
               isFollowing
                 ? "bg-white/5 border border-white/15 text-neutral-400 hover:border-red-500/40 hover:text-red-400"
-                : `bg-gradient-to-r ${gradientClass} text-white border-0 hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]`
+                : "bg-gold/90 text-black border border-gold hover:bg-gold"
             }`}
             data-testid={`follow-influencer-${influencer.influencer_id}`}
           >

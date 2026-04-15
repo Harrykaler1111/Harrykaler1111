@@ -290,6 +290,26 @@ export default function ReelsPage() {
   const touchRef = useRef({ startX: 0, startY: 0, startTime: 0 });
   const [swipeHint, setSwipeHint] = useState("");
 
+  // Influencers for NykaaPlay-style strip
+  const [creators, setCreators] = useState([]);
+  const [selectedCreator, setSelectedCreator] = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API}/influencers/featured?limit=12`).then(({ data }) => {
+      if (Array.isArray(data)) setCreators(data);
+    }).catch(() => {});
+  }, []);
+
+  // Filter by creator
+  const handleCreatorTap = useCallback(async (creator) => {
+    if (selectedCreator?.influencer_id === creator.influencer_id) {
+      setSelectedCreator(null);
+      return;
+    }
+    setSelectedCreator(creator);
+    // Could filter products by this influencer in future
+  }, [selectedCreator]);
+
   // ── Load global feed ──
   useEffect(() => {
     (async () => {
@@ -518,6 +538,46 @@ export default function ReelsPage() {
             </span>
           </div>
         </div>
+
+        {/* ─── NykaaPlay-style Creator Strip ─── */}
+        {!isVendorMode && creators.length > 0 && (
+          <div className="absolute top-11 left-0 right-0 z-20" data-testid="creator-strip">
+            <div
+              className="flex gap-3 overflow-x-auto px-12 py-1.5 scrollbar-hide"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {creators.map((c, i) => {
+                const isActive = selectedCreator?.influencer_id === c.influencer_id;
+                const name = c.name?.split(" ")[0] || c.instagram_handle?.replace("@", "") || "Creator";
+                const initial = name.charAt(0).toUpperCase();
+                const RING_COLORS = [
+                  "from-amber-400 to-orange-500",
+                  "from-rose-400 to-pink-500",
+                  "from-violet-400 to-purple-500",
+                  "from-cyan-400 to-blue-500",
+                  "from-emerald-400 to-green-500",
+                  "from-fuchsia-400 to-pink-500",
+                ];
+                const ring = RING_COLORS[i % RING_COLORS.length];
+                return (
+                  <div
+                    key={c.influencer_id}
+                    className="flex flex-col items-center shrink-0 cursor-pointer"
+                    onClick={() => handleCreatorTap(c)}
+                    data-testid={`creator-bubble-${c.influencer_id}`}
+                  >
+                    <div className={`p-[2px] rounded-full bg-gradient-to-tr ${ring} ${isActive ? "shadow-[0_0_12px_rgba(255,255,255,0.3)]" : "opacity-70"}`}>
+                      <div className={`w-10 h-10 rounded-full bg-black flex items-center justify-center ${isActive ? "ring-1 ring-white" : ""}`}>
+                        <span className="text-xs font-bold text-white">{initial}</span>
+                      </div>
+                    </div>
+                    <span className={`text-[8px] mt-0.5 max-w-[42px] truncate ${isActive ? "text-white font-semibold" : "text-white/50"}`}>{name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ════════ LAYOUT ════════ */}
         <div className="w-full h-full flex relative">
