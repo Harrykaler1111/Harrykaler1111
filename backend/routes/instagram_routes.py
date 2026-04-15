@@ -50,7 +50,7 @@ logger.info(f"[IG_CONFIG] REDIRECT_URI={REDIRECT_URI}")
 logger.info(f"[IG_CONFIG] META_APP_SECRET={'SET' if META_APP_SECRET else 'MISSING'}")
 
 # HARDCODED Config ID from Facebook Login for Business configuration
-FB_CONFIG_ID = "975030191656092"
+FB_CONFIG_ID = "2146784429479505"
 
 GRAPH_API_VERSION = "v19.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
