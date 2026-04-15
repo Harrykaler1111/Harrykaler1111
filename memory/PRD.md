@@ -36,7 +36,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - **Webhooks**: Handles comments, messages, messaging_postbacks from Graph API
 - **Auto-DM**: Comment on influencer post → auto-DM with product referral link
 - **Health Dashboard**: Token expiry countdown, DM delivery rates (today/week/month/all-time), webhook event logs, automation stats with 30s auto-refresh
-- **Admin**: DM config, connection status, brand account management
+- **Token Auto-Refresh**: Background cron every 6 hours detects tokens expiring within 7 days and silently refreshes via Graph API. Admin can manually trigger + view refresh logs.
+- **Admin**: DM config, connection status, brand account management, manual refresh trigger, refresh logs
 - **Meta App ID**: 1280214187553693
 
 ### Razorpay (LIVE - all real, no mocks)
@@ -57,7 +58,7 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - Admin Dashboard (products, orders, vendors, KYC)
 - Site Popup Manager
 - Credit Pricing Manager
-- Instagram connection status + auto-DM config
+- Instagram connection status + auto-DM config + token refresh
 
 ### Other
 - Data Deletion page (/data-deletion)
@@ -76,6 +77,8 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - `POST /api/influencers/instagram/posts` — Register post-product mapping
 - `GET/PUT /api/admin/instagram/dm-config` — Auto-DM settings
 - `GET /api/admin/instagram/status` — Connection status (admin)
+- `POST /api/admin/instagram/refresh-tokens` — Manual token refresh trigger
+- `GET /api/admin/instagram/refresh-logs` — Token refresh history
 - `POST /api/vendors/wallet/topup` + `/verify` — Razorpay wallet
 - `POST /api/vendor-credits/purchase` + `/verify` — Razorpay credits
 - `GET /api/vendor-credits/pricing` — Dynamic credit rate
