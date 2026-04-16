@@ -156,7 +156,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                 f"{GRAPH_BASE}/me/accounts",
                 params={
                     "access_token": long_user_token,
-                    "fields": "id,name,access_token,instagram_business_account",
+                    "fields": "id,name,access_token,instagram_business_account,connected_instagram_account",
                 }
             )
 
@@ -167,12 +167,14 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                 return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_pages&detail={encoded_err}")
 
             pages_data = pages_resp.json().get("data", [])
+            logger.info(f"Step 3 raw response: {pages_resp.text[:1000]}")
+
             if not pages_data:
                 return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_pages&detail=No+Facebook+Pages+found")
 
             logger.info(f"Step 3 OK: Found {len(pages_data)} page(s)")
 
-            # ── Step 4: Find Instagram Business Account on pages ──
+            # ── Step 4: Find Instagram account on pages ──
             page_access_token = None
             page_id = None
             page_name = None
@@ -183,22 +185,41 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                 p_token = page.get("access_token")
                 p_name = page.get("name", "")
 
+                # Check inline instagram_business_account
                 ig_inline = page.get("instagram_business_account")
+                logger.info(f"Step 4: Page '{p_name}' (id={p_id}), ig_business_account={ig_inline}")
                 if ig_inline and isinstance(ig_inline, dict) and ig_inline.get("id"):
                     page_id = p_id
                     page_access_token = p_token
                     page_name = p_name
                     ig_business_id = str(ig_inline["id"])
-                    logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}'")
+                    logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (inline business)")
                     break
 
+                # Check inline connected_instagram_account (new pages experience)
+                ig_connected = page.get("connected_instagram_account")
+                logger.info(f"Step 4: Page '{p_name}', connected_instagram_account={ig_connected}")
+                if ig_connected and isinstance(ig_connected, dict) and ig_connected.get("id"):
+                    page_id = p_id
+                    page_access_token = p_token
+                    page_name = p_name
+                    ig_business_id = str(ig_connected["id"])
+                    logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (inline connected)")
+                    break
+
+                # Explicit query with both fields
                 ig_resp = await client.get(
                     f"{GRAPH_BASE}/{p_id}",
-                    params={"fields": "instagram_business_account", "access_token": p_token}
+                    params={
+                        "fields": "instagram_business_account,connected_instagram_account",
+                        "access_token": p_token,
+                    }
                 )
+                logger.info(f"Step 4: Page '{p_name}' explicit query ({ig_resp.status_code}): {ig_resp.text[:300]}")
                 if ig_resp.status_code == 200:
-                    ig_data = ig_resp.json().get("instagram_business_account", {})
-                    if ig_data and ig_data.get("id"):
+                    ig_page_data = ig_resp.json()
+                    ig_data = ig_page_data.get("instagram_business_account") or ig_page_data.get("connected_instagram_account")
+                    if ig_data and isinstance(ig_data, dict) and ig_data.get("id"):
                         page_id = p_id
                         page_access_token = p_token
                         page_name = p_name
@@ -206,12 +227,38 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                         logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (explicit)")
                         break
 
+            # ── Fallback: Try page-specific /instagram_accounts edge ──
+            if not ig_business_id:
+                logger.info("Step 4 Fallback: Trying /{page_id}/instagram_accounts for each page")
+                for page in pages_data:
+                    p_id = page.get("id")
+                    p_token = page.get("access_token")
+                    p_name = page.get("name", "")
+                    ig_edge_resp = await client.get(
+                        f"{GRAPH_BASE}/{p_id}/instagram_accounts",
+                        params={
+                            "access_token": p_token,
+                            "fields": "id,username,name,profile_picture_url,followers_count",
+                        }
+                    )
+                    logger.info(f"Step 4 Fallback: Page '{p_name}' /instagram_accounts ({ig_edge_resp.status_code}): {ig_edge_resp.text[:300]}")
+                    if ig_edge_resp.status_code == 200:
+                        ig_accounts = ig_edge_resp.json().get("data", [])
+                        if ig_accounts:
+                            ig_acc = ig_accounts[0]
+                            page_id = p_id
+                            page_access_token = p_token
+                            page_name = p_name
+                            ig_business_id = str(ig_acc["id"])
+                            logger.info(f"Step 4 Fallback OK: IG {ig_business_id} (@{ig_acc.get('username')}) on page '{p_name}'")
+                            break
+
             if not ig_business_id or not page_access_token:
                 page_names = ", ".join([p.get("name", "?") for p in pages_data])
-                logger.error(f"Step 4 FAILED. Pages: {page_names}")
+                logger.error(f"Step 4 ALL METHODS FAILED. Pages: {page_names}")
                 encoded_err = urllib.parse.quote(
-                    f"No Instagram Business Account found on your pages: {page_names}. "
-                    f"Please link your Instagram to one of these Facebook Pages first."
+                    f"No Instagram account found on your pages: {page_names}. "
+                    f"Please ensure your Instagram Professional/Creator account is linked to one of these Facebook Pages via Page Settings > Instagram."
                 )
                 return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_ig_account&detail={encoded_err}")
 
