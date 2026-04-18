@@ -428,15 +428,16 @@ async def handle_deauthorize(request: Request):
 
 
 # ══════════════════════════════════════════════
-#  8. SEND DM — Uses PAGE ACCESS TOKEN
+#  8. SEND DM
 # ══════════════════════════════════════════════
 
-async def send_dm(ig_business_id: str, page_access_token: str, recipient_id: str, message_text: str) -> dict:
-    """Send an Instagram DM using the Page Access Token."""
+async def send_dm(ig_user_id: str, access_token: str, recipient_id: str, message_text: str) -> dict:
+    """Send an Instagram DM. Tries Instagram Graph API endpoint."""
     async with httpx.AsyncClient(timeout=15.0) as client:
+        # Try via graph.instagram.com (works with Instagram OAuth tokens)
         resp = await client.post(
-            f"{GRAPH_BASE}/{ig_business_id}/messages",
-            params={"access_token": page_access_token},
+            f"https://graph.instagram.com/{GRAPH_API_VERSION}/{ig_user_id}/messages",
+            params={"access_token": access_token},
             json={
                 "recipient": {"id": recipient_id},
                 "message": {"text": message_text}
@@ -445,11 +446,94 @@ async def send_dm(ig_business_id: str, page_access_token: str, recipient_id: str
 
         if resp.status_code == 200:
             result = resp.json()
-            logger.info(f"DM sent to {recipient_id} from IG {ig_business_id}")
+            logger.info(f"DM sent to {recipient_id} from IG {ig_user_id}")
             return {"status": "sent", "message_id": result.get("message_id")}
-        else:
-            logger.error(f"DM failed ({resp.status_code}): {resp.text}")
-            return {"status": "failed", "error": resp.text, "status_code": resp.status_code}
+
+        # Fallback: try via graph.facebook.com
+        resp2 = await client.post(
+            f"{GRAPH_BASE}/{ig_user_id}/messages",
+            params={"access_token": access_token},
+            json={
+                "recipient": {"id": recipient_id},
+                "message": {"text": message_text}
+            }
+        )
+
+        if resp2.status_code == 200:
+            result = resp2.json()
+            logger.info(f"DM sent to {recipient_id} via FB Graph")
+            return {"status": "sent", "message_id": result.get("message_id")}
+
+        logger.error(f"DM failed. IG API ({resp.status_code}): {resp.text[:200]} | FB API ({resp2.status_code}): {resp2.text[:200]}")
+        return {"status": "failed", "error": resp.text[:200], "fb_error": resp2.text[:200]}
+
+
+# ══════════════════════════════════════════════
+#  8b. TEST DM — Manual trigger for testing
+# ══════════════════════════════════════════════
+
+@router.post("/instagram/test-dm")
+async def test_dm(request: Request, user: Dict = Depends(get_current_user)):
+    """
+    Manually test sending a DM. Send POST with:
+    { "recipient_username": "someuser", "message": "Hello!" }
+    
+    This bypasses webhooks — directly tests if your token can send DMs.
+    """
+    data = await request.json()
+    message = data.get("message", "This is a test DM from Pigma!")
+
+    # Get influencer's IG connection
+    influencer = await db.influencers.find_one(
+        {"user_id": user["user_id"], "instagram_connected": True},
+        {"_id": 0}
+    )
+    if not influencer:
+        raise HTTPException(status_code=400, detail="Instagram not connected")
+
+    access_token = influencer.get("instagram_access_token")
+    ig_user_id = influencer.get("instagram_user_id")
+
+    if not access_token or not ig_user_id:
+        # Try from instagram_connections
+        conn = await db.instagram_connections.find_one(
+            {"connected_by_user_id": user["user_id"], "is_active": True},
+            {"_id": 0}
+        )
+        if conn:
+            access_token = conn.get("page_access_token") or conn.get("user_access_token")
+            ig_user_id = conn.get("ig_business_id")
+
+    if not access_token:
+        raise HTTPException(status_code=400, detail="No Instagram access token found")
+
+    # Test 1: Check if token is valid by fetching profile
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        profile_check = await client.get(
+            f"https://graph.instagram.com/{GRAPH_API_VERSION}/me",
+            params={"fields": "user_id,username", "access_token": access_token}
+        )
+
+    token_valid = profile_check.status_code == 200
+    profile_data = profile_check.json() if token_valid else {}
+
+    result = {
+        "token_valid": token_valid,
+        "token_error": profile_check.text[:200] if not token_valid else None,
+        "ig_user_id": ig_user_id,
+        "ig_username": profile_data.get("username", influencer.get("instagram_username")),
+        "dm_result": None,
+    }
+
+    # Test 2: If a recipient is provided, try sending a DM
+    recipient_id = data.get("recipient_id")
+    if recipient_id and token_valid:
+        dm_result = await send_dm(ig_user_id, access_token, recipient_id, message)
+        result["dm_result"] = dm_result
+    elif not recipient_id:
+        result["note"] = "No recipient_id provided. Pass 'recipient_id' to test actual DM sending."
+
+    return result
 
 
 # ══════════════════════════════════════════════

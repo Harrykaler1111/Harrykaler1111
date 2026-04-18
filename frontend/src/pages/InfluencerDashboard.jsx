@@ -697,6 +697,30 @@ export const InfluencerDashboard = () => {
                     </Button>
                   ) : (
                     <div className="flex items-center gap-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10"
+                        data-testid="test-ig-connection"
+                        onClick={async () => {
+                          try {
+                            const res = await axios.post(`${API}/instagram/test-dm`, 
+                              { message: "Test DM from Pigma!" },
+                              { headers: { Authorization: `Bearer ${token}` } }
+                            );
+                            const d = res.data;
+                            if (d.token_valid) {
+                              toast.success(`Token valid! Connected as @${d.ig_username}`);
+                            } else {
+                              toast.error(`Token invalid: ${d.token_error || "Unknown error"}`);
+                            }
+                          } catch (err) {
+                            toast.error(err.response?.data?.detail || "Test failed");
+                          }
+                        }}
+                      >
+                        Test Connection
+                      </Button>
                       <div className="flex items-center gap-2">
                         <span className="text-sm">Auto DM</span>
                         <Switch
