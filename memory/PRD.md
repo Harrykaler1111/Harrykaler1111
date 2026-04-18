@@ -7,95 +7,61 @@ Build "Pigma", a premium full-stack AI-powered multi-vendor e-commerce platform 
 - **Frontend**: React + Tailwind CSS + Shadcn/UI + Framer Motion
 - **Backend**: FastAPI + MongoDB
 - **Auth**: JWT + Firebase Phone OTP
-- **Integrations**: Firebase, Razorpay (LIVE), Resend, Interakt WhatsApp, Facebook Graph API v19.0 (LIVE), OpenAI (KYC OCR), Emergent Object Storage
+- **Integrations**: Firebase, Razorpay (LIVE), Resend, Interakt WhatsApp, Instagram Graph API (LIVE - Direct OAuth), OpenAI (KYC OCR), Emergent Object Storage
 
 ## What's Been Implemented
+
+### Instagram Integration (Instagram Direct OAuth - LIVE & WORKING)
+- **OAuth**: Uses `instagram.com/oauth/authorize` with Instagram App ID (3194355384096562)
+- **Works with**: Creator, Professional, AND Business accounts — NO Facebook Page link required
+- **Scopes**: instagram_business_basic, instagram_business_manage_messages, instagram_business_manage_comments
+- **Token flow**: Code → Short token (api.instagram.com) → Long-lived token (ig_exchange_token, 60 days)
+- **Profile fetch**: graph.instagram.com/me with username, followers, profile pic
+- **Auto-DM**: Comment on influencer post → auto-DM with product referral link
+- **Health Dashboard**: Token expiry countdown, DM delivery rates, webhook event logs, automation stats (30s auto-refresh)
+- **Token Auto-Refresh**: Background cron every 6h, uses ig_refresh_token endpoint
+- **Admin**: DM config, connection status, manual refresh trigger, refresh logs
+- **Meta App ID**: 1280214187553693 (webhooks/DMs), Instagram App ID: 3194355384096562 (OAuth)
 
 ### Core E-Commerce
 - Multi-vendor product catalog with categories, variants, images
 - Cart system with drawer UI, quantity controls, variant-specific images
 - Checkout flow with COD/Prepaid options
 - Order management (Admin + Vendor dashboards)
-- Product On/Off toggles (auto-deactivation at zero stock)
-
-### Authentication
-- JWT-based email/password auth (phone mandatory on signup)
-- Firebase Phone OTP authentication (hidden, available for re-enable)
-
-### Reels / Explore
-- 3-layer swipe navigation: Global → Vendor Mode → Image Carousel
-- Swipe left/right cycles through product variant images inline
-- Color variant badge shows current color
-- Add to cart captures the exact variant being viewed
-
-### Instagram Integration (Facebook Graph API v19.0)
-- **OAuth**: Uses `www.facebook.com/v19.0/dialog/oauth` (Facebook Login for Business)
-- **Scopes**: instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_read_engagement, business_management
-- **Token flow**: Code → User Token → Long-lived Token → Facebook Pages → Page Access Token → IG Business Account
-- **Messaging**: All DMs sent via PAGE ACCESS TOKEN (non-expiring for pages)
-- **Webhooks**: Handles comments, messages, messaging_postbacks from Graph API
-- **Auto-DM**: Comment on influencer post → auto-DM with product referral link
-- **Health Dashboard**: Token expiry countdown, DM delivery rates (today/week/month/all-time), webhook event logs, automation stats with 30s auto-refresh
-- **Token Auto-Refresh**: Background cron every 6 hours detects tokens expiring within 7 days and silently refreshes via Graph API. Admin can manually trigger + view refresh logs.
-- **Admin**: DM config, connection status, brand account management, manual refresh trigger, refresh logs
-- **Meta App ID**: 1280214187553693
 
 ### Razorpay (LIVE - all real, no mocks)
-- Customer checkout payments
-- Vendor wallet top-up (create order + verify)
-- Vendor credit purchase (create order + verify)
-- Vendor promotion credits
+- Customer checkout, Vendor wallet top-up, Credit purchase, Promotions
 
-### Dynamic Credit Pricing
-- Admin sets credit rate from panel
-- All frontend components fetch and display dynamic pricing
-
-### Site Popup System
-- Recurring popup with admin-controlled interval
-- localStorage timestamp-based, survives page refresh
-
-### Admin Features
-- Admin Dashboard (products, orders, vendors, KYC)
-- Site Popup Manager
-- Credit Pricing Manager
-- Instagram connection status + auto-DM config + token refresh
-
-### Other
-- Data Deletion page (/data-deletion)
-- Follow/Unfollow system for stores and influencers
-- Social-media style profile cards
-- Footer links for policies
+### Other Features
+- Reels with 3-layer swipe navigation
+- Dynamic Credit Pricing, Site Popup System
+- Follow/Unfollow for stores/influencers
+- Data Deletion page, Social profile cards
 
 ## Key API Endpoints
-- `GET /api/instagram/auth/login` — Facebook v19.0 OAuth URL generation
-- `GET /api/instagram/auth/callback` — Code exchange + Page token flow
-- `GET /api/instagram/auth/status` — Connection status check
-- `POST /api/instagram/auth/disconnect` — Disconnect account
-- `GET /api/instagram/health-dashboard` — Token health, DM rates, webhook logs, automation stats
-- `GET/POST /api/webhooks/instagram` — Webhook verify + event handler
-- `GET /api/influencers/instagram/connect` — Influencer OAuth URL
-- `POST /api/influencers/instagram/posts` — Register post-product mapping
-- `GET/PUT /api/admin/instagram/dm-config` — Auto-DM settings
-- `GET /api/admin/instagram/status` — Connection status (admin)
-- `POST /api/admin/instagram/refresh-tokens` — Manual token refresh trigger
-- `GET /api/admin/instagram/refresh-logs` — Token refresh history
-- `POST /api/vendors/wallet/topup` + `/verify` — Razorpay wallet
-- `POST /api/vendor-credits/purchase` + `/verify` — Razorpay credits
-- `GET /api/vendor-credits/pricing` — Dynamic credit rate
+- `GET /api/instagram/auth/login` — Instagram OAuth URL (instagram.com)
+- `GET /api/instagram/auth/callback` — Token exchange via Instagram API
+- `GET /api/instagram/auth/status` — Connection status
+- `POST /api/instagram/auth/disconnect` — Disconnect
+- `GET /api/instagram/health-dashboard` — Health metrics
+- `GET/POST /api/webhooks/instagram` — Webhook verify + events
+- `POST /api/admin/instagram/refresh-tokens` — Manual token refresh
+- `GET /api/admin/instagram/refresh-logs` — Refresh history
 
 ## Pending Tasks
 
 ### P1 - Upcoming
 - "Testing Mode" for Orders (dummy order flow, real-time admin alerts)
-- Affiliate/Reseller link click tracking (referral URL metrics)
-- Meta App Review completion for Instagram DMs
+- Affiliate/Reseller link click tracking
+- Meta App Review for Instagram DM permissions
 
 ### P2 - Future
 - Vendor Email Digest Notifications
-- AdminDashboard.jsx refactoring (3700+ lines → smaller files)
+- AdminDashboard.jsx refactoring (3700+ lines)
 
 ## 3rd Party Credentials
-- Meta App ID: 1280214187553693
+- Meta App ID: 1280214187553693 (webhooks, Graph API)
+- Instagram App ID: 3194355384096562 (OAuth login)
 - Instagram Webhook Verify Token: pigma_ig_verify_2024
 - Razorpay: LIVE keys in .env
 - Firebase: User's config in frontend
