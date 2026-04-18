@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 META_APP_ID = os.environ.get("META_APP_ID", "")
 META_APP_SECRET = os.environ.get("META_APP_SECRET", "")
+IG_APP_SECRET = os.environ.get("INSTAGRAM_APP_SECRET", "a2d436e26f35dd185dac9c39ba883fa1")
 GRAPH_API_VERSION = "v19.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
@@ -48,14 +49,12 @@ async def refresh_token(connection: dict) -> dict:
         return {"status": "skipped", "reason": "no_user_token", "ig_business_id": ig_biz_id}
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # Step 1: Exchange existing long-lived token for a new one
+        # Step 1: Refresh long-lived token via Instagram Graph API
         resp = await client.get(
-            f"{GRAPH_BASE}/oauth/access_token",
+            "https://graph.instagram.com/refresh_access_token",
             params={
-                "grant_type": "fb_exchange_token",
-                "client_id": META_APP_ID,
-                "client_secret": META_APP_SECRET,
-                "fb_exchange_token": old_user_token,
+                "grant_type": "ig_refresh_token",
+                "access_token": old_user_token,
             }
         )
 

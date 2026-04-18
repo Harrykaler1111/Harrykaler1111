@@ -380,19 +380,20 @@ async def get_instagram_connect_url(user: Dict = Depends(get_current_user)):
     )
 
     redirect_uri = "https://thepigma.com/api/instagram/auth/callback"
-    app_id = "1280214187553693"
-    config_id = "2146784429479505"
+    app_id = os.environ.get("INSTAGRAM_APP_ID", "3194355384096562")
 
-    logger.info(f"[IG_CONNECT] app_id={app_id}, config_id={config_id}, redirect_uri={redirect_uri}")
+    scopes = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
+
+    logger.info(f"[IG_CONNECT] Instagram OAuth. app_id={app_id}, redirect_uri={redirect_uri}")
 
     params = {
         "client_id": app_id,
         "redirect_uri": redirect_uri,
-        "config_id": config_id,
+        "scope": scopes,
         "response_type": "code",
         "state": state,
     }
-    oauth_url = f"https://www.facebook.com/v19.0/dialog/oauth?{urllib.parse.urlencode(params)}"
+    oauth_url = f"https://www.instagram.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
     logger.info(f"Facebook OAuth URL (v19.0): {oauth_url}")
 

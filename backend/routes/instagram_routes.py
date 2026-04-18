@@ -1,20 +1,17 @@
 """
-Instagram / Facebook Graph API v19.0 Integration
-==================================================
-Production-ready implementation using Facebook Login for Business.
+Instagram Direct OAuth + Graph API Integration
+================================================
+Uses Instagram's own OAuth (not Facebook Login for Business).
+Works with Creator, Professional, and Business Instagram accounts.
+No Facebook Page linking required.
 
 Flow:
-1. GET  /instagram/auth/login     -> Generates Facebook OAuth URL (v19.0 dialog)
-2. GET  /instagram/auth/callback  -> Exchange code -> User Token -> Long-lived Token
-                                     -> Get Pages -> Page Access Token
-                                     -> Get Instagram Business Account -> Profile
+1. GET  /instagram/auth/login     -> Instagram OAuth URL (instagram.com/oauth/authorize)
+2. GET  /instagram/auth/callback  -> Exchange code -> Short token -> Long-lived token -> Profile
 3. GET  /instagram/auth/status    -> Check connection status
 4. POST /instagram/auth/disconnect -> Disconnect account
-5. GET  /webhooks/instagram       -> Meta webhook verification (GET challenge)
-6. POST /webhooks/instagram       -> Handle real-time events (comments, messages)
-
-Key: ALL messaging uses the PAGE ACCESS TOKEN (not user token).
-     The Page Access Token from /me/accounts with a long-lived user token is non-expiring.
+5. GET  /webhooks/instagram       -> Meta webhook verification
+6. POST /webhooks/instagram       -> Handle real-time events
 """
 
 from fastapi import APIRouter, Request, HTTPException, Query, Depends
@@ -35,28 +32,36 @@ from auth import get_current_user, get_admin_user, generate_id
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Instagram"])
 
-# ─── HARDCODED Critical Values ───
-META_APP_ID = "1280214187553693"
-META_APP_SECRET = "c61f833e9cd67697202f5ceeca62a8f1"
-REDIRECT_URI = "https://thepigma.com/api/instagram/auth/callback"
+# ─── Credentials ───
+# Instagram App (for OAuth login + token exchange)
+IG_APP_ID = os.environ.get("INSTAGRAM_APP_ID", "3194355384096562")
+IG_APP_SECRET = os.environ.get("INSTAGRAM_APP_SECRET", "a2d436e26f35dd185dac9c39ba883fa1")
+
+# Meta App (for Graph API, webhooks, DMs)
+META_APP_ID = os.environ.get("META_APP_ID", "1280214187553693")
+META_APP_SECRET = os.environ.get("META_APP_SECRET", "c61f833e9cd67697202f5ceeca62a8f1")
+
+REDIRECT_URI = os.environ.get("INSTAGRAM_REDIRECT_URI", "https://thepigma.com/api/instagram/auth/callback")
 WEBHOOK_VERIFY_TOKEN = os.environ.get("INSTAGRAM_WEBHOOK_VERIFY_TOKEN", "")
 BRAND_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
 BRAND_ACCOUNT_ID = os.environ.get("INSTAGRAM_BUSINESS_ACCOUNT_ID", "")
 
-# Facebook Login for Business config
-FB_CONFIG_ID = "2146784429479505"
+# Instagram Business Login scopes
+IG_SCOPES = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments"
 
 GRAPH_API_VERSION = "v19.0"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_API_VERSION}"
 
+logger.info(f"[IG_CONFIG] IG_APP_ID={IG_APP_ID}, REDIRECT_URI={REDIRECT_URI}")
+
 
 # ══════════════════════════════════════════════
-#  1. OAUTH — LOGIN (Facebook Login for Business)
+#  1. OAUTH — LOGIN (Instagram Direct)
 # ══════════════════════════════════════════════
 
 @router.get("/instagram/auth/login")
 async def instagram_login(user: Dict = Depends(get_current_user)):
-    """Generate Facebook OAuth URL with config_id."""
+    """Generate Instagram OAuth URL — users login via Instagram directly."""
 
     state = generate_id("igauth_")
     await db.instagram_oauth_states.update_one(
@@ -71,26 +76,29 @@ async def instagram_login(user: Dict = Depends(get_current_user)):
     )
 
     params = {
-        "client_id": META_APP_ID,
+        "client_id": IG_APP_ID,
         "redirect_uri": REDIRECT_URI,
-        "config_id": FB_CONFIG_ID,
+        "scope": IG_SCOPES,
         "response_type": "code",
         "state": state,
     }
-    oauth_url = f"https://www.facebook.com/{GRAPH_API_VERSION}/dialog/oauth?{urllib.parse.urlencode(params)}"
+    oauth_url = f"https://www.instagram.com/oauth/authorize?{urllib.parse.urlencode(params)}"
 
-    logger.info(f"[OAUTH] URL generated for user {user['user_id']}: {oauth_url}")
+    logger.info(f"[OAUTH] Instagram URL for user {user['user_id']}: {oauth_url}")
 
     return {"oauth_url": oauth_url, "state": state}
 
 
 # ══════════════════════════════════════════════
-#  2. OAUTH — CALLBACK (Facebook Graph API Flow)
+#  2. OAUTH — CALLBACK (Instagram Token Exchange)
 # ══════════════════════════════════════════════
 
 @router.get("/instagram/auth/callback")
 async def instagram_callback(code: str = Query(...), state: str = Query(None)):
-    """Facebook redirects here with ?code=XXX&state=XXX."""
+    """
+    Instagram redirects here with ?code=XXX&state=XXX.
+    Uses Instagram's own token endpoints — no Facebook Pages needed.
+    """
     frontend_url = "https://thepigma.com"
 
     try:
@@ -107,13 +115,14 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
 
         async with httpx.AsyncClient(timeout=30.0) as client:
 
-            # ── Step 1: Exchange code for User Access Token ──
-            logger.info(f"Step 1: Exchanging code. code_len={len(code)}")
-            token_resp = await client.get(
-                f"{GRAPH_BASE}/oauth/access_token",
-                params={
-                    "client_id": META_APP_ID,
-                    "client_secret": META_APP_SECRET,
+            # ── Step 1: Exchange code for short-lived token via Instagram API ──
+            logger.info(f"Step 1: Exchanging code via Instagram API. code_len={len(code)}")
+            token_resp = await client.post(
+                "https://api.instagram.com/oauth/access_token",
+                data={
+                    "client_id": IG_APP_ID,
+                    "client_secret": IG_APP_SECRET,
+                    "grant_type": "authorization_code",
                     "redirect_uri": REDIRECT_URI,
                     "code": code,
                 }
@@ -126,148 +135,39 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                 return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=token_failed&detail={encoded_err}")
 
             token_data = token_resp.json()
-            short_user_token = token_data.get("access_token")
-            logger.info("Step 1 OK: User access token received")
+            short_token = token_data.get("access_token")
+            ig_user_id = str(token_data.get("user_id", ""))
+            logger.info(f"Step 1 OK: Short token received, IG user_id={ig_user_id}")
 
             # ── Step 2: Exchange for long-lived token (60 days) ──
+            logger.info("Step 2: Long-lived token exchange")
             long_resp = await client.get(
-                f"{GRAPH_BASE}/oauth/access_token",
+                "https://graph.instagram.com/access_token",
                 params={
-                    "grant_type": "fb_exchange_token",
-                    "client_id": META_APP_ID,
-                    "client_secret": META_APP_SECRET,
-                    "fb_exchange_token": short_user_token,
+                    "grant_type": "ig_exchange_token",
+                    "client_secret": IG_APP_SECRET,
+                    "access_token": short_token,
                 }
             )
 
-            long_user_token = short_user_token
+            long_token = short_token
             token_expires_in = 3600
 
             if long_resp.status_code == 200:
                 long_data = long_resp.json()
-                long_user_token = long_data.get("access_token", short_user_token)
+                long_token = long_data.get("access_token", short_token)
                 token_expires_in = long_data.get("expires_in", 5184000)
                 logger.info(f"Step 2 OK: Long-lived token (expires in {token_expires_in}s)")
             else:
-                logger.warning(f"Step 2 WARN: {long_resp.text}")
+                logger.warning(f"Step 2 WARN: {long_resp.text}. Using short-lived token.")
 
-            # ── Step 3: Get Facebook Pages ──
-            pages_resp = await client.get(
-                f"{GRAPH_BASE}/me/accounts",
-                params={
-                    "access_token": long_user_token,
-                    "fields": "id,name,access_token,instagram_business_account,connected_instagram_account",
-                }
-            )
-
-            if pages_resp.status_code != 200:
-                error_detail = pages_resp.text[:300]
-                logger.error(f"Step 3 FAILED: {error_detail}")
-                encoded_err = urllib.parse.quote(error_detail)
-                return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_pages&detail={encoded_err}")
-
-            pages_data = pages_resp.json().get("data", [])
-            logger.info(f"Step 3 raw response: {pages_resp.text[:1000]}")
-
-            if not pages_data:
-                return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_pages&detail=No+Facebook+Pages+found")
-
-            logger.info(f"Step 3 OK: Found {len(pages_data)} page(s)")
-
-            # ── Step 4: Find Instagram account on pages ──
-            page_access_token = None
-            page_id = None
-            page_name = None
-            ig_business_id = None
-
-            for page in pages_data:
-                p_id = page.get("id")
-                p_token = page.get("access_token")
-                p_name = page.get("name", "")
-
-                # Check inline instagram_business_account
-                ig_inline = page.get("instagram_business_account")
-                logger.info(f"Step 4: Page '{p_name}' (id={p_id}), ig_business_account={ig_inline}")
-                if ig_inline and isinstance(ig_inline, dict) and ig_inline.get("id"):
-                    page_id = p_id
-                    page_access_token = p_token
-                    page_name = p_name
-                    ig_business_id = str(ig_inline["id"])
-                    logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (inline business)")
-                    break
-
-                # Check inline connected_instagram_account (new pages experience)
-                ig_connected = page.get("connected_instagram_account")
-                logger.info(f"Step 4: Page '{p_name}', connected_instagram_account={ig_connected}")
-                if ig_connected and isinstance(ig_connected, dict) and ig_connected.get("id"):
-                    page_id = p_id
-                    page_access_token = p_token
-                    page_name = p_name
-                    ig_business_id = str(ig_connected["id"])
-                    logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (inline connected)")
-                    break
-
-                # Explicit query with both fields
-                ig_resp = await client.get(
-                    f"{GRAPH_BASE}/{p_id}",
-                    params={
-                        "fields": "instagram_business_account,connected_instagram_account",
-                        "access_token": p_token,
-                    }
-                )
-                logger.info(f"Step 4: Page '{p_name}' explicit query ({ig_resp.status_code}): {ig_resp.text[:300]}")
-                if ig_resp.status_code == 200:
-                    ig_page_data = ig_resp.json()
-                    ig_data = ig_page_data.get("instagram_business_account") or ig_page_data.get("connected_instagram_account")
-                    if ig_data and isinstance(ig_data, dict) and ig_data.get("id"):
-                        page_id = p_id
-                        page_access_token = p_token
-                        page_name = p_name
-                        ig_business_id = str(ig_data["id"])
-                        logger.info(f"Step 4 OK: IG {ig_business_id} on page '{p_name}' (explicit)")
-                        break
-
-            # ── Fallback: Try page-specific /instagram_accounts edge ──
-            if not ig_business_id:
-                logger.info("Step 4 Fallback: Trying /{page_id}/instagram_accounts for each page")
-                for page in pages_data:
-                    p_id = page.get("id")
-                    p_token = page.get("access_token")
-                    p_name = page.get("name", "")
-                    ig_edge_resp = await client.get(
-                        f"{GRAPH_BASE}/{p_id}/instagram_accounts",
-                        params={
-                            "access_token": p_token,
-                            "fields": "id,username,name,profile_picture_url,followers_count",
-                        }
-                    )
-                    logger.info(f"Step 4 Fallback: Page '{p_name}' /instagram_accounts ({ig_edge_resp.status_code}): {ig_edge_resp.text[:300]}")
-                    if ig_edge_resp.status_code == 200:
-                        ig_accounts = ig_edge_resp.json().get("data", [])
-                        if ig_accounts:
-                            ig_acc = ig_accounts[0]
-                            page_id = p_id
-                            page_access_token = p_token
-                            page_name = p_name
-                            ig_business_id = str(ig_acc["id"])
-                            logger.info(f"Step 4 Fallback OK: IG {ig_business_id} (@{ig_acc.get('username')}) on page '{p_name}'")
-                            break
-
-            if not ig_business_id or not page_access_token:
-                page_names = ", ".join([p.get("name", "?") for p in pages_data])
-                logger.error(f"Step 4 ALL METHODS FAILED. Pages: {page_names}")
-                encoded_err = urllib.parse.quote(
-                    f"No Instagram account found on your pages: {page_names}. "
-                    f"Please ensure your Instagram Professional/Creator account is linked to one of these Facebook Pages via Page Settings > Instagram."
-                )
-                return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&error=no_ig_account&detail={encoded_err}")
-
-            # ── Step 5: Fetch IG profile ──
+            # ── Step 3: Fetch Instagram profile ──
+            logger.info(f"Step 3: Fetching IG profile for {ig_user_id}")
             profile_resp = await client.get(
-                f"{GRAPH_BASE}/{ig_business_id}",
+                f"https://graph.instagram.com/{GRAPH_API_VERSION}/me",
                 params={
-                    "fields": "id,name,username,profile_picture_url,followers_count,media_count,biography",
-                    "access_token": page_access_token,
+                    "fields": "user_id,username,name,profile_picture_url,account_type,followers_count",
+                    "access_token": long_token,
                 }
             )
 
@@ -275,30 +175,34 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
             ig_name = ""
             ig_profile_pic = ""
             ig_followers = 0
+            account_type = ""
 
             if profile_resp.status_code == 200:
                 profile = profile_resp.json()
+                ig_user_id = str(profile.get("user_id", ig_user_id))
                 ig_username = profile.get("username", "")
                 ig_name = profile.get("name", "")
                 ig_profile_pic = profile.get("profile_picture_url", "")
                 ig_followers = profile.get("followers_count", 0)
-                logger.info(f"Step 5 OK: @{ig_username}, {ig_followers} followers")
+                account_type = profile.get("account_type", "")
+                logger.info(f"Step 3 OK: @{ig_username} ({ig_name}), {ig_followers} followers, type={account_type}")
             else:
-                logger.warning(f"Step 5 WARN: {profile_resp.text}")
+                logger.warning(f"Step 3 WARN: Profile fetch failed ({profile_resp.status_code}): {profile_resp.text}")
 
-        # ── Step 6: Store in DB ──
+        # ── Step 4: Store in database ──
         token_expires_at = (datetime.now(timezone.utc) + timedelta(seconds=token_expires_in)).isoformat()
 
         connection_doc = {
-            "ig_business_id": ig_business_id,
+            "ig_business_id": ig_user_id,
             "ig_username": ig_username,
             "ig_name": ig_name,
             "ig_profile_pic": ig_profile_pic,
             "ig_followers": ig_followers,
-            "page_id": page_id,
-            "page_name": page_name,
-            "page_access_token": page_access_token,
-            "user_access_token": long_user_token,
+            "account_type": account_type,
+            "page_id": None,
+            "page_name": None,
+            "page_access_token": long_token,
+            "user_access_token": long_token,
             "user_token_expires_at": token_expires_at,
             "connected_by_user_id": user_id,
             "is_active": True,
@@ -307,7 +211,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
         }
 
         await db.instagram_connections.update_one(
-            {"ig_business_id": ig_business_id},
+            {"ig_business_id": ig_user_id},
             {"$set": connection_doc},
             upsert=True
         )
@@ -318,10 +222,10 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
                 {"influencer_id": influencer["influencer_id"]},
                 {"$set": {
                     "instagram_connected": True,
-                    "instagram_user_id": ig_business_id,
+                    "instagram_user_id": ig_user_id,
                     "instagram_username": ig_username,
-                    "instagram_access_token": page_access_token,
-                    "instagram_page_id": page_id,
+                    "instagram_access_token": long_token,
+                    "instagram_page_id": None,
                     "instagram_token_expires": token_expires_at,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }}
@@ -329,7 +233,7 @@ async def instagram_callback(code: str = Query(...), state: str = Query(None)):
 
         await db.instagram_oauth_states.delete_one({"state": state})
 
-        logger.info(f"SUCCESS: @{ig_username} (IG: {ig_business_id}, Page: {page_name}) for user {user_id}")
+        logger.info(f"SUCCESS: @{ig_username} (ID: {ig_user_id}, type: {account_type}) for user {user_id}")
         return RedirectResponse(url=f"{frontend_url}/influencer?tab=instagram&connected=true")
 
     except Exception as e:
