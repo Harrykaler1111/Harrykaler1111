@@ -721,6 +721,38 @@ async def update_dm_config(request: Request, admin: Dict = Depends(get_admin_use
     return {"message": "Auto-DM config updated"}
 
 
+@router.put("/admin/instagram/update-dm-token")
+async def admin_update_dm_token(request: Request, admin: Dict = Depends(get_admin_user)):
+    """Admin: update the DM-capable token for an influencer's Instagram connection"""
+    data = await request.json()
+    ig_user_id = data.get("ig_user_id")
+    dm_token = data.get("dm_token")
+
+    if not ig_user_id or not dm_token:
+        raise HTTPException(status_code=400, detail="ig_user_id and dm_token required")
+
+    # Update in instagram_connections
+    result = await db.instagram_connections.update_one(
+        {"ig_business_id": ig_user_id, "is_active": True},
+        {"$set": {
+            "dm_access_token": dm_token,
+            "page_access_token": dm_token,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+
+    # Update in influencers collection
+    await db.influencers.update_one(
+        {"instagram_user_id": ig_user_id, "instagram_connected": True},
+        {"$set": {
+            "instagram_access_token": dm_token,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+
+    return {"message": f"DM token updated for IG user {ig_user_id}", "matched": result.matched_count}
+
+
 @router.post("/admin/instagram/refresh-tokens")
 async def admin_refresh_tokens(admin: Dict = Depends(get_admin_user)):
     """Admin: manually trigger token refresh for all expiring connections"""
